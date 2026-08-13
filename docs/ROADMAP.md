@@ -8,9 +8,9 @@ Review gates: **hard gate** = Fable (architecture-model) review required before 
 | #   | Phase                                       | Status  | Exit criteria                                                                | Gate                           |
 | --- | ------------------------------------------- | ------- | ---------------------------------------------------------------------------- | ------------------------------ |
 | 1   | Repository + documentation                  | ✅ done | Quality gates green on scaffold; docs/ + ADRs + README + CLAUDE.md committed | Docs review                    |
-| 2   | Database + authentication                   | ⬜ next | Migrations-from-zero in CI; auth E2E; cross-user 404s                        | Security review                |
-| 3   | Money + ledger + accounts                   | ⬜      | Invariants 6/8/14; money property tests                                      | **Hard gate (arithmetic)**     |
-| 4   | Instruments + market data                   | ⬜      | Provider contract suite (fixture + recorded Alpaca); offline boot            | —                              |
+| 2   | Database + authentication                   | ✅ done | Migrations-from-zero in CI; auth E2E; cross-user 404s                        | Security review                |
+| 3   | Money + ledger + accounts                   | ✅ done | Invariants 6/8/14; money property tests                                      | **Hard gate (arithmetic)**     |
+| 4   | Instruments + market data                   | ⬜ next | Provider contract suite (fixture + recorded Alpaca); offline boot            | —                              |
 | 5   | Order domain + state machine                | ⬜      | Exhaustive transition tests; invariants 1/2/4/5/9/11                         | **Hard gate**                  |
 | 6   | Broker interface + DeterministicPaperBroker | ⬜      | Deterministic broker passes full compliance suite                            | Contract review                |
 | 7   | Event ingestion + ExecutionService          | ⬜      | Golden market-order scenario; invariants 3/7/10/13/15                        | **Adversarial hard gate**      |

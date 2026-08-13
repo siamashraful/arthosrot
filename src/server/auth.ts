@@ -64,6 +64,23 @@ function buildAuth() {
           }
         }),
       },
+      databaseHooks: {
+        user: {
+          create: {
+            after: async (user) => {
+              // Signup provisions the paper account (FR-2). Import lazily to
+              // avoid a module cycle (container -> ... -> auth).
+              const { getContainer } = await import("./container");
+              const { Money } = await import("@/core/money");
+              const { STARTING_CASH } = env();
+              await getContainer().accountService.openPaperAccount(
+                user.id,
+                Money.fromString(`${STARTING_CASH}.00`),
+              );
+            },
+          },
+        },
+      },
       advanced: {
         useSecureCookies: NODE_ENV === "production",
       },

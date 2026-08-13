@@ -1,5 +1,13 @@
 /**
- * core/ledger — public API. Implementation arrives per docs/ROADMAP.md.
- * Other modules may import ONLY from this file (deep imports are lint-blocked).
+ * core/ledger — authoritative cash history (append-only) + cash projection
+ * maintenance and reconciliation (ADR-004, invariant 6/8).
  */
-export const MODULE_ledger_PLACEHOLDER = true;
+export {
+  LedgerService,
+  type CashProjection,
+  type LedgerEntry,
+  type LedgerEntryType,
+  type LedgerRepository,
+  type NewLedgerEntry,
+  type ReconcileResult,
+} from "./ledger";

@@ -1,0 +1,73 @@
+import { desc, eq, lt, sql, and } from "drizzle-orm";
+import type { LedgerEntry, LedgerRepository, NewLedgerEntry } from "@/core/ledger";
+import { Money } from "@/core/money";
+import { invariant, type TxHandle } from "@/core/shared";
+import { schema } from "..";
+import { asDb } from "../tx";
+
+type LedgerRow = typeof schema.ledgerEntries.$inferSelect;
+
+function toEntry(row: LedgerRow): LedgerEntry {
+  return {
+    id: row.id,
+    accountId: row.accountId,
+    entryType: row.entryType as LedgerEntry["entryType"],
+    amount: Money.fromString(row.amount),
+    refType: row.refType,
+    refId: row.refId,
+    description: row.description,
+    createdAt: row.createdAt,
+  };
+}
+
+export const ledgerRepository: LedgerRepository = {
+  async insert(tx: TxHandle, entry: NewLedgerEntry): Promise<LedgerEntry> {
+    const [row] = await asDb(tx)
+      .insert(schema.ledgerEntries)
+      .values({
+        accountId: entry.accountId,
+        entryType: entry.entryType,
+        amount: entry.amount.toString(),
+        refType: entry.refType,
+        refId: entry.refId,
+        description: entry.description,
+      })
+      .returning();
+    invariant(row, "ledger insert returned no row");
+    return toEntry(row);
+  },
+
+  async sumForAccount(tx: TxHandle, accountId: string): Promise<Money> {
+    const [row] = await asDb(tx)
+      .select({ total: sql<string>`coalesce(sum(${schema.ledgerEntries.amount}), 0)::text` })
+      .from(schema.ledgerEntries)
+      .where(eq(schema.ledgerEntries.accountId, accountId));
+    const raw = row?.total ?? "0";
+    // SUM of NUMERIC(18,2) may print without decimals ("10000"); normalize.
+    return Money.fromString(raw.includes(".") ? raw : `${raw}.00`);
+  },
+
+  async listForAccount(
+    tx: TxHandle,
+    accountId: string,
+    limit: number,
+    beforeId?: string,
+  ): Promise<LedgerEntry[]> {
+    const db = asDb(tx);
+    const conditions = [eq(schema.ledgerEntries.accountId, accountId)];
+    if (beforeId) {
+      const [pivot] = await db
+        .select({ createdAt: schema.ledgerEntries.createdAt })
+        .from(schema.ledgerEntries)
+        .where(eq(schema.ledgerEntries.id, beforeId));
+      if (pivot) conditions.push(lt(schema.ledgerEntries.createdAt, pivot.createdAt));
+    }
+    const rows = await db
+      .select()
+      .from(schema.ledgerEntries)
+      .where(and(...conditions))
+      .orderBy(desc(schema.ledgerEntries.createdAt))
+      .limit(limit);
+    return rows.map(toEntry);
+  },
+};

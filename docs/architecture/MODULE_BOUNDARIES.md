@@ -23,7 +23,8 @@ core       → core only        (NOTHING external: no next, react, drizzle, vend
    - `execution → orders, ledger, portfolio, market-data (port), brokers (port), money, shared`
    - `reconciliation → execution, orders, ledger, portfolio, brokers (port), shared`
    - `portfolio → market-data (port), instruments, money, shared`
-   - `ledger → accounts, money, shared`
+   - `ledger → money, shared` (defines the CashProjection port)
+   - `accounts → ledger` (opening-deposit posting; implements CashProjection — lazy-injected to avoid a cycle)
    - everything may use `money` and `shared`
 4. **Vendor confinement.** Alpaca request/response/status types exist only inside `infra/brokers/alpaca` and `infra/market-data/alpaca.ts`. The two adapters share nothing except (optionally) a low-level credential helper — Broker and MarketDataProvider stay independently swappable.
 5. **Environment** is read only via `src/env.ts` (lint: `no-restricted-properties` on `process.env`).
