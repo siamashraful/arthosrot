@@ -1,5 +1,6 @@
 /**
- * infra/db — adapter implementing core ports. Implementation arrives per docs/ROADMAP.md.
- * Vendor types must never be exported from this directory boundary.
+ * infra/db — Postgres access. Schema is mirrored in docs/architecture/DATA_MODEL.md.
+ * Transactions are owned by application services; repositories accept a handle.
  */
-export const INFRA_db_PLACEHOLDER = true;
+export * as schema from "./schema";
+export { getDb, getPool, closeDb, type Db, type Tx, type DbHandle } from "./client";

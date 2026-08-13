@@ -33,3 +33,53 @@ body {
   margin: 0 auto;
   padding: 3rem 1.5rem;
 }
+
+/* Auth screens (scaffold styling; replaced by the design system phase) */
+.auth-card {
+  max-width: 24rem;
+  margin: 4rem auto;
+  padding: 0 1.5rem;
+}
+.auth-card form {
+  display: grid;
+  gap: 1rem;
+  margin-block: 1.5rem;
+}
+.auth-card label {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+.auth-card input {
+  padding: 0.5rem 0.625rem;
+  border: 1px solid light-dark(#d4d4d8, #52525b);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+.auth-card button {
+  padding: 0.5625rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: light-dark(#4f46e5, #6366f1);
+  color: #fff;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+.auth-card button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.auth-note,
+.auth-help {
+  font-size: 0.8125rem;
+  color: light-dark(#52525b, #a1a1aa);
+  font-weight: 400;
+}
+.auth-error {
+  color: light-dark(#b91c1c, #f87171);
+  font-size: 0.875rem;
+}

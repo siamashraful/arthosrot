@@ -87,8 +87,16 @@ export default tseslint.config(
     },
   },
   {
-    // The one sanctioned home for process.env, plus config files that run outside the app.
-    files: ["src/env.ts", "*.config.ts", "*.config.mjs", "playwright.config.ts"],
+    // The one sanctioned home for process.env, plus config files, scripts, and
+    // test harnesses that run outside the app (tests configure the environment).
+    files: [
+      "src/env.ts",
+      "*.config.ts",
+      "*.config.mjs",
+      "playwright.config.ts",
+      "scripts/**",
+      "tests/**",
+    ],
     rules: {
       "no-restricted-properties": "off",
     },

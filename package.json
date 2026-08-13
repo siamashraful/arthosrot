@@ -19,10 +19,20 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "db:up": "docker compose up -d",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "test:int": "TEST_DB=1 vitest run tests/integration"
   },
   "dependencies": {
+    "better-auth": "^1.6.27",
+    "decimal.js": "^10.6.0",
+    "drizzle-orm": "^0.45.2",
     "next": "^16.3.0",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tsx": "^4.23.12",
@@ -31,9 +41,11 @@
   "devDependencies": {
     "@playwright/test": "^1.62.1",
     "@types/node": "^26.2.0",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "@vitest/coverage-v8": "^4.1.10",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^10.8.1",
     "eslint-import-resolver-typescript": "^4.4.5",
     "eslint-plugin-boundaries": "^7.2.0",
