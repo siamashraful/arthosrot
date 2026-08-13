@@ -1,13 +1,9 @@
-import { sql } from "drizzle-orm";
-import { getDb } from "@/infra/db";
+import { checkReady } from "@/server/api/health";
 
 // Readiness: critical internal dependencies only (the database). External
 // provider status is deliberately excluded — see /api/v1/system/status.
 export async function GET() {
-  try {
-    await getDb().execute(sql`select 1`);
-    return Response.json({ status: "ready" });
-  } catch {
-    return Response.json({ status: "not-ready" }, { status: 503 });
-  }
+  return (await checkReady())
+    ? Response.json({ status: "ready" })
+    : Response.json({ status: "not-ready" }, { status: 503 });
 }
