@@ -15,6 +15,13 @@
       "when": 1786588774234,
       "tag": "0001_append-only-protection",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786589890490,
+      "tag": "0002_order-reservations",
+      "breakpoints": true
     }
   ]
 }

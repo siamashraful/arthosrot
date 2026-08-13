@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "reserved_cash" numeric(18, 2) DEFAULT '0' NOT NULL;

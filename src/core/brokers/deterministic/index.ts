@@ -1,5 +1,9 @@
 /**
- * core/brokers/deterministic — public API. Implementation arrives per docs/ROADMAP.md.
- * Other modules may import ONLY from this file (deep imports are lint-blocked).
+ * core/brokers/deterministic — the offline execution venue (ADR-006).
+ * No vendor dependencies, hence lives in core.
  */
-export const MODULE_deterministic_PLACEHOLDER = true;
+export {
+  DEFAULT_DETERMINISTIC_CONFIG,
+  DeterministicPaperBroker,
+  type DeterministicBrokerConfig,
+} from "./deterministic-broker";

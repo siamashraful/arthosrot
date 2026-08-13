@@ -1,5 +1,11 @@
 /**
- * core/portfolio — public API. Implementation arrives per docs/ROADMAP.md.
- * Other modules may import ONLY from this file (deep imports are lint-blocked).
+ * core/portfolio — positions (average-cost), P&L derivations.
  */
-export const MODULE_portfolio_PLACEHOLDER = true;
+export {
+  applyBuyFill,
+  applySellFill,
+  type BuyApplication,
+  type Position,
+  type PositionsRepository,
+  type SellApplication,
+} from "./positions";

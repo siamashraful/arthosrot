@@ -284,6 +284,10 @@ export const orders = pgTable(
     filledQty: bigint("filled_qty", { mode: "bigint" })
       .notNull()
       .default(sql`0`),
+    // Current remaining cash reservation for open BUY orders (0 for sells and
+    // terminal orders). Stored because market-buy reservations depend on the
+    // placement-time reference price (FINANCIAL_INVARIANTS.md formulas).
+    reservedCash: numeric("reserved_cash", { precision: 18, scale: 2 }).notNull().default("0"),
     rejectReason: text("reject_reason"),
     needsAttention: boolean("needs_attention").notNull().default(false),
     idempotencyKey: text("idempotency_key").notNull(),

@@ -1,12 +1,18 @@
 import { AccountService, type AccountProvisioner } from "@/core/accounts";
+import { DeterministicPaperBroker } from "@/core/brokers/deterministic";
+import { ExecutionService, type Broker } from "@/core/execution";
 import { InstrumentService } from "@/core/instruments";
 import { LedgerService } from "@/core/ledger";
 import type { MarketDataProvider } from "@/core/market-data";
+import { OrdersService } from "@/core/orders";
 import { systemClock } from "@/core/shared";
 import { env } from "@/env";
 import { accountsRepository } from "@/infra/db/repositories/accounts";
+import { fillsRepository } from "@/infra/db/repositories/fills";
 import { instrumentsRepository } from "@/infra/db/repositories/instruments";
 import { ledgerRepository } from "@/infra/db/repositories/ledger";
+import { ordersRepository } from "@/infra/db/repositories/orders";
+import { positionsRepository } from "@/infra/db/repositories/positions";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import { AlpacaMarketData, CachedMarketData, FixtureProvider } from "@/infra/market-data";
 
@@ -15,26 +21,39 @@ import { AlpacaMarketData, CachedMarketData, FixtureProvider } from "@/infra/mar
  * Everything is lazy so builds and tests without a full environment work.
  */
 
+export interface SerializedFill {
+  qty: string;
+  price: string;
+  fee: string;
+  notional: string;
+  executionId: string;
+  occurredAt: string;
+}
+
 export interface Container {
   accountService: AccountService;
   ledgerService: LedgerService;
   marketData: MarketDataProvider;
   instrumentService: InstrumentService;
-  /** Only set in deterministic mode — test/dev hooks (setPrice etc.). */
+  ordersService: OrdersService;
+  executionService: ExecutionService;
+  broker: Broker;
+  fillsReader: { listForOrder(orderId: string): Promise<SerializedFill[]> };
+  /** Deterministic-mode test/dev hooks; null in alpaca-paper mode. */
   fixtureProvider: FixtureProvider | null;
+  deterministicBroker: DeterministicPaperBroker | null;
 }
 
 let cached: Container | undefined;
 
-/** Instant venue provisioning for the deterministic broker (offline/local/test). */
-const deterministicProvisioner: AccountProvisioner = {
-  async provision(account) {
-    return { broker: "DETERMINISTIC", externalAccountId: `det-${account.id}` };
-  },
-};
-
 function build(): Container {
-  const { BROKER_PROVIDER, MARKET_DATA_PROVIDER, ALPACA_DATA_KEY, ALPACA_DATA_SECRET } = env();
+  const {
+    BROKER_PROVIDER,
+    MARKET_DATA_PROVIDER,
+    ALPACA_DATA_KEY,
+    ALPACA_DATA_SECRET,
+    MARKET_BUY_BUFFER,
+  } = env();
 
   let fixtureProvider: FixtureProvider | null = null;
   let marketData: MarketDataProvider;
@@ -51,16 +70,24 @@ function build(): Container {
     );
   }
 
-  const provisioner: AccountProvisioner =
-    BROKER_PROVIDER === "deterministic"
-      ? deterministicProvisioner
-      : // AlpacaPaperBroker provisioning arrives with the external-adapter phase;
-        // until then alpaca-paper mode cannot open accounts.
-        {
-          async provision() {
-            throw new Error("alpaca-paper provisioning not implemented yet (see docs/ROADMAP.md)");
-          },
-        };
+  let deterministicBroker: DeterministicPaperBroker | null = null;
+  let broker: Broker;
+  if (BROKER_PROVIDER === "deterministic") {
+    deterministicBroker = new DeterministicPaperBroker(systemClock, marketData);
+    broker = deterministicBroker;
+  } else {
+    // AlpacaPaperBroker arrives with the external-adapter phase (ROADMAP #8);
+    // in the web process it is submit/cancel-only — events flow via the worker.
+    throw new Error("BROKER_PROVIDER=alpaca-paper is not wired yet (docs/ROADMAP.md phase 8)");
+  }
+
+  const provisioner: AccountProvisioner = {
+    provision: (account) =>
+      broker.provisionAccount({
+        ledgerlineAccountId: account.id,
+        startingCash: account.startingCash,
+      }),
+  };
 
   /* eslint-disable prefer-const */
   let ledgerService: LedgerService;
@@ -79,9 +106,61 @@ function build(): Container {
     marketData,
   );
 
-  return { accountService, ledgerService, marketData, instrumentService, fixtureProvider };
+  const ordersService = new OrdersService(
+    ordersRepository,
+    accountsRepository,
+    positionsRepository,
+    pgTransactionRunner,
+    { marketBuyBuffer: MARKET_BUY_BUFFER },
+  );
+
+  const executionService = new ExecutionService(
+    broker,
+    ordersService,
+    accountsRepository,
+    positionsRepository,
+    fillsRepository,
+    ledgerService,
+    pgTransactionRunner,
+    systemClock,
+  );
+  executionService.start();
+
+  const fillsReader = {
+    async listForOrder(orderId: string): Promise<SerializedFill[]> {
+      const fills = await pgTransactionRunner.run((tx) =>
+        fillsRepository.listForOrder(tx, orderId),
+      );
+      return fills.map((f) => ({
+        qty: f.qty.toString(),
+        price: f.price,
+        fee: f.fee,
+        notional: f.notional,
+        executionId: f.executionId,
+        occurredAt: f.occurredAt.toISOString(),
+      }));
+    },
+  };
+
+  return {
+    accountService,
+    ledgerService,
+    marketData,
+    instrumentService,
+    ordersService,
+    executionService,
+    broker,
+    fillsReader,
+    fixtureProvider,
+    deterministicBroker,
+  };
 }
 
 export function getContainer(): Container {
   return (cached ??= build());
+}
+
+/** Test-only: reset the container (fresh broker/event log between scenarios). */
+export function resetContainerForTests(): void {
+  cached = undefined;
 }

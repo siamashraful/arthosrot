@@ -1,5 +1,16 @@
 /**
- * core/execution — public API. Implementation arrives per docs/ROADMAP.md.
- * Other modules may import ONLY from this file (deep imports are lint-blocked).
+ * core/execution — Broker port, canonical event application, fill effects
+ * (ADR-005, ADR-008; docs/architecture/EXECUTION.md).
  */
-export const MODULE_execution_PLACEHOLDER = true;
+export type {
+  Broker,
+  BrokerAccountSnapshot,
+  BrokerOrderRequest,
+  BrokerOrderSnapshot,
+  CancelResult,
+  EventCursor,
+  ProvisionRequest,
+  Subscription,
+  SubmitResult,
+} from "./broker";
+export { ExecutionService, type FillRecord, type FillsRepository } from "./execution";
