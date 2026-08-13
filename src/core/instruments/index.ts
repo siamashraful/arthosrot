@@ -1,5 +1,4 @@
 /**
- * core/instruments — public API. Implementation arrives per docs/ROADMAP.md.
- * Other modules may import ONLY from this file (deep imports are lint-blocked).
+ * core/instruments — instrument reference data and DB-backed search.
  */
-export const MODULE_instruments_PLACEHOLDER = true;
+export { InstrumentService, type Instrument, type InstrumentsRepository } from "./instruments";

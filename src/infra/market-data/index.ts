@@ -1,5 +1,8 @@
 /**
- * infra/market-data — adapter implementing core ports. Implementation arrives per docs/ROADMAP.md.
- * Vendor types must never be exported from this directory boundary.
+ * infra/market-data — MarketDataProvider implementations (ADR-007):
+ * fixture (deterministic, default offline), alpaca (IEX free feed), cached
+ * (decorator). Vendor shapes are confined to alpaca.ts.
  */
-export const INFRA_market_data_PLACEHOLDER = true;
+export { FixtureProvider, DEFAULT_FIXTURES, type FixtureInstrument } from "./fixture";
+export { AlpacaMarketData, type FetchFn } from "./alpaca";
+export { CachedMarketData } from "./cached";
