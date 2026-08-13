@@ -10,15 +10,15 @@ Review gates: **hard gate** = Fable (architecture-model) review required before 
 | 1   | Repository + documentation                  | ✅ done | Quality gates green on scaffold; docs/ + ADRs + README + CLAUDE.md committed | Docs review                    |
 | 2   | Database + authentication                   | ✅ done | Migrations-from-zero in CI; auth E2E; cross-user 404s                        | Security review                |
 | 3   | Money + ledger + accounts                   | ✅ done | Invariants 6/8/14; money property tests                                      | **Hard gate (arithmetic)**     |
-| 4   | Instruments + market data                   | ⬜ next | Provider contract suite (fixture + recorded Alpaca); offline boot            | —                              |
-| 5   | Order domain + state machine                | ⬜      | Exhaustive transition tests; invariants 1/2/4/5/9/11                         | **Hard gate**                  |
-| 6   | Broker interface + DeterministicPaperBroker | ⬜      | Deterministic broker passes full compliance suite                            | Contract review                |
-| 7   | Event ingestion + ExecutionService          | ⬜      | Golden market-order scenario; invariants 3/7/10/13/15                        | **Adversarial hard gate**      |
-| 8   | External adapter + worker                   | ⬜      | Compliance suite vs recorded fixtures; manual sandbox smoke                  | Translation/idempotency review |
+| 4   | Instruments + market data                   | ✅ done | Provider contract suite (fixture + recorded Alpaca); offline boot            | —                              |
+| 5   | Order domain + state machine                | ✅ done | Exhaustive transition tests; invariants 1/2/4/5/9/11                         | **Hard gate**                  |
+| 6   | Broker interface + DeterministicPaperBroker | ✅ done | Deterministic broker passes full compliance suite                            | Contract review                |
+| 7   | Event ingestion + ExecutionService          | ✅ done | Golden market-order scenario; invariants 3/7/10/13/15                        | **Adversarial hard gate**      |
+| 8   | External adapter + worker                   | ⬜ next | Compliance suite vs recorded fixtures; manual sandbox smoke                  | Translation/idempotency review |
 | 9   | Reconciliation engine                       | ⬜      | Reconnect/missed-event/out-of-order scenarios green                          | **Hard gate**                  |
-| 10  | Positions/P&L + remaining API               | ⬜      | Invariants 12/14; full API surface                                           | P&L review                     |
-| 11  | Market-order vertical slice (API)           | ⬜      | Slice green vs deterministic (CI) + sandbox (manual)                         | —                              |
-| 12  | Limit-order vertical slice (API)            | ⬜      | Rest/fill/cancel/partial/expire green both venues                            | Verification                   |
+| 10  | Positions/P&L + remaining API               | ✅ done | Invariants 12/14; full API surface                                           | P&L review                     |
+| 11  | Market-order vertical slice (API)           | ✅ done | Slice green vs deterministic (CI) + sandbox (manual)                         | —                              |
+| 12  | Limit-order vertical slice (API)            | ✅ done | Rest/fill/cancel/partial/expire green both venues                            | Verification                   |
 | 13  | Design system                               | ⬜      | Token contrast CI; component states page; axe clean                          | Design direction               |
 | 14  | Shell + realtime updates                    | ⬜      | Responsive shell E2E; orders auto-update                                     | —                              |
 | 15  | Trading UI                                  | ⬜      | Golden-path E2E: UI reaches Filled without refresh                           | UX critique                    |

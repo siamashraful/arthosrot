@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { FillRecord, FillsRepository } from "@/core/execution";
-import { Qty } from "@/core/money";
+import { Money, Qty } from "@/core/money";
+import type { FillForReplay, FillsReplaySource } from "@/core/portfolio";
 import type { TxHandle } from "@/core/shared";
 import { schema } from "..";
 import { asDb } from "../tx";
@@ -38,6 +39,36 @@ export const fillsRepository: FillsRepository = {
       notional: row.notional,
       broker: row.broker,
       executionId: row.executionId,
+      occurredAt: row.occurredAt,
+    }));
+  },
+};
+
+/** Chronological fills joined with order side/symbol — realized-P&L replay source. */
+export const fillsReplaySource: FillsReplaySource = {
+  async listForAccountChronological(tx: TxHandle, accountId: string): Promise<FillForReplay[]> {
+    const rows = await asDb(tx)
+      .select({
+        instrumentId: schema.orders.instrumentId,
+        symbol: schema.orders.symbol,
+        side: schema.orders.side,
+        qty: schema.fills.qty,
+        notional: schema.fills.notional,
+        fee: schema.fills.fee,
+        occurredAt: schema.fills.occurredAt,
+        createdAt: schema.fills.createdAt,
+      })
+      .from(schema.fills)
+      .innerJoin(schema.orders, eq(schema.fills.orderId, schema.orders.id))
+      .where(eq(schema.orders.accountId, accountId))
+      .orderBy(schema.fills.occurredAt, schema.fills.createdAt);
+    return rows.map((row) => ({
+      instrumentId: row.instrumentId,
+      symbol: row.symbol,
+      side: row.side,
+      qty: Qty.of(row.qty),
+      notional: Money.fromString(row.notional),
+      fee: Money.fromString(row.fee),
       occurredAt: row.occurredAt,
     }));
   },

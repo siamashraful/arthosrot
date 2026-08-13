@@ -109,4 +109,21 @@ export class AccountService implements CashProjection {
   async getActiveForUser(userId: string): Promise<Account | null> {
     return this.txRunner.run((tx) => this.repo.getActiveForUser(tx, userId));
   }
+
+  /**
+   * Reset step 2..7 (docs/architecture/DATA_MODEL.md): archive the current
+   * account (history preserved — nothing deleted, invariant 14) and provision
+   * a fresh one with a new opening DEPOSIT. The caller (server/api/account)
+   * must have cancelled eligible open orders FIRST.
+   */
+  async archiveAndReprovision(userId: string): Promise<Account> {
+    const current = await this.txRunner.run(async (tx) => {
+      const account = await this.repo.getActiveForUser(tx, userId);
+      invariant(account, "no active account to reset");
+      await this.repo.archiveBrokerAccount(tx, account.id);
+      await this.repo.setStatus(tx, account.id, "ARCHIVED");
+      return account;
+    });
+    return this.openPaperAccount(userId, current.startingCash);
+  }
 }

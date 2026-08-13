@@ -5,10 +5,11 @@ import { InstrumentService } from "@/core/instruments";
 import { LedgerService } from "@/core/ledger";
 import type { MarketDataProvider } from "@/core/market-data";
 import { OrdersService } from "@/core/orders";
+import { PortfolioService } from "@/core/portfolio";
 import { systemClock } from "@/core/shared";
 import { env } from "@/env";
 import { accountsRepository } from "@/infra/db/repositories/accounts";
-import { fillsRepository } from "@/infra/db/repositories/fills";
+import { fillsReplaySource, fillsRepository } from "@/infra/db/repositories/fills";
 import { instrumentsRepository } from "@/infra/db/repositories/instruments";
 import { ledgerRepository } from "@/infra/db/repositories/ledger";
 import { ordersRepository } from "@/infra/db/repositories/orders";
@@ -37,6 +38,7 @@ export interface Container {
   instrumentService: InstrumentService;
   ordersService: OrdersService;
   executionService: ExecutionService;
+  portfolioService: PortfolioService;
   broker: Broker;
   fillsReader: { listForOrder(orderId: string): Promise<SerializedFill[]> };
   /** Deterministic-mode test/dev hooks; null in alpaca-paper mode. */
@@ -126,6 +128,14 @@ function build(): Container {
   );
   executionService.start();
 
+  const portfolioService = new PortfolioService(
+    positionsRepository,
+    fillsReplaySource,
+    ordersRepository,
+    pgTransactionRunner,
+    marketData,
+  );
+
   const fillsReader = {
     async listForOrder(orderId: string): Promise<SerializedFill[]> {
       const fills = await pgTransactionRunner.run((tx) =>
@@ -149,6 +159,7 @@ function build(): Container {
     instrumentService,
     ordersService,
     executionService,
+    portfolioService,
     broker,
     fillsReader,
     fixtureProvider,
