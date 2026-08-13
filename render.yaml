@@ -1,0 +1,33 @@
+# Render Blueprint — event/reconciliation worker (free instance).
+#
+# Free-tier reality (docs/architecture/DEPLOYMENT.md): the instance sleeps after
+# 15 minutes without inbound traffic and wakes in ~30-60s. The GitHub Actions
+# reconcile schedule (market hours) performs genuine reconciliation and wakes it;
+# missed stream events are recovered exactly-once via the replayable SSE cursor.
+services:
+  - type: web
+    name: ledgerline-worker
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile
+    startCommand: pnpm start:worker
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BROKER_PROVIDER
+        value: alpaca-paper
+      - key: MARKET_DATA_PROVIDER
+        value: alpaca
+      - key: DATABASE_URL
+        sync: false
+      - key: ALPACA_BROKER_KEY
+        sync: false
+      - key: ALPACA_BROKER_SECRET
+        sync: false
+      - key: ALPACA_DATA_KEY
+        sync: false
+      - key: ALPACA_DATA_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
