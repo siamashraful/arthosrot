@@ -9,7 +9,7 @@
 app        → components, lib, server
 components → components, lib
 server     → core, infra, env
-worker     → core, infra, env
+worker     → core, infra, env, server (composition root container.ts ONLY — never HTTP handlers)
 infra      → core, env        (implements core ports)
 core       → core only        (NOTHING external: no next, react, drizzle, vendor SDKs)
 ```

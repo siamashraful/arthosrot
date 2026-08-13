@@ -24,7 +24,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "db:seed": "tsx scripts/seed.ts",
-    "test:int": "TEST_DB=1 vitest run tests/integration"
+    "test:int": "TEST_DB=1 vitest run tests/integration",
+    "check:contrast": "tsx scripts/check-contrast.ts"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",

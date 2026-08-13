@@ -50,7 +50,9 @@ export default tseslint.config(
             ["core", ["core"]],
             ["infra", ["infra", "core", "env"]],
             ["server", ["server", "core", "infra", "env"]],
-            ["worker", ["worker", "core", "infra", "env"]],
+            // worker may reach server ONLY for the shared composition root
+            // (container.ts) — not for HTTP handlers (MODULE_BOUNDARIES.md).
+            ["worker", ["worker", "core", "infra", "env", "server"]],
             ["app", ["app", "components", "lib", "server"]],
             ["components", ["components", "lib"]],
             ["lib", ["lib"]],

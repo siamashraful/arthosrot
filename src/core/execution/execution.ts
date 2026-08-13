@@ -78,7 +78,17 @@ export class ExecutionService {
 
     try {
       await this.broker.submit(request);
-    } catch {
+    } catch (firstErr) {
+      // Never silent: a swallowed first failure here once masked an event-
+      // application bug (the retry deduped at the venue without re-emitting).
+      console.error(
+        JSON.stringify({
+          level: "error",
+          msg: "broker submit failed; retrying",
+          orderId: order.id,
+          err: String(firstErr),
+        }),
+      );
       try {
         await this.broker.submit(request); // one retry
       } catch (err) {

@@ -1,5 +1,10 @@
 /**
- * core/reconciliation — public API. Implementation arrives per docs/ROADMAP.md.
- * Other modules may import ONLY from this file (deep imports are lint-blocked).
+ * core/reconciliation — the REST fallback that makes stream loss safe
+ * (EXECUTION.md reconciliation engine).
  */
-export const MODULE_reconciliation_PLACEHOLDER = true;
+export {
+  ReconciliationService,
+  type ReconciliationReads,
+  type ReconciliationResult,
+  type ReconciliationStatus,
+} from "./reconciliation";

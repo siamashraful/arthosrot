@@ -33,8 +33,16 @@ jobs:
       - name: Unit tests
         run: pnpm test
 
+      - name: Token contrast check (WCAG)
+        run: pnpm check:contrast
+
       - name: Build
         run: pnpm build
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   integration:
     runs-on: ubuntu-latest

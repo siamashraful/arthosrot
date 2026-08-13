@@ -54,9 +54,18 @@ interface RestingOrder {
 }
 
 let sequence = 0;
+/**
+ * Event/order/execution ids must be unique ACROSS process restarts: they land
+ * in unique DB columns (order_events.external_event_id, fills.execution_id)
+ * where a collision reads as a duplicate delivery and no-ops the event. A
+ * bare counter resets with the process and silently collides with rows from
+ * previous runs (found the hard way via dev/E2E sharing a database) — the
+ * per-process nonce prevents that while keeping ids readable.
+ */
+const instanceNonce = Math.random().toString(36).slice(2, 10);
 function nextId(prefix: string): string {
   sequence += 1;
-  return `${prefix}-${String(sequence).padStart(8, "0")}`;
+  return `${prefix}-${instanceNonce}-${String(sequence).padStart(6, "0")}`;
 }
 
 export class DeterministicPaperBroker implements Broker {
@@ -77,6 +86,17 @@ export class DeterministicPaperBroker implements Broker {
   /** Test hook: change execution behavior between scenarios. */
   configure(patch: Partial<DeterministicBrokerConfig>): void {
     this.config = { ...this.config, ...patch };
+  }
+
+  private muted = false;
+
+  /**
+   * Test hook: simulate a disconnected stream — events still occur at the
+   * venue (logged, replayable, visible in snapshots) but are NOT delivered to
+   * live listeners. Reconciliation must recover them exactly-once.
+   */
+  muteEvents(muted: boolean): void {
+    this.muted = muted;
   }
 
   async provisionAccount(req: ProvisionRequest): Promise<BrokerAccountRef> {
@@ -288,6 +308,7 @@ export class DeterministicPaperBroker implements Broker {
       ...(extra.reason ? { raw: { reason: extra.reason } } : {}),
     };
     this.log.push(event);
+    if (this.muted) return;
     for (const listener of this.listeners) {
       await listener(event);
     }

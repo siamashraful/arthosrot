@@ -2,7 +2,7 @@
 
 A paper-trading platform for US equities that behaves like a credible modern brokerage: users get an isolated simulated brokerage account with $100,000, search instruments, view bid/ask/last quotes and charts, place **market and limit orders** with a real asynchronous order lifecycle (acknowledgement, fills, partial fills, cancellation, expiration), and track positions, P&L, and an immutable transaction ledger. Simulated money only — the UI says so persistently.
 
-**Status: early development.** Repository scaffold and documentation are in place; application phases are tracked in [docs/ROADMAP.md](docs/ROADMAP.md). Realism and data limitations are documented honestly in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
+**Status: feature-complete MVP awaiting deployment.** All application phases through hardening are built and tested; free-tier deployment (the only remaining phase) needs the owner's provider accounts — see [docs/ROADMAP.md](docs/ROADMAP.md). Realism and data limitations are documented honestly in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## Architecture in ten lines
 

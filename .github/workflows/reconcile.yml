@@ -1,0 +1,27 @@
+name: Reconcile (market hours)
+
+# Genuine reconciliation work on a market-hours cadence (DEPLOYMENT.md):
+# heals any events missed while the free-tier worker slept, and — as a side
+# effect — wakes it before/through the trading session. Best-effort schedule
+# by design: the replayable stream cursor makes catch-up exactly-once, so this
+# bounds staleness rather than delivering events.
+
+on:
+  schedule:
+    - cron: "*/10 13-21 * * 1-5" # ≈ US market hours in UTC (incl. pre-open warmup)
+  workflow_dispatch:
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger worker reconciliation
+        run: |
+          if [ -z "${{ secrets.WORKER_URL }}" ]; then
+            echo "WORKER_URL secret not configured — skipping (pre-deployment)"; exit 0
+          fi
+          curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --retry 3 --retry-delay 20 --retry-all-errors \
+            --max-time 120 \
+            "${{ secrets.WORKER_URL }}/reconcile"

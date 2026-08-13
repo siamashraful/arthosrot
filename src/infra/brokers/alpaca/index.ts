@@ -1,5 +1,6 @@
 /**
- * infra/brokers/alpaca — adapter implementing core ports. Implementation arrives per docs/ROADMAP.md.
- * Vendor types must never be exported from this directory boundary.
+ * infra/brokers/alpaca — the sandbox venue adapter (ADR-006).
+ * Vendor types never leave this directory (MODULE_BOUNDARIES.md rule 4).
  */
-export const INFRA_alpaca_PLACEHOLDER = true;
+export { AlpacaPaperBroker, type FetchFn } from "./broker";
+export { translateTradeEvent, eventsFromSnapshot } from "./translate";

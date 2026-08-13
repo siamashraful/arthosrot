@@ -1,0 +1,38 @@
+name: External smoke (Alpaca sandbox)
+
+# Manual-dispatch validation of the REAL sandbox adapter (tests/external).
+# Deliberately NOT part of CI: merge gates never depend on live Alpaca
+# (EXECUTION.md testing contract).
+
+on:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ledgerline
+          POSTGRES_PASSWORD: ledgerline
+          POSTGRES_DB: ledgerline_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ledgerline"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgres://ledgerline:ledgerline@localhost:5432/ledgerline_test
+      ALPACA_BROKER_KEY: ${{ secrets.ALPACA_BROKER_KEY }}
+      ALPACA_BROKER_SECRET: ${{ secrets.ALPACA_BROKER_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: DATABASE_URL=$TEST_DATABASE_URL pnpm db:migrate
+      - name: External smoke suite (real sandbox)
+        run: pnpm vitest run tests/external --no-file-parallelism

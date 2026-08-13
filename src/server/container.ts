@@ -6,6 +6,7 @@ import { LedgerService } from "@/core/ledger";
 import type { MarketDataProvider } from "@/core/market-data";
 import { OrdersService } from "@/core/orders";
 import { PortfolioService } from "@/core/portfolio";
+import { ReconciliationService } from "@/core/reconciliation";
 import { systemClock } from "@/core/shared";
 import { env } from "@/env";
 import { accountsRepository } from "@/infra/db/repositories/accounts";
@@ -14,7 +15,9 @@ import { instrumentsRepository } from "@/infra/db/repositories/instruments";
 import { ledgerRepository } from "@/infra/db/repositories/ledger";
 import { ordersRepository } from "@/infra/db/repositories/orders";
 import { positionsRepository } from "@/infra/db/repositories/positions";
+import { reconciliationReads } from "@/infra/db/repositories/reconciliation";
 import { pgTransactionRunner } from "@/infra/db/tx";
+import { AlpacaPaperBroker } from "@/infra/brokers/alpaca";
 import { AlpacaMarketData, CachedMarketData, FixtureProvider } from "@/infra/market-data";
 
 /**
@@ -39,6 +42,7 @@ export interface Container {
   ordersService: OrdersService;
   executionService: ExecutionService;
   portfolioService: PortfolioService;
+  reconciliationService: ReconciliationService;
   broker: Broker;
   fillsReader: { listForOrder(orderId: string): Promise<SerializedFill[]> };
   /** Deterministic-mode test/dev hooks; null in alpaca-paper mode. */
@@ -81,9 +85,13 @@ function build(): Container {
     deterministicBroker = new DeterministicPaperBroker(systemClock, marketData);
     broker = deterministicBroker;
   } else {
-    // AlpacaPaperBroker arrives with the external-adapter phase (ROADMAP #8);
-    // in the web process it is submit/cancel-only — events flow via the worker.
-    throw new Error("BROKER_PROVIDER=alpaca-paper is not wired yet (docs/ROADMAP.md phase 8)");
+    const { ALPACA_BROKER_KEY, ALPACA_BROKER_SECRET } = env();
+    if (!ALPACA_BROKER_KEY || !ALPACA_BROKER_SECRET) {
+      throw new Error("ALPACA_BROKER_KEY/SECRET required for BROKER_PROVIDER=alpaca-paper");
+    }
+    // Web process: submit/cancel/provision only. Event ingestion + cursor
+    // management belong to the WORKER (src/worker/main.ts, ADR-010).
+    broker = new AlpacaPaperBroker(ALPACA_BROKER_KEY, ALPACA_BROKER_SECRET);
   }
 
   const provisioner: AccountProvisioner = {
@@ -129,7 +137,20 @@ function build(): Container {
     pgTransactionRunner,
     systemClock,
   );
-  executionService.start();
+  // In-process event delivery is a deterministic-broker property; the Alpaca
+  // stream is consumed by the worker with a persisted cursor instead.
+  if (deterministicBroker) executionService.start();
+
+  const reconciliationService = new ReconciliationService(
+    broker,
+    ordersService,
+    accountsRepository,
+    ledgerService,
+    reconciliationReads,
+    (event) => executionService.onBrokerEvent(event),
+    pgTransactionRunner,
+    systemClock,
+  );
 
   const portfolioService = new PortfolioService(
     positionsRepository,
@@ -163,6 +184,7 @@ function build(): Container {
     ordersService,
     executionService,
     portfolioService,
+    reconciliationService,
     broker,
     fillsReader,
     fixtureProvider,
