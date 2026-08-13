@@ -19,10 +19,10 @@ Review gates: **hard gate** = Fable (architecture-model) review required before 
 | 10  | Positions/P&L + remaining API               | ✅ done | Invariants 12/14; full API surface                                           | P&L review                     |
 | 11  | Market-order vertical slice (API)           | ✅ done | Slice green vs deterministic (CI) + sandbox (manual)                         | —                              |
 | 12  | Limit-order vertical slice (API)            | ✅ done | Rest/fill/cancel/partial/expire green both venues                            | Verification                   |
-| 13  | Design system                               | ⬜      | Token contrast CI; component states page; axe clean                          | Design direction               |
-| 14  | Shell + realtime updates                    | ⬜      | Responsive shell E2E; orders auto-update                                     | —                              |
-| 15  | Trading UI                                  | ⬜      | Golden-path E2E: UI reaches Filled without refresh                           | UX critique                    |
-| 16  | Portfolio/activity UI + dashboard           | ⬜      | Full-slice E2E green                                                         | —                              |
+| 13  | Design system                               | ✅ done | Token contrast CI; component states page; axe clean                          | Design direction               |
+| 14  | Shell + realtime updates                    | ✅ done | Responsive shell E2E; orders auto-update                                     | —                              |
+| 15  | Trading UI                                  | ✅ done | Golden-path E2E: UI reaches Filled without refresh                           | UX critique                    |
+| 16  | Portfolio/activity UI + dashboard           | ✅ done | Full-slice E2E green                                                         | —                              |
 | 17  | Hardening                                   | ⬜      | Security + a11y checklists green                                             | **Security gate**              |
 | 18  | Free-tier deployment                        | ⬜      | Public URL at $0; both slices work against sandbox                           | Verification                   |
 

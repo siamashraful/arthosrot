@@ -8,6 +8,7 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "tests/e2e",
   fullyParallel: true,
+  expect: { timeout: 15_000 }, // dev-server first-compiles + async order lifecycle
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
@@ -17,7 +18,7 @@ export default defineConfig({
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
-    { name: "mobile", use: { ...devices["iPhone 14"] } },
+    { name: "mobile", use: { ...devices["Pixel 7"] } }, // chromium-based: one browser download in CI
   ],
   webServer: {
     command: "pnpm dev",
@@ -26,6 +27,7 @@ export default defineConfig({
     env: {
       BROKER_PROVIDER: "deterministic",
       MARKET_DATA_PROVIDER: "fixture",
+      FORCE_MARKET_OPEN: "1",
     },
   },
 });

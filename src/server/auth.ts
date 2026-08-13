@@ -47,7 +47,9 @@ function buildAuth() {
         updateAge: 60 * 60 * 24,
       },
       rateLimit: {
-        enabled: true,
+        // Auth abuse control in production (SECURITY.md). Disabled in dev/test
+        // so E2E suites (several signups per run) aren't throttled.
+        enabled: NODE_ENV === "production",
         window: 60,
         max: 10,
       },

@@ -1,0 +1,118 @@
+/*
+ * Design tokens (docs/design/DESIGN_SYSTEM.md). Semantic names are mandatory;
+ * numeric values are provisional and validated by the contrast check script.
+ * Neutral foundation is chroma-0; brand accent blue-indigo (~262deg);
+ * green/red are strictly semantic (gain/loss), never decorative.
+ * Theme: [data-theme] on <html>; default follows prefers-color-scheme.
+ */
+
+:root {
+  /* type scale (product register: fixed rem, ~1.2 ratio) */
+  --text-xs: 0.75rem; /* 12 labels */
+  --text-sm: 0.8125rem; /* 13 dense tables */
+  --text-base: 0.875rem; /* 14 body */
+  --text-md: 1rem; /* 16 emphasized */
+  --text-lg: 1.25rem; /* 20 section */
+  --text-xl: 1.5rem; /* 24 page title */
+  --text-hero: 2rem; /* 32 portfolio figure */
+
+  /* spacing: 4px base */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+
+  /* radii — pills only for badges */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  /* motion (all gated by prefers-reduced-motion in globals) */
+  --dur-fast: 150ms;
+  --dur-base: 200ms;
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+
+  /* z-scale */
+  --z-dropdown: 10;
+  --z-sticky: 20;
+  --z-backdrop: 30;
+  --z-modal: 40;
+  --z-toast: 50;
+  --z-tooltip: 60;
+
+  /* light theme (default) */
+  --bg: oklch(1 0 0);
+  --surface: oklch(0.98 0 0);
+  --surface-2: oklch(0.96 0 0);
+  --border: oklch(0.9 0 0);
+  --border-strong: oklch(0.82 0 0);
+  --ink: oklch(0.19 0 0);
+  --ink-muted: oklch(0.45 0 0);
+  --accent: oklch(0.52 0.18 262);
+  --accent-hover: oklch(0.46 0.18 262);
+  --accent-soft: oklch(0.52 0.18 262 / 0.1);
+  --on-accent: oklch(1 0 0);
+  --gain: oklch(0.52 0.15 155);
+  --loss: oklch(0.55 0.2 25);
+  --warning: oklch(0.62 0.13 80);
+  --warning-soft: oklch(0.62 0.13 80 / 0.14);
+  --focus-ring: oklch(0.52 0.18 262);
+  --chart-line: oklch(0.52 0.18 262);
+  --chart-fill: oklch(0.52 0.18 262 / 0.08);
+  --chart-grid: oklch(0.92 0 0);
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.06);
+  --shadow-2: 0 4px 16px oklch(0 0 0 / 0.12);
+}
+
+[data-theme="dark"] {
+  --bg: oklch(0.13 0 0);
+  --surface: oklch(0.17 0 0);
+  --surface-2: oklch(0.21 0 0);
+  --border: oklch(0.28 0 0);
+  --border-strong: oklch(0.38 0 0);
+  --ink: oklch(0.93 0 0);
+  --ink-muted: oklch(0.72 0 0);
+  --accent: oklch(0.68 0.16 262);
+  --accent-hover: oklch(0.74 0.16 262);
+  --accent-soft: oklch(0.68 0.16 262 / 0.16);
+  --on-accent: oklch(0.13 0 0);
+  --gain: oklch(0.75 0.15 155);
+  --loss: oklch(0.7 0.19 25);
+  --warning: oklch(0.8 0.14 80);
+  --warning-soft: oklch(0.8 0.14 80 / 0.16);
+  --focus-ring: oklch(0.68 0.16 262);
+  --chart-line: oklch(0.68 0.16 262);
+  --chart-fill: oklch(0.68 0.16 262 / 0.12);
+  --chart-grid: oklch(0.24 0 0);
+  --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
+  --shadow-2: 0 4px 16px oklch(0 0 0 / 0.5);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --bg: oklch(0.13 0 0);
+    --surface: oklch(0.17 0 0);
+    --surface-2: oklch(0.21 0 0);
+    --border: oklch(0.28 0 0);
+    --border-strong: oklch(0.38 0 0);
+    --ink: oklch(0.93 0 0);
+    --ink-muted: oklch(0.72 0 0);
+    --accent: oklch(0.68 0.16 262);
+    --accent-hover: oklch(0.74 0.16 262);
+    --accent-soft: oklch(0.68 0.16 262 / 0.16);
+    --on-accent: oklch(0.13 0 0);
+    --gain: oklch(0.75 0.15 155);
+    --loss: oklch(0.7 0.19 25);
+    --warning: oklch(0.8 0.14 80);
+    --warning-soft: oklch(0.8 0.14 80 / 0.16);
+    --focus-ring: oklch(0.68 0.16 262);
+    --chart-line: oklch(0.68 0.16 262);
+    --chart-fill: oklch(0.68 0.16 262 / 0.12);
+    --chart-grid: oklch(0.24 0 0);
+    --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
+    --shadow-2: 0 4px 16px oklch(0 0 0 / 0.5);
+  }
+}

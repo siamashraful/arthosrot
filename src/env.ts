@@ -25,6 +25,16 @@ const envSchema = z.object({
 
   CRON_SECRET: z.string().min(16).optional(),
   PORT: z.coerce.number().int().positive().default(8090),
+
+  /**
+   * Dev/test only: pin the fixture market OPEN so the deterministic venue
+   * fills outside real market hours. Ignored unless both providers are
+   * deterministic/fixture; never set in a deployed environment.
+   */
+  FORCE_MARKET_OPEN: z
+    .enum(["0", "1"])
+    .default("0")
+    .transform((v) => v === "1"),
 });
 
 export type Env = z.infer<typeof envSchema>;

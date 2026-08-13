@@ -65,6 +65,42 @@ jobs:
       - name: Integration tests
         run: pnpm test:int
 
-  # The Playwright E2E job is added once E2E specs exist (PRs to main only).
+  e2e:
+    # Full-browser golden paths (desktop + mobile) against the deterministic
+    # broker — offline by construction. PRs to main + main pushes.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ledgerline
+          POSTGRES_PASSWORD: ledgerline
+          POSTGRES_DB: ledgerline
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ledgerline"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://ledgerline:ledgerline@localhost:5432/ledgerline
+      BETTER_AUTH_SECRET: ci-e2e-secret-000000000000
+      BROKER_PROVIDER: deterministic
+      MARKET_DATA_PROVIDER: fixture
+      FORCE_MARKET_OPEN: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Apply migrations + seed
+        run: pnpm db:migrate && pnpm db:seed
+      - name: E2E (desktop + mobile, incl. axe scans)
+        run: pnpm test:e2e
+
   # CI must never depend on live Alpaca — external tests live in tests/external
   # and run via external-smoke.yml only.

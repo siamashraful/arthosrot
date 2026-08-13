@@ -61,6 +61,9 @@ function build(): Container {
   let marketData: MarketDataProvider;
   if (MARKET_DATA_PROVIDER === "fixture") {
     fixtureProvider = new FixtureProvider(systemClock);
+    if (env().FORCE_MARKET_OPEN && BROKER_PROVIDER === "deterministic") {
+      fixtureProvider.setMarketStatus("OPEN"); // dev/test-only (see .env.example)
+    }
     marketData = fixtureProvider;
   } else {
     if (!ALPACA_DATA_KEY || !ALPACA_DATA_SECRET) {
