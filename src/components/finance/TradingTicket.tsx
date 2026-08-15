@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { api, ApiError, type QuoteDto } from "@/lib/api";
 import { formatMoney, formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "./OrderStatusBadge";
@@ -28,6 +28,7 @@ export function TradingTicket({
   sellable: string;
 }) {
   const queryClient = useQueryClient();
+  const uid = useId();
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [type, setType] = useState<"MARKET" | "LIMIT">("MARKET");
   const [qty, setQty] = useState("");
@@ -98,11 +99,11 @@ export function TradingTicket({
         </div>
 
         <div className="field">
-          <label className="field-label" htmlFor="ticket-type">
+          <label className="field-label" htmlFor={`${uid}-type`}>
             Order type
           </label>
           <select
-            id="ticket-type"
+            id={`${uid}-type`}
             className="select"
             value={type}
             onChange={(e) => onEdit(setType)(e.target.value as "MARKET" | "LIMIT")}
@@ -113,19 +114,19 @@ export function TradingTicket({
         </div>
 
         <div className="field">
-          <label className="field-label" htmlFor="ticket-qty">
+          <label className="field-label" htmlFor={`${uid}-qty`}>
             Quantity (whole shares)
           </label>
           <input
-            id="ticket-qty"
+            id={`${uid}-qty`}
             className="input tabular"
             inputMode="numeric"
             pattern="[0-9]*"
             value={qty}
             onChange={(e) => onEdit(setQty)(e.target.value.replace(/[^0-9]/g, ""))}
-            aria-describedby="ticket-available"
+            aria-describedby={`${uid}-available`}
           />
-          <span id="ticket-available" className="field-label">
+          <span id={`${uid}-available`} className="field-label">
             {side === "BUY"
               ? `Buying power ${formatMoney(buyingPower)}`
               : `Sellable ${sellable} shares`}
@@ -134,11 +135,11 @@ export function TradingTicket({
 
         {type === "LIMIT" ? (
           <div className="field">
-            <label className="field-label" htmlFor="ticket-limit">
+            <label className="field-label" htmlFor={`${uid}-limit`}>
               Limit price
             </label>
             <input
-              id="ticket-limit"
+              id={`${uid}-limit`}
               className="input tabular"
               inputMode="decimal"
               value={limitPrice}

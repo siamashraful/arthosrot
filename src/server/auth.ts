@@ -1,6 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
+import { ZxcvbnFactory } from "@zxcvbn-ts/core";
+import { adjacencyGraphs, dictionary } from "@zxcvbn-ts/language-common";
+
+const passwordStrength = new ZxcvbnFactory({ dictionary, graphs: adjacencyGraphs });
 import { env } from "@/env";
 import { getDb, schema } from "@/infra/db";
 
@@ -10,14 +14,10 @@ import { getDb, schema } from "@/infra/db";
  * touches auth only via getSession() in src/server/session.ts.
  */
 
-/** Very small strength gate (no heavy zxcvbn dependency): length + variety + not-common. */
+/** Server-side strength gate: zxcvbn score >= 3 plus a length floor (FR-1). */
 export function passwordIsAcceptable(password: string): boolean {
   if (password.length < 10) return false;
-  const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter((r) =>
-    r.test(password),
-  ).length;
-  const common = /^(password|qwerty|letmein|welcome|abc123|iloveyou)/i.test(password);
-  return classes >= 2 && !common;
+  return passwordStrength.check(password).score >= 3;
 }
 
 function buildAuth() {

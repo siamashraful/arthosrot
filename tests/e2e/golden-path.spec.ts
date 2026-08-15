@@ -9,6 +9,20 @@ import { expect, test } from "@playwright/test";
  * mobile viewport projects execute this file.
  */
 
+/** Responsive ticket scope: < lg the ticket lives in a bottom sheet behind a
+ *  "Trade <SYM>" button; >= lg it is docked. Returns the locator to act in. */
+async function openTicket(page: import("@playwright/test").Page) {
+  const trigger = page.locator(".ticket-mobile").getByRole("button", { name: /^Trade / });
+  const dockedHeading = page.locator(".ticket-docked").getByRole("heading", { name: /^Trade / });
+  // Wait for whichever variant this viewport renders (page may still be loading).
+  await expect(trigger.or(dockedHeading).first()).toBeVisible({ timeout: 15_000 });
+  if (await trigger.isVisible()) {
+    await trigger.click();
+    return page.locator("dialog.sheet");
+  }
+  return page.locator(".ticket-docked");
+}
+
 const email = () => `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
 
 async function expectNoSeriousA11yViolations(page: import("@playwright/test").Page) {
@@ -38,16 +52,21 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
   await expect(page.getByRole("heading", { level: 1, name: /AAPL/ })).toBeVisible();
   await expect(page.getByText(/fixture ·/)).toBeVisible();
 
-  // Ticket: buy 10 at market, review, confirm.
-  await page.getByLabel("Quantity (whole shares)").fill("10");
-  await page.getByRole("button", { name: "Review order" }).click();
-  await expect(page.getByText(/Buy 10 AAPL · Market/)).toBeVisible();
-  await page.getByRole("button", { name: "Confirm order" }).click();
+  // Ticket: buy 10 at market, review, confirm (bottom sheet on mobile).
+  const ticket = await openTicket(page);
+  await ticket.getByLabel("Quantity (whole shares)").fill("10");
+  await ticket.getByRole("button", { name: "Review order" }).click();
+  await expect(ticket.getByText(/Buy 10 AAPL · Market/)).toBeVisible();
+  await ticket.getByRole("button", { name: "Confirm order" }).click();
 
   // The order chip advances to Filled WITHOUT any page reload.
-  const chip = page.locator('[aria-live="polite"]');
+  const chip = ticket.locator('[aria-live="polite"]');
   await expect(chip.getByText("Filled", { exact: true })).toBeVisible({ timeout: 15_000 });
   await expect(chip.getByText("Buy 10/10 AAPL")).toBeVisible();
+
+  // Close the sheet if open (mobile) so the page behind is assertable.
+  const closeBtn = page.locator("dialog.sheet").getByRole("button", { name: "Close" });
+  if (await closeBtn.isVisible().catch(() => false)) await closeBtn.click();
 
   // Position strip appears on the instrument page.
   await expect(page.getByText("Your position")).toBeVisible();
@@ -80,14 +99,15 @@ test("resting limit order can be cancelled and releases buying power", async ({ 
 
   // Non-marketable limit buy: 10 @ 150 (fixture last = 200).
   await page.goto("/i/AAPL");
-  await page.getByLabel("Order type").selectOption("LIMIT");
-  await page.getByLabel("Quantity (whole shares)").fill("10");
-  await page.getByLabel("Limit price").fill("150");
-  await page.getByRole("button", { name: "Review order" }).click();
-  await page.getByRole("button", { name: "Confirm order" }).click();
-  await expect(page.locator('[aria-live="polite"]').getByText("Open", { exact: true })).toBeVisible(
-    { timeout: 15_000 },
-  );
+  const ticket = await openTicket(page);
+  await ticket.getByLabel("Order type").selectOption("LIMIT");
+  await ticket.getByLabel("Quantity (whole shares)").fill("10");
+  await ticket.getByLabel("Limit price").fill("150");
+  await ticket.getByRole("button", { name: "Review order" }).click();
+  await ticket.getByRole("button", { name: "Confirm order" }).click();
+  await expect(
+    ticket.locator('[aria-live="polite"]').getByText("Open", { exact: true }),
+  ).toBeVisible({ timeout: 15_000 });
 
   // Cancel from the orders page; the order leaves Open and shows Cancelled
   // under History — no manual refresh.

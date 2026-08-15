@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import type { FillRecord, FillsRepository } from "@/core/execution";
 import { Money, Qty } from "@/core/money";
 import type { FillForReplay, FillsReplaySource } from "@/core/portfolio";
@@ -22,6 +22,15 @@ export const fillsRepository: FillsRepository = {
       })
       .onConflictDoNothing({ target: [schema.fills.broker, schema.fills.executionId] })
       .returning({ id: schema.fills.id });
+    return rows.length > 0;
+  },
+
+  async existsByExecutionId(tx, broker, executionId): Promise<boolean> {
+    const rows = await asDb(tx)
+      .select({ id: schema.fills.id })
+      .from(schema.fills)
+      .where(and(eq(schema.fills.broker, broker), eq(schema.fills.executionId, executionId)))
+      .limit(1);
     return rows.length > 0;
   },
 

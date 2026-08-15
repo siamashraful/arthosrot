@@ -1,6 +1,6 @@
 "use client";
 
-import { Activity, Home, LineChart, ListOrdered, PieChart, Settings } from "lucide-react";
+import { Activity, Home, LineChart, ListOrdered, PieChart, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -53,5 +53,36 @@ export function BottomNav() {
     <nav className="bottom-nav" aria-label="Primary">
       {links(pathname)}
     </nav>
+  );
+}
+
+/** < md: compact top app bar — brand, search shortcut, and Settings access
+ *  (the sidebar is hidden on mobile; Settings must remain reachable). */
+export function MobileTopBar() {
+  const pathname = usePathname();
+  return (
+    <header className="mobile-top-bar">
+      <Link href="/" className="shell-brand" style={{ margin: 0, padding: 0 }}>
+        Ledgerline
+      </Link>
+      <div style={{ display: "flex", gap: "var(--space-1)" }}>
+        <Link
+          href="/markets"
+          className="nav-link"
+          aria-label="Search markets"
+          aria-current={pathname.startsWith("/markets") ? "page" : undefined}
+        >
+          <Search aria-hidden />
+        </Link>
+        <Link
+          href="/settings"
+          className="nav-link"
+          aria-label="Settings"
+          aria-current={pathname.startsWith("/settings") ? "page" : undefined}
+        >
+          <Settings aria-hidden />
+        </Link>
+      </div>
+    </header>
   );
 }

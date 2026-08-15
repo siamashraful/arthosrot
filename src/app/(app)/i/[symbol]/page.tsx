@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { use } from "react";
 import { CandleChart } from "@/components/finance/CandleChart";
 import { FreshnessChip } from "@/components/finance/FreshnessChip";
-import { TradingTicket } from "@/components/finance/TradingTicket";
+import { TicketPanel } from "@/components/finance/TicketPanel";
 import { api } from "@/lib/api";
 import { formatPrice, formatPrice4 } from "@/lib/format";
 
@@ -100,7 +100,7 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
 
       <div className="instrument-grid">
         <CandleChart symbol={symbol} />
-        <TradingTicket
+        <TicketPanel
           symbol={symbol}
           quote={data.quote}
           buyingPower={portfolio?.summary.buyingPower ?? "0.00"}

@@ -20,7 +20,7 @@ function toEntry(row: LedgerRow): LedgerEntry {
   };
 }
 
-export const ledgerRepository: LedgerRepository = {
+export const ledgerRepository = {
   async insert(tx: TxHandle, entry: NewLedgerEntry): Promise<LedgerEntry> {
     const [row] = await asDb(tx)
       .insert(schema.ledgerEntries)
@@ -47,6 +47,34 @@ export const ledgerRepository: LedgerRepository = {
     return Money.fromString(raw.includes(".") ? raw : `${raw}.00`);
   },
 
+  async listForUser(
+    tx: TxHandle,
+    userId: string,
+    limit: number,
+    beforeId?: string,
+  ): Promise<Array<LedgerEntry & { accountArchived: boolean }>> {
+    const db = asDb(tx);
+    const conditions = [eq(schema.accounts.userId, userId)];
+    if (beforeId) {
+      const [pivot] = await db
+        .select({ createdAt: schema.ledgerEntries.createdAt })
+        .from(schema.ledgerEntries)
+        .where(eq(schema.ledgerEntries.id, beforeId));
+      if (pivot) conditions.push(lt(schema.ledgerEntries.createdAt, pivot.createdAt));
+    }
+    const rows = await db
+      .select({ entry: schema.ledgerEntries, accountStatus: schema.accounts.status })
+      .from(schema.ledgerEntries)
+      .innerJoin(schema.accounts, eq(schema.ledgerEntries.accountId, schema.accounts.id))
+      .where(and(...conditions))
+      .orderBy(desc(schema.ledgerEntries.createdAt))
+      .limit(limit);
+    return rows.map((row) => ({
+      ...toEntry(row.entry),
+      accountArchived: row.accountStatus === "ARCHIVED",
+    }));
+  },
+
   async listForAccount(
     tx: TxHandle,
     accountId: string,
@@ -70,4 +98,4 @@ export const ledgerRepository: LedgerRepository = {
       .limit(limit);
     return rows.map(toEntry);
   },
-};
+} satisfies LedgerRepository & Record<string, unknown>;

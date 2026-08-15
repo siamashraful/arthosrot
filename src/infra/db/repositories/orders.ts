@@ -177,6 +177,21 @@ export const ordersRepository: OrdersRepository = {
     return rows.length > 0;
   },
 
+  async eventExists(tx, broker, externalEventId): Promise<boolean> {
+    if (!broker) return false;
+    const rows = await asDb(tx)
+      .select({ id: schema.orderEvents.id })
+      .from(schema.orderEvents)
+      .where(
+        and(
+          eq(schema.orderEvents.broker, broker),
+          eq(schema.orderEvents.externalEventId, externalEventId),
+        ),
+      )
+      .limit(1);
+    return rows.length > 0;
+  },
+
   async listEvents(tx, orderId): Promise<OrderEventRecord[]> {
     const rows = await asDb(tx)
       .select()

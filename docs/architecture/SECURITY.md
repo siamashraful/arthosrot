@@ -14,7 +14,7 @@ Single role (user). Every query is filtered by the session's account at the repo
 ## Application controls
 
 - **Input:** Zod on every boundary (API bodies, env via `src/env.ts`, cron header).
-- **Output:** React escaping; no `dangerouslySetInnerHTML`; security headers via next.config (nosniff, referrer-policy, frame-deny); CSP tightened in the hardening phase.
+- **Output:** React escaping; no `dangerouslySetInnerHTML` (single sanctioned exception: the constant theme-bootstrap script in `src/app/layout.tsx` — static string, no user input); security headers via next.config (nosniff, referrer-policy, frame-deny); CSP tightened in the hardening phase.
 - **SQLi:** Drizzle parameterized queries; raw SQL only via the parameterized `sql` template — string-concatenated SQL is review-blocked.
 - **SSRF:** outbound calls go only to pinned Alpaca base-URL constants; no user-supplied URLs are fetched.
 - **Secrets:** env vars only; `.env.example` documents all; gitleaks in CI; pino redaction list (password, cookie, authorization, api keys); no secrets in client bundles (`process.env` only in src/env.ts; no `NEXT_PUBLIC_` secrets).

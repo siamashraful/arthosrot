@@ -73,6 +73,8 @@ export interface OrdersRepository {
   sumOpenSellRemainders(tx: TxHandle, accountId: string, instrumentId: string): Promise<Qty>;
   /** Insert an audit event; returns false on external_event_id conflict (duplicate delivery). */
   insertEvent(tx: TxHandle, event: OrderEventRecord): Promise<boolean>;
+  /** True if this exact event envelope was already recorded (replay pre-check). */
+  eventExists(tx: TxHandle, broker: Order["broker"], externalEventId: string): Promise<boolean>;
   listEvents(tx: TxHandle, orderId: string): Promise<OrderEventRecord[]>;
 }
 
@@ -171,12 +173,39 @@ export class OrdersService {
       rejectReason?: string;
     },
   ): Promise<Order | null> {
+    // Replay pre-check (link 3): a redelivered envelope is a no-op BEFORE
+    // planning — replays legitimately arrive when the machine has already
+    // moved past them (e.g. an ACK replayed after ACCEPTED) and must not be
+    // mistaken for illegal transitions. Race-free under the account lock.
+    if (event.externalEventId) {
+      const seen = await this.repo.eventExists(tx, event.broker, event.externalEventId);
+      if (seen) return null;
+    }
+
+    // Plan so the audit row can carry its resulting state (a blank toState
+    // made timelines useless). Late events after a terminal state and
+    // unknown vendor statuses are audit-only: no transition, flagged.
+    let steps: ReturnType<typeof planTransitions> = [];
+    let auditOnly = event.type === "UNKNOWN_VENDOR_STATUS";
+    if (!auditOnly) {
+      try {
+        steps = planTransitions(order.state, event.type);
+      } catch (err) {
+        if (isTerminal(order.state)) {
+          auditOnly = true; // e.g. vendor `canceled` after FILLED — audit row kept
+        } else {
+          throw err;
+        }
+      }
+    }
+    const finalState = steps.length > 0 ? steps[steps.length - 1]!.to : null;
+
     // Duplicate delivery (link 3): unique external_event_id makes replay a no-op.
     const fresh = await this.repo.insertEvent(tx, {
       orderId: order.id,
       canonicalEventType: event.type,
       fromState: order.state,
-      toState: null, // patched below once the plan is known
+      toState: finalState,
       source: event.source,
       broker: event.broker,
       externalEventId: event.externalEventId,
@@ -185,23 +214,9 @@ export class OrdersService {
     });
     if (!fresh) return null;
 
-    if (event.type === "UNKNOWN_VENDOR_STATUS") {
-      // Audit-only: no transition, flag for attention (EXECUTION.md policy).
+    if (auditOnly) {
       await this.repo.update(tx, order.id, { needsAttention: true });
       return this.mustGet(tx, order.id);
-    }
-
-    let steps;
-    try {
-      steps = planTransitions(order.state, event.type);
-    } catch (err) {
-      if (isTerminal(order.state)) {
-        // Late event after terminal state (e.g. vendor `canceled` after FILLED):
-        // audit row kept, no state change, surfaced for observability.
-        await this.repo.update(tx, order.id, { needsAttention: true });
-        return this.mustGet(tx, order.id);
-      }
-      throw err;
     }
 
     let state = order.state;

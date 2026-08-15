@@ -17,6 +17,16 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply the stored theme BEFORE hydration so first paint never
+            flashes the wrong palette (tokens.css [data-theme] switch). */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              '(function(){try{var t=localStorage.getItem("theme");if(t==="light"||t==="dark"){document.documentElement.setAttribute("data-theme",t);}}catch(e){}})();',
+          }}
+        />
+      </head>
       <body>
         <div className="paper-badge" role="note" aria-label="Simulation notice">
           Paper trading — simulated money

@@ -64,12 +64,22 @@ function main(): void {
     };
 
     if (req.url === "/healthz") {
-      respond(200, {
-        status: "ok",
-        role: "worker",
-        lastEventAt: lastEventAt?.toISOString() ?? null,
-        lastReconcileAt: lastReconcileAt?.toISOString() ?? null,
-      });
+      // Readiness = DB reachable; cursor/reconcile freshness degrades the
+      // status without failing it (DEPLOYMENT.md operational endpoints).
+      void (async () => {
+        const dbOk = await pgTransactionRunner.run(async () => true).catch(() => false);
+        const lastActivity = Math.max(lastEventAt?.getTime() ?? 0, lastReconcileAt?.getTime() ?? 0);
+        const staleMs = lastActivity ? Date.now() - lastActivity : null;
+        const degraded =
+          !getContainer().deterministicBroker && (staleMs === null || staleMs > 30 * 60_000);
+        respond(dbOk ? 200 : 503, {
+          status: !dbOk ? "not-ready" : degraded ? "degraded" : "ok",
+          role: "worker",
+          db: dbOk,
+          lastEventAt: lastEventAt?.toISOString() ?? null,
+          lastReconcileAt: lastReconcileAt?.toISOString() ?? null,
+        });
+      })();
       return;
     }
     if (req.url === "/reconcile" && req.method === "POST") {

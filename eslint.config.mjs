@@ -38,7 +38,6 @@ export default tseslint.config(
         { type: "app", pattern: "src/app/**" },
         { type: "components", pattern: "src/components/**" },
         { type: "lib", pattern: "src/lib/**" },
-        { type: "env", pattern: "src/env.ts", partialMatch: false },
       ],
     },
     rules: {
@@ -48,11 +47,11 @@ export default tseslint.config(
           default: "disallow",
           policies: [
             ["core", ["core"]],
-            ["infra", ["infra", "core", "env"]],
-            ["server", ["server", "core", "infra", "env"]],
+            ["infra", ["infra", "core"]],
+            ["server", ["server", "core", "infra"]],
             // worker may reach server ONLY for the shared composition root
             // (container.ts) — not for HTTP handlers (MODULE_BOUNDARIES.md).
-            ["worker", ["worker", "core", "infra", "env", "server"]],
+            ["worker", ["worker", "core", "infra", "server"]],
             ["app", ["app", "components", "lib", "server"]],
             ["components", ["components", "lib"]],
             ["lib", ["lib"]],

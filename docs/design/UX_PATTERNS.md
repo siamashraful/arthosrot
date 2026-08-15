@@ -5,7 +5,7 @@
 
 ## Information architecture
 
-Five sections — Dashboard `/` · Markets `/markets`, `/i/[symbol]` · Portfolio `/portfolio` · Orders `/orders` · Activity `/activity`. Account/settings under the avatar menu. Global: omnisearch (Cmd/Ctrl-K + mobile icon), persistent **PAPER badge**, market status + data freshness in the shell, and a quiet system-status banner when the event pipeline degrades ("Order updates may be delayed — last sync 14:02 ET", driven by `/api/v1/system/status`).
+Five sections — Dashboard `/` · Markets `/markets`, `/i/[symbol]` · Portfolio `/portfolio` · Orders `/orders` · Activity `/activity`. Account/settings via the sidebar (desktop) and the compact top-bar icons (mobile). Global: omnisearch (Cmd/Ctrl-K — **post-MVP**; mobile reaches search via the top-bar icon), persistent **PAPER badge**, market status + data freshness in the shell, and a quiet system-status banner when the event pipeline degrades ("Order updates may be delayed — last sync 14:02 ET", driven by `/api/v1/system/status`).
 
 ## Screens
 
@@ -20,16 +20,16 @@ Five sections — Dashboard `/` · Markets `/markets`, `/i/[symbol]` · Portfoli
 
 ## Standing state catalog (every page)
 
-| State              | Behavior                                                                         |
-| ------------------ | -------------------------------------------------------------------------------- |
-| Initial load       | Route-level skeletons mirroring final layout — no blank screens, no layout shift |
-| Background refresh | Quiet stale-while-revalidate                                                     |
-| Partial failure    | Page renders what it has; failed panel shows inline ErrorState with retry        |
-| Provider outage    | Quotes show last cached value + amber "Stale · as of 14:02 ET" chip              |
-| Pipeline degraded  | System-status banner; order rows show last-synced context — never fake "live"    |
-| Market closed      | Prices labeled "At close"                                                        |
-| Network loss       | Offline banner; mutations disabled                                               |
-| Empty              | Teaching empty states                                                            |
-| Auth required      | Redirect to signin preserving return path                                        |
+| State              | Behavior                                                                                         |
+| ------------------ | ------------------------------------------------------------------------------------------------ |
+| Initial load       | Route-level skeletons mirroring final layout — no blank screens, no layout shift                 |
+| Background refresh | Quiet stale-while-revalidate                                                                     |
+| Partial failure    | Page renders what it has; failed panel shows inline ErrorState with retry                        |
+| Provider outage    | Quotes show last cached value + amber "Stale · as of 14:02 ET" chip                              |
+| Pipeline degraded  | System-status banner; order rows show last-synced context — never fake "live"                    |
+| Market closed      | Prices labeled "At close"                                                                        |
+| Network loss       | Offline banner + mutation disabling (**post-MVP**); failed mutations surface inline errors today |
+| Empty              | Teaching empty states                                                                            |
+| Auth required      | Redirect to signin preserving return path                                                        |
 
 **Hard rule:** a rendered price without its timestamp/freshness state is a review-blocking bug.

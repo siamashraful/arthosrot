@@ -31,6 +31,14 @@ Review gates: **hard gate** = Fable (architecture-model) review required before 
 - **A — Market order:** BUY 10 AAPL MARKET → broker ack → fill event → canonical apply (once) → fill + TRADE −2,000.00 + cash 8,000.00 + position 10 @ 200.00 → portfolio API correct → idempotent replay returns same order → UI advances to Filled without refresh. Runs vs deterministic (CI), sandbox (smoke), later Playwright.
 - **B — Limit order:** (i) non-marketable BUY LIMIT rests with reservation, fills when crossed, reservation released; (ii) place → cancel → CANCELLED, reservation released; (iii) partial fill reduces remaining + reservation correctly; (iv) DAY expiry releases reservation. (i)–(iv) vs deterministic in CI; (i)–(ii) also in external smoke.
 
+## Known deferred UI/UX gaps (deliberate, post-MVP)
+
+These items appear in the design docs as future work and are NOT part of the
+completed phases' exit criteria: omnisearch / Cmd-K palette · offline-detection
+banner with mutation disabling · watchlist drag-reorder · SSE push to the
+browser (adaptive polling is the MVP mechanism) · multiple watchlists.
+The corresponding design-doc sections are annotated "post-MVP".
+
 **Phase 18 note:** all code, workflows, and docs for deployment are in place;
 the remaining steps require the account owner (Neon project, Vercel project,
 Render blueprint, Alpaca Broker Dashboard sandbox signup + secrets) — see

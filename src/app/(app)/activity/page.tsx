@@ -47,6 +47,7 @@ export default function ActivityPage() {
                 <div>{e.description}</div>
                 <div className="muted" style={{ fontSize: "var(--text-xs)" }}>
                   {TYPE_LABEL[e.type] ?? e.type} · {formatDateTime(e.createdAt)}
+                  {e.archived ? <span className="badge"> archived account</span> : null}
                 </div>
               </div>
               <PriceChange amount={e.amount} />

@@ -92,6 +92,7 @@ export interface LedgerEntryDto {
   type: string;
   amount: string;
   description: string;
+  archived: boolean;
   createdAt: string;
 }
 

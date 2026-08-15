@@ -1,0 +1,27 @@
+name: Production migration
+
+# The explicit, approval-gated release step for schema changes
+# (docs/architecture/DATA_MODEL.md): never automatic on cold start. Protect
+# the `production` GitHub environment with required reviewers so every run
+# needs a human approval; destructive migrations additionally follow the
+# `-- destructive:` sign-off rule before they ever reach main.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production # approval gate: add required reviewers to this environment
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Apply migrations to production
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: pnpm db:migrate

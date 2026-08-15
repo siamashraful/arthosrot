@@ -128,6 +128,96 @@ describe("reconciliation engine", () => {
     expect(after.reservedCash).toBe("0.00");
   });
 
+  it("P0 regression: same execution under a different event envelope mutates NOTHING", async () => {
+    const userId = await newUser("recon-dup@example.com");
+    const c = getContainer();
+    const account = (await c.accountService.getActiveForUser(userId))!;
+    const instrument = await c.instrumentService.getOrRegister("AAPL");
+    const placed = await c.ordersService.place({
+      account,
+      instrument,
+      side: "BUY",
+      type: "LIMIT",
+      qty: Qty.of(10),
+      limitPrice: Px.fromString("210.0000"),
+      refPrice: null,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    const ref = (await getDb().transaction(() =>
+      getContainer().accountService.getActiveForUser(userId),
+    ))!;
+
+    // Stream delivers a PARTIAL fill (4 of 10) for execution exec-dup-1.
+    const streamFill = {
+      type: "ORDER_PARTIALLY_FILLED" as const,
+      broker: "DETERMINISTIC" as const,
+      brokerAccountId: `det-acct-${ref.id}`,
+      brokerOrderId: "det-manual-1",
+      clientOrderId: placed.order.id,
+      externalEventId: "stream-evt-dup-1",
+      executionId: "exec-dup-1",
+      fillQty: Qty.of(4),
+      fillPrice: Px.fromString("209.0000"),
+      occurredAt: new Date(),
+    };
+    await c.executionService.onBrokerEvent(streamFill);
+
+    const snapshotRow = async () => {
+      const [o] = await getDb()
+        .select()
+        .from(schema.orders)
+        .where(eq(schema.orders.id, placed.order.id));
+      const [a] = await getDb()
+        .select()
+        .from(schema.accounts)
+        .where(eq(schema.accounts.id, account.id));
+      const fills = await getDb()
+        .select()
+        .from(schema.fills)
+        .where(eq(schema.fills.orderId, placed.order.id));
+      const entries = await getDb()
+        .select()
+        .from(schema.ledgerEntries)
+        .where(eq(schema.ledgerEntries.accountId, account.id));
+      const positions = await getDb()
+        .select()
+        .from(schema.positions)
+        .where(eq(schema.positions.accountId, account.id));
+      return {
+        state: o!.state,
+        filledQty: o!.filledQty,
+        reservedCash: o!.reservedCash,
+        fillCount: fills.length,
+        cash: a!.cashBalance,
+        ledgerCount: entries.length,
+        positionQty: positions[0]?.qty ?? 0n,
+      };
+    };
+
+    const before = await snapshotRow();
+    expect(before.state).toBe("PARTIALLY_FILLED");
+    expect(before.filledQty).toBe(4n);
+    expect(before.fillCount).toBe(1);
+
+    // REST reconciliation replays the SAME execution under a DIFFERENT
+    // envelope id (recon-*). Nothing — order, reservation, fills, cash,
+    // ledger, position — may change.
+    await c.executionService.onBrokerEvent({
+      ...streamFill,
+      externalEventId: "recon-exec-dup-1",
+    });
+
+    const after = await snapshotRow();
+    expect(after).toEqual(before);
+
+    // And the audit trail gained no transition rows for the duplicate.
+    const events = await getDb()
+      .select()
+      .from(schema.orderEvents)
+      .where(eq(schema.orderEvents.orderId, placed.order.id));
+    expect(events.filter((e) => e.externalEventId === "recon-exec-dup-1")).toHaveLength(0);
+  });
+
   it("marks broker accounts HEALTHY after a clean pass", async () => {
     const userId = await newUser("recon4@example.com");
     const c = getContainer();

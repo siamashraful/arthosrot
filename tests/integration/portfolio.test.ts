@@ -4,7 +4,7 @@ import { Px, Qty } from "@/core/money";
 import { closeDb, getDb, schema } from "@/infra/db";
 import { getAuth } from "@/server/auth";
 import { getContainer, resetContainerForTests } from "@/server/container";
-import { getPortfolio, resetAccount } from "@/server/api/portfolio";
+import { getLedger, getPortfolio, resetAccount } from "@/server/api/portfolio";
 import { truncateAll } from "./helpers";
 
 async function newUser(email: string) {
@@ -83,6 +83,50 @@ describe("portfolio & reset", () => {
     expect(pos.costBasisTotal).toBe("1200.6000");
   });
 
+  it("reset heals a lost cancellation via reconciliation before archiving", async () => {
+    const { userId } = await newUser("reset-race@example.com");
+    const session = { userId, email: "reset-race@example.com", name: "T" };
+    const c = getContainer();
+    const account = (await c.accountService.getActiveForUser(userId))!;
+    const instrument = await c.instrumentService.getOrRegister("AAPL");
+    const placed = await c.ordersService.place({
+      account,
+      instrument,
+      side: "BUY",
+      type: "LIMIT",
+      qty: Qty.of(5),
+      limitPrice: Px.fromString("150.0000"),
+      refPrice: null,
+      idempotencyKey: crypto.randomUUID(),
+    });
+    await c.executionService.submit(placed.order.id);
+
+    // The stream goes deaf: the venue will confirm the cancel, but the live
+    // event never reaches us. Reset's timeout->reconcile path must import the
+    // terminal outcome BEFORE archiving (never archive with unresolved orders).
+    c.deterministicBroker!.muteEvents(true);
+
+    const result = (await resetAccount(
+      new Request("http://test.local/api/v1/account/reset", {
+        method: "POST",
+        body: JSON.stringify({ confirm: "RESET" }),
+      }),
+      session,
+    )) as { account: { id: string } };
+
+    expect(result.account.id).not.toBe(account.id);
+    const [oldOrder] = await getDb()
+      .select()
+      .from(schema.orders)
+      .where(eq(schema.orders.id, placed.order.id));
+    expect(oldOrder!.state).toBe("CANCELLED"); // imported by reconciliation
+    const [oldAccount] = await getDb()
+      .select()
+      .from(schema.accounts)
+      .where(eq(schema.accounts.id, account.id));
+    expect(oldAccount!.status).toBe("ARCHIVED");
+  }, 20_000);
+
   it("reset cancels open orders, archives everything, and provisions fresh (invariant 14)", async () => {
     const { userId } = await newUser("reset@example.com");
     const session = { userId, email: "reset@example.com", name: "T" };
@@ -136,5 +180,12 @@ describe("portfolio & reset", () => {
     await trade(userId, "BUY", 1);
     const view = (await getPortfolio(session)) as { positions: unknown[] };
     expect(view.positions).toHaveLength(1);
+
+    // Archived history stays visible in Activity (the Settings promise).
+    const ledger = (await getLedger(new Request("http://test.local/api/v1/ledger"), session)) as {
+      entries: Array<{ archived: boolean; description: string }>;
+    };
+    expect(ledger.entries.some((e) => e.archived)).toBe(true);
+    expect(ledger.entries.some((e) => !e.archived)).toBe(true);
   });
 });

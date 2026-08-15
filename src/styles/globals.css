@@ -530,3 +530,47 @@ dialog.sheet::backdrop {
     grid-template-columns: 1fr;
   }
 }
+
+/* < md: compact top app bar (brand + search + settings) */
+.mobile-top-bar {
+  display: none;
+}
+@media (max-width: 767px) {
+  .mobile-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-2) var(--space-4);
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    position: sticky;
+    top: 0;
+    z-index: var(--z-sticky);
+  }
+}
+
+/* Ticket container: docked >= lg, Trade button + bottom sheet below */
+.ticket-mobile {
+  display: none;
+}
+@media (max-width: 1023px) {
+  .ticket-docked {
+    display: none;
+  }
+  .ticket-mobile {
+    display: block;
+  }
+}
+
+/* Touch targets: 44px minimum on coarse pointers (ACCESSIBILITY.md) */
+@media (pointer: coarse) {
+  .btn,
+  .input,
+  .select,
+  .segmented button {
+    min-height: 44px;
+  }
+  .nav-link {
+    min-height: 44px;
+  }
+}

@@ -38,7 +38,7 @@
 | --------------------------- | ------ | ----------------------------------------------------------------------------- |
 | `GET /api/health/live`      | web    | Process responds; no dependency checks                                        |
 | `GET /api/health/ready`     | web    | DB reachable                                                                  |
-| `GET /healthz`              | worker | Process + DB + cursor freshness                                               |
+| `GET /healthz`              | worker | DB reachable (503 otherwise); stale event/reconcile activity degrades status  |
 | `POST /reconcile`           | worker | CRON_SECRET-guarded reconciliation trigger                                    |
 | `GET /api/v1/system/status` | web    | Cached pipeline/provider health for the UI banner — never spends vendor calls |
 

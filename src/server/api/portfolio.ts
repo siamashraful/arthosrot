@@ -49,9 +49,10 @@ export async function getPortfolio(session: SessionInfo): Promise<unknown> {
 export async function getLedger(request: Request, session: SessionInfo): Promise<unknown> {
   const url = new URL(request.url);
   const before = url.searchParams.get("before") ?? undefined;
-  const account = await requireActiveAccount(session);
+  // Full history across ALL of the user's accounts — resets archive accounts
+  // but their ledger stays visible here (invariant 14; Settings promises it).
   const entries = await pgTransactionRunner.run((tx) =>
-    ledgerRepository.listForAccount(tx, account.id, 50, before),
+    ledgerRepository.listForUser(tx, session.userId, 50, before),
   );
   return {
     entries: entries.map((e) => ({
@@ -61,6 +62,7 @@ export async function getLedger(request: Request, session: SessionInfo): Promise
       description: e.description,
       refType: e.refType,
       refId: e.refId,
+      archived: e.accountArchived,
       createdAt: e.createdAt.toISOString(),
     })),
   };
@@ -112,21 +114,50 @@ export async function removeWatchlistItem(itemId: string, session: SessionInfo):
 const resetSchema = z.object({ confirm: z.literal("RESET") });
 
 /**
- * Account reset: cancel eligible open orders at the venue, then archive and
- * re-provision (history preserved, invariant 14).
+ * Account reset — an explicit workflow that REFUSES to archive while any
+ * order is unresolved (a cancel-vs-fill race must never land fills on an
+ * archived account):
+ *   1. request cancellation of every cancellable open order at the venue;
+ *   2. await terminal outcomes (bounded wait — the venue may fill instead);
+ *   3. on timeout, run reconciliation once to import missed outcomes;
+ *   4. archive + re-provision ONLY when nothing remains open, else 409.
  */
 export async function resetAccount(request: Request, session: SessionInfo): Promise<unknown> {
   resetSchema.parse(await request.json());
   const account = await requireActiveAccount(session);
   const c = getContainer();
 
-  const open = await pgTransactionRunner.run((tx) => c.ordersService.list(tx, account.id, true));
-  for (const order of open) {
-    if (order.state === "PENDING_SUBMISSION") continue; // nothing at the venue yet
+  const listOpen = () =>
+    pgTransactionRunner.run((tx) => c.ordersService.list(tx, account.id, true));
+
+  for (const order of await listOpen()) {
+    if (order.state === "PENDING_SUBMISSION" || order.state === "CANCEL_PENDING") continue;
     await pgTransactionRunner.run((tx) =>
       c.ordersService.requestCancel(tx, order.id, systemClock.now()),
     );
     await c.executionService.requestVenueCancel(order.id);
+  }
+
+  // Bounded wait for terminal venue outcomes (deterministic venue: immediate).
+  let open = await listOpen();
+  for (let attempt = 0; open.length > 0 && attempt < 10; attempt++) {
+    await new Promise((r) => setTimeout(r, 500));
+    open = await listOpen();
+  }
+
+  // Timeout path: reconcile once — imports outcomes the stream missed
+  // (including fills that won the race and dangling submissions).
+  if (open.length > 0) {
+    await c.reconciliationService.reconcileAll();
+    open = await listOpen();
+  }
+
+  if (open.length > 0) {
+    throw new AppError(
+      "CONFLICT",
+      `Reset blocked: ${open.length} order(s) still unresolved at the venue — try again shortly`,
+      { details: { orderIds: open.map((o) => o.id) } },
+    );
   }
 
   const fresh = await c.accountService.archiveAndReprovision(session.userId);

@@ -29,6 +29,12 @@ export interface FillRecord {
 export interface FillsRepository {
   /** Returns false on (broker, execution_id) conflict — duplicate delivery. */
   insert(tx: TxHandle, fill: FillRecord): Promise<boolean>;
+  /** True if this venue execution was already applied (exactly-once gate). */
+  existsByExecutionId(
+    tx: TxHandle,
+    broker: NonNullable<Order["broker"]>,
+    executionId: string,
+  ): Promise<boolean>;
   listForOrder(tx: TxHandle, orderId: string): Promise<FillRecord[]>;
 }
 
@@ -146,6 +152,19 @@ export class ExecutionService {
       const order = await this.lockOrder(tx, event.clientOrderId);
 
       const isFill = event.type === "ORDER_PARTIALLY_FILLED" || event.type === "ORDER_FILLED";
+
+      // Exactly-once gate for fills: the SAME venue execution can arrive under
+      // DIFFERENT event envelopes (stream ULID vs reconciliation-synthesized
+      // id), so the envelope dedupe below is not sufficient — a replayed
+      // execution must be rejected BEFORE any order mutation, or filledQty
+      // drifts from fills/cash/positions. Race-free: the account lock above
+      // serializes all appliers for this account.
+      if (isFill) {
+        invariant(event.executionId, "fill event missing execution id");
+        const applied = await this.fills.existsByExecutionId(tx, event.broker, event.executionId);
+        if (applied) return; // duplicate execution — full no-op (invariant 15)
+      }
+
       const transitioned = await this.orders.applyTransition(tx, order, {
         type: event.type,
         source: "broker",
@@ -187,9 +206,10 @@ export class ExecutionService {
       executionId: event.executionId,
       occurredAt: event.occurredAt,
     });
-    // The order_events unique id already dedupes; this is belt-and-braces
-    // (invariant 10) for reconciliation paths that import fills directly.
-    if (!fresh) return;
+    // The execution-id gate in onBrokerEvent runs before any mutation, under
+    // the account lock — a conflict here means that gate was bypassed. Fail
+    // loudly and roll back rather than committing a half-applied fill.
+    invariant(fresh, `duplicate execution ${event.executionId} slipped past the dedupe gate`);
 
     const fillId = `${event.broker}:${event.executionId}`;
     const position = await this.positions.getForUpdate(tx, order.accountId, order.instrumentId);
