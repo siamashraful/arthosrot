@@ -20,7 +20,13 @@ const envSchema = z.object({
   ALPACA_DATA_KEY: z.string().optional(),
   ALPACA_DATA_SECRET: z.string().optional(),
 
-  STARTING_CASH: z.coerce.number().int().positive().default(100_000),
+  // Onboarding starting-cash bounds (whole dollars). The user picks within
+  // [MIN, MAX] at account creation; DEFAULT seeds the slider. MAX must stay
+  // <= 50_000: the Alpaca sandbox caps transfers at $50k/account/day
+  // (INTEGRATIONS.md, verified against the live sandbox).
+  STARTING_CASH_MIN: z.coerce.number().int().positive().default(1_000),
+  STARTING_CASH_MAX: z.coerce.number().int().positive().max(50_000).default(25_000),
+  STARTING_CASH_DEFAULT: z.coerce.number().int().positive().default(10_000),
   MARKET_BUY_BUFFER: z.coerce.number().min(0).max(0.5).default(0.025),
 
   CRON_SECRET: z.string().min(16).optional(),

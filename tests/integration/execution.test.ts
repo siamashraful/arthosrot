@@ -4,9 +4,8 @@ import { Px, Qty } from "@/core/money";
 import type { Order } from "@/core/orders";
 import { closeDb, getDb, schema } from "@/infra/db";
 import { asTx } from "@/infra/db/tx";
-import { getAuth } from "@/server/auth";
 import { getContainer, resetContainerForTests } from "@/server/container";
-import { truncateAll } from "./helpers";
+import { signupWithAccount, truncateAll } from "./helpers";
 
 /**
  * Execution integration suite against the DeterministicPaperBroker:
@@ -16,12 +15,9 @@ import { truncateAll } from "./helpers";
  */
 
 async function newUserAccount(email: string) {
-  const res = await getAuth().api.signUpEmail({
-    body: { name: "T", email, password: "correct horse 9" },
-  });
-  const account = await getContainer().accountService.getActiveForUser(res.user.id);
-  expect(account).not.toBeNull();
-  return { userId: res.user.id, account: account! };
+  const { userId, account } = await signupWithAccount(email);
+  expect(account.status).toBe("ACTIVE");
+  return { userId, account };
 }
 
 async function place(opts: {

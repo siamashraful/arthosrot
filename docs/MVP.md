@@ -6,7 +6,7 @@
 ## In scope
 
 - Auth: email/password, revocable sessions (Better Auth).
-- Paper account: $100,000 starting cash (env-configurable), provisioned as an **isolated external sandbox brokerage account** per user; account reset via archive-and-recreate (history preserved).
+- Paper account: user-selected starting cash ($1,000–$25,000 slider at onboarding, env-configurable bounds), provisioned as an **isolated external sandbox brokerage account** per user; account reset via archive-and-recreate (history preserved).
 - Instruments: search, detail page, bid/ask/last quotes with freshness labeling, historical candles + chart (1D/1W/1M/3M/1Y/5Y).
 - One watchlist per user.
 - **Market orders (buy/sell)** and **limit orders (buy/sell, DAY)** with a real asynchronous lifecycle: broker acknowledgement, resting, fills, **partial fills handled completely**, cancellation (incl. cancel-vs-fill race), venue-managed DAY expiration.

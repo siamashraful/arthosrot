@@ -76,6 +76,8 @@ export class DeterministicPaperBroker implements Broker {
   private readonly log: CanonicalBrokerEvent[] = [];
   private listeners = new Set<(e: CanonicalBrokerEvent) => Promise<void>>();
   private readonly accountCash = new Map<string, Money>();
+  private readonly heldFunding = new Map<string, Money>();
+  private holdFundingFlag = false;
 
   constructor(
     private readonly clock: Clock,
@@ -101,8 +103,30 @@ export class DeterministicPaperBroker implements Broker {
 
   async provisionAccount(req: ProvisionRequest): Promise<BrokerAccountRef> {
     const externalAccountId = `det-acct-${req.arthosrotAccountId}`;
-    this.accountCash.set(externalAccountId, req.startingCash);
+    if (this.holdFundingFlag) {
+      // Simulates real-venue asynchronous funding (Alpaca ACH stays QUEUED
+      // for minutes): the account exists but reports zero settled cash until
+      // releaseFunding(). Exercises the PROVISIONING -> ACTIVE path in tests.
+      this.accountCash.set(externalAccountId, Money.zero());
+      this.heldFunding.set(externalAccountId, req.startingCash);
+    } else {
+      this.accountCash.set(externalAccountId, req.startingCash);
+    }
     return { broker: this.kind, externalAccountId };
+  }
+
+  /** Test hook: make subsequent provisions fund asynchronously. */
+  holdFunding(hold: boolean): void {
+    this.holdFundingFlag = hold;
+  }
+
+  /** Test hook: settle the held funding for one account (the "ACH lands" moment). */
+  releaseFunding(externalAccountId: string): void {
+    const held = this.heldFunding.get(externalAccountId);
+    if (held) {
+      this.accountCash.set(externalAccountId, held);
+      this.heldFunding.delete(externalAccountId);
+    }
   }
 
   async submit(req: BrokerOrderRequest): Promise<SubmitResult> {

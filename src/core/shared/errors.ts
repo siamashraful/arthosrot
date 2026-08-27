@@ -24,7 +24,9 @@ export type DomainSubcode =
   | "STALE_QUOTE"
   | "INVALID_STATE_TRANSITION"
   | "ORDER_NOT_CANCELLABLE"
-  | "ACCOUNT_NOT_ACTIVE";
+  | "ACCOUNT_NOT_ACTIVE"
+  | "INVALID_STARTING_CASH"
+  | "ACCOUNT_EXISTS";
 
 export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   VALIDATION: 422,

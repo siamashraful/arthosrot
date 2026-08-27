@@ -3,9 +3,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { Px, Qty } from "@/core/money";
 import { closeDb, getDb, schema } from "@/infra/db";
 import { asTx } from "@/infra/db/tx";
-import { getAuth } from "@/server/auth";
 import { getContainer, resetContainerForTests } from "@/server/container";
-import { truncateAll } from "./helpers";
+import { signupWithAccount, truncateAll } from "./helpers";
 
 /**
  * Reconciliation scenarios (EXECUTION.md testing contract): stream loss,
@@ -13,10 +12,8 @@ import { truncateAll } from "./helpers";
  */
 
 async function newUser(email: string) {
-  const res = await getAuth().api.signUpEmail({
-    body: { name: "T", email, password: "correct horse 9" },
-  });
-  return res.user.id;
+  const { userId } = await signupWithAccount(email);
+  return userId;
 }
 
 async function placeLimit(userId: string, qty: number, limitPrice: string) {

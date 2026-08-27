@@ -116,8 +116,18 @@ export const api = {
   me: () =>
     request<{
       user: { name: string; email: string };
-      account: { cash: string; status: string } | null;
+      account: { cash: string; status: string; startingCash: string } | null;
+      onboarding: {
+        minStartingCash: number;
+        maxStartingCash: number;
+        defaultStartingCash: number;
+      };
     }>("/api/v1/me"),
+  provisionAccount: (startingCash: number) =>
+    request<{ account: { id: string; status: string; cash: string } }>(
+      "/api/v1/account/provision",
+      { method: "POST", body: JSON.stringify({ startingCash }) },
+    ),
   searchInstruments: (query: string) =>
     request<{ instruments: Array<{ symbol: string; name: string; exchange: string }> }>(
       `/api/v1/instruments?query=${encodeURIComponent(query)}`,

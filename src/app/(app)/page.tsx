@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { OnboardingPanel } from "@/components/onboarding";
 import { OrdersTable } from "@/components/finance/OrdersTable";
 import { Money } from "@/components/finance/Money";
 import { PriceChange } from "@/components/finance/PriceChange";
@@ -9,16 +10,44 @@ import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
 
 export default function DashboardPage() {
+  // Account gate: no account yet (or still provisioning) renders onboarding.
+  // While PROVISIONING the me-poll doubles as the activation check — the
+  // server tries to activate on every read once venue funding settles.
+  const { data: me, isPending: mePending } = useQuery({
+    queryKey: ["me"],
+    queryFn: api.me,
+    refetchInterval: (query) =>
+      query.state.data?.account?.status === "PROVISIONING" ? 4_000 : false,
+  });
+  const accountActive = me?.account?.status === "ACTIVE";
+
   const { data: portfolio, isPending } = useQuery({
     queryKey: ["portfolio"],
     queryFn: api.portfolio,
     refetchInterval: 30_000,
+    enabled: accountActive,
   });
   const { data: watchlist } = useQuery({
     queryKey: ["watchlist"],
     queryFn: api.watchlist,
     refetchInterval: 15_000,
+    enabled: accountActive,
   });
+
+  if (!mePending && me && !accountActive) {
+    const status =
+      me.account === null
+        ? ("NONE" as const)
+        : (me.account.status as "PROVISIONING" | "PROVISIONING_FAILED");
+    return (
+      <div style={{ display: "grid", gap: "var(--space-5)" }}>
+        <header>
+          <h1 style={{ fontSize: "var(--text-xl)" }}>Dashboard</h1>
+        </header>
+        <OnboardingPanel status={status} bounds={me.onboarding} />
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "grid", gap: "var(--space-5)" }}>

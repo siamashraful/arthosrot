@@ -16,7 +16,7 @@
 1. Public GitHub repo.
 2. **Neon:** create project; `main` branch = prod DB; enable the GitHub integration for preview branches. No keep-alive pings — Neon is allowed to sleep; cold starts are absorbed by loading states.
 3. **Alpaca:** create the free Broker Dashboard sandbox team (broker-app.alpaca.markets/sign-up) → sandbox key/secret. Separately create a free Trading API account → market-data key/secret (IEX feed).
-4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH=100000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
+4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH_MIN=1000`, `STARTING_CASH_MAX=25000`, `STARTING_CASH_DEFAULT=10000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
 5. **Render:** create the worker from `render.yaml` (free plan); set the `sync: false` env vars (same values as Vercel where shared).
 6. **GitHub Actions secrets:** `WORKER_URL`, `CRON_SECRET` (for reconcile.yml); Alpaca sandbox creds for external-smoke.yml.
 7. Verify this document from scratch — if a step surprised you, fix the doc in the same PR.

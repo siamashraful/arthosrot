@@ -1,0 +1,2 @@
+DROP INDEX "accounts_one_active_per_user";--> statement-breakpoint
+CREATE UNIQUE INDEX "accounts_one_open_per_user" ON "accounts" USING btree ("user_id") WHERE "accounts"."status" IN ('PROVISIONING', 'ACTIVE');

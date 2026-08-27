@@ -49,9 +49,16 @@ async function startIngestion(): Promise<void> {
 }
 
 async function runReconciliation(): Promise<unknown> {
-  const result = await getContainer().reconciliationService.reconcileAll();
+  const c = getContainer();
+  // Activate accounts whose venue funding has settled since the last pass —
+  // the fallback for users who are not polling while their ACH lands.
+  const provisioning = await c.accountService.activatePendingAccounts();
+  if (provisioning.checked > 0) {
+    console.log(JSON.stringify({ msg: "provisioning sweep", ...provisioning }));
+  }
+  const result = await c.reconciliationService.reconcileAll();
   lastReconcileAt = new Date();
-  return result;
+  return { ...(result as object), provisioning };
 }
 
 function main(): void {

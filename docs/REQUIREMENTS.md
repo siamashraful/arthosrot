@@ -15,7 +15,7 @@
 ## Functional requirements
 
 - **FR-1 Identity:** email+password signup (zxcvbn ≥ 3), signin/signout, persistent revocable sessions.
-- **FR-2 Account:** signup triggers async provisioning: local account (PROVISIONING) → sandbox brokerage account (synthetic KYC) → simulated funding to STARTING_CASH → ACTIVE + DEPOSIT ledger entry. Reset = cancel eligible open orders → archive account (history immutable) → provision fresh local + broker account.
+- **FR-2 Account:** after signup the user chooses their starting cash (STARTING_CASH_MIN–STARTING_CASH_MAX, default STARTING_CASH_DEFAULT) on the onboarding panel, which triggers async provisioning: local account (PROVISIONING) → sandbox brokerage account (synthetic KYC) → simulated funding → **activation only when the venue reports the cash settled** (venue funding is asynchronous) → ACTIVE + DEPOSIT ledger entry posted at activation. The user's own polling and the worker sweep both drive activation idempotently. Reset = cancel eligible open orders → archive account (history immutable) → provision fresh local + broker account (same starting cash).
 - **FR-3 Instruments:** search by symbol/name; detail page with name, exchange, quote, chart.
 - **FR-4 Quotes:** bid/bidSize/ask/askSize/last + timestamp + market status + feed label. Never render a price without freshness context.
 - **FR-5 Charts:** 1D/1W/1M/3M/1Y/5Y candles; explicit missing-data states.

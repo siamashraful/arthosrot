@@ -25,6 +25,15 @@ async function openTicket(page: import("@playwright/test").Page) {
 
 const email = () => `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
 
+/** Onboarding (FR-2): pick starting cash on the slider, open the account. */
+async function openAccount(page: import("@playwright/test").Page, amount?: number) {
+  const slider = page.getByLabel("Starting cash");
+  await expect(slider).toBeVisible({ timeout: 15_000 });
+  if (amount !== undefined) await slider.fill(String(amount));
+  await page.getByRole("button", { name: "Open practice account" }).click();
+  await expect(page.getByText("Portfolio value")).toBeVisible({ timeout: 15_000 });
+}
+
 async function expectNoSeriousA11yViolations(page: import("@playwright/test").Page) {
   const results = await new AxeBuilder({ page }).analyze();
   const serious = results.violations.filter(
@@ -41,9 +50,14 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
   await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
   await page.getByRole("button", { name: "Create account" }).click();
 
+  // Onboarding: the user picks starting cash (default $10,000) — the account
+  // is NOT auto-provisioned at signup.
+  await expect(page.getByRole("heading", { name: "Open your practice account" })).toBeVisible();
+  await expectNoSeriousA11yViolations(page);
+  await openAccount(page);
+
   // Dashboard: provisioned account with the persistent paper badge.
-  await expect(page.getByText("Portfolio value")).toBeVisible();
-  await expect(page.getByText("$100,000.00").first()).toBeVisible();
+  await expect(page.getByText("$10,000.00").first()).toBeVisible();
   await expect(page.getByRole("note", { name: "Simulation notice" })).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
@@ -95,7 +109,8 @@ test("resting limit order can be cancelled and releases buying power", async ({ 
   await page.getByLabel("Email").fill(email());
   await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
   await page.getByRole("button", { name: "Create account" }).click();
-  await expect(page.getByText("Portfolio value")).toBeVisible();
+  // Onboarding with a slider-chosen amount (max of the range).
+  await openAccount(page, 25_000);
 
   // Non-marketable limit buy: 10 @ 150 (fixture last = 200).
   await page.goto("/i/AAPL");

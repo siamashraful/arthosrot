@@ -2,16 +2,13 @@ import { eq } from "drizzle-orm";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { Px, Qty } from "@/core/money";
 import { closeDb, getDb, schema } from "@/infra/db";
-import { getAuth } from "@/server/auth";
 import { getContainer, resetContainerForTests } from "@/server/container";
 import { getLedger, getPortfolio, resetAccount } from "@/server/api/portfolio";
-import { truncateAll } from "./helpers";
+import { signupWithAccount, truncateAll } from "./helpers";
 
 async function newUser(email: string) {
-  const res = await getAuth().api.signUpEmail({
-    body: { name: "T", email, password: "correct horse 9" },
-  });
-  return { userId: res.user.id, email: res.user.email };
+  const { userId } = await signupWithAccount(email);
+  return { userId, email };
 }
 
 async function trade(userId: string, side: "BUY" | "SELL", qty: number, type = "MARKET" as const) {

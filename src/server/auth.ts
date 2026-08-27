@@ -66,23 +66,9 @@ function buildAuth() {
           }
         }),
       },
-      databaseHooks: {
-        user: {
-          create: {
-            after: async (user) => {
-              // Signup provisions the paper account (FR-2). Import lazily to
-              // avoid a module cycle (container -> ... -> auth).
-              const { getContainer } = await import("./container");
-              const { Money } = await import("@/core/money");
-              const { STARTING_CASH } = env();
-              await getContainer().accountService.openPaperAccount(
-                user.id,
-                Money.fromString(`${STARTING_CASH}.00`),
-              );
-            },
-          },
-        },
-      },
+      // NOTE: signup deliberately does NOT provision an account. The user
+      // picks their starting cash on the onboarding panel, which calls
+      // POST /api/v1/account/provision (FR-2).
       advanced: {
         useSecureCookies: NODE_ENV === "production",
       },

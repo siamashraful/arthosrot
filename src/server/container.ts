@@ -100,6 +100,8 @@ function build(): Container {
         arthosrotAccountId: account.id,
         startingCash: account.startingCash,
       }),
+    // Venue-settled cash gates activation (async ACH funding — INTEGRATIONS.md).
+    settledCash: async (ref) => (await broker.getAccountSnapshot(ref.externalAccountId)).cash,
   };
 
   /* eslint-disable prefer-const */

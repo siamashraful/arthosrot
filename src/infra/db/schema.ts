@@ -138,9 +138,12 @@ export const accounts = pgTable(
   },
   (t) => [
     check("accounts_mode_paper_only", sql`${t.mode} = 'PAPER'`),
-    uniqueIndex("accounts_one_active_per_user")
+    // One OPEN account per user: covers PROVISIONING as well as ACTIVE so a
+    // double-submitted onboarding cannot create two venue accounts racing to
+    // activate (PROVISIONING_FAILED and ARCHIVED stay retryable/historical).
+    uniqueIndex("accounts_one_open_per_user")
       .on(t.userId)
-      .where(sql`${t.status} = 'ACTIVE'`),
+      .where(sql`${t.status} IN ('PROVISIONING', 'ACTIVE')`),
     index("accounts_user_id_idx").on(t.userId),
   ],
 );

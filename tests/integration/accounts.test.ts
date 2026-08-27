@@ -3,22 +3,21 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { Money } from "@/core/money";
 import { closeDb, getDb, schema } from "@/infra/db";
 import { asTx } from "@/infra/db/tx";
-import { getAuth } from "@/server/auth";
 import { getContainer } from "@/server/container";
-import { truncateAll } from "./helpers";
+import { signupWithAccount, truncateAll } from "./helpers";
 
 describe("account provisioning & ledger (invariant 6)", () => {
   beforeEach(truncateAll);
   afterAll(closeDb);
 
   async function signUpUser(email: string): Promise<string> {
-    const res = await getAuth().api.signUpEmail({
-      body: { name: "Test", email, password: "correct horse 9" },
-    });
-    return res.user.id;
+    // Signup no longer auto-provisions (FR-2: user-chosen starting cash);
+    // provision explicitly, as the onboarding endpoint does.
+    const { userId } = await signupWithAccount(email);
+    return userId;
   }
 
-  it("signup opens an ACTIVE paper account with the opening DEPOSIT (counted once)", async () => {
+  it("provisioning opens an ACTIVE paper account with the opening DEPOSIT (counted once)", async () => {
     const userId = await signUpUser("a@example.com");
     const account = await getContainer().accountService.getActiveForUser(userId);
 

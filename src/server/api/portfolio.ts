@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { Money } from "@/core/money";
 import { AppError, systemClock } from "@/core/shared";
+import { env } from "@/env";
 import { ledgerRepository } from "@/infra/db/repositories/ledger";
 import { watchlistsRepository } from "@/infra/db/repositories/watchlists";
 import { pgTransactionRunner } from "@/infra/db/tx";
@@ -19,7 +21,16 @@ async function requireActiveAccount(session: SessionInfo) {
 }
 
 export async function getMe(session: SessionInfo): Promise<unknown> {
-  const account = await getContainer().accountService.getActiveForUser(session.userId);
+  const svc = getContainer().accountService;
+  let account = await svc.getCurrentForUser(session.userId);
+  // The user's own polling drives activation: venue funding settles minutes
+  // after provisioning (async ACH), and this check is what flips the account
+  // ACTIVE the moment the venue reports the cash. Idempotent + lock-guarded,
+  // so concurrent polls / the worker sweep cannot double-post the DEPOSIT.
+  if (account?.status === "PROVISIONING") {
+    account = await svc.tryActivate(account.id);
+  }
+  const { STARTING_CASH_MIN, STARTING_CASH_MAX, STARTING_CASH_DEFAULT } = env();
   return {
     user: { id: session.userId, email: session.email, name: session.name },
     account: account
@@ -32,7 +43,70 @@ export async function getMe(session: SessionInfo): Promise<unknown> {
           startingCash: account.startingCash.toString(),
         }
       : null,
+    onboarding: {
+      minStartingCash: STARTING_CASH_MIN,
+      maxStartingCash: STARTING_CASH_MAX,
+      defaultStartingCash: STARTING_CASH_DEFAULT,
+    },
   };
+}
+
+const provisionSchema = z.object({ startingCash: z.number().int() });
+
+/**
+ * Onboarding: create the paper account with the user's chosen starting cash
+ * (slider, FR-2). May return status PROVISIONING — venue funding is
+ * asynchronous and the DEPOSIT only posts at activation.
+ */
+export async function provisionAccount(request: Request, session: SessionInfo): Promise<unknown> {
+  const { startingCash } = provisionSchema.parse(await request.json());
+  const { STARTING_CASH_MIN, STARTING_CASH_MAX } = env();
+  if (startingCash < STARTING_CASH_MIN || startingCash > STARTING_CASH_MAX) {
+    throw new AppError(
+      "VALIDATION",
+      `Starting cash must be between $${STARTING_CASH_MIN.toLocaleString("en-US")} and $${STARTING_CASH_MAX.toLocaleString("en-US")}`,
+      { subcode: "INVALID_STARTING_CASH" },
+    );
+  }
+
+  const svc = getContainer().accountService;
+  const current = await svc.getCurrentForUser(session.userId);
+  if (current && current.status !== "PROVISIONING_FAILED") {
+    throw new AppError("CONFLICT", "You already have an account", {
+      subcode: "ACCOUNT_EXISTS",
+    });
+  }
+
+  try {
+    const account = await svc.openPaperAccount(
+      session.userId,
+      Money.fromString(`${startingCash}.00`),
+    );
+    return {
+      account: {
+        id: account.id,
+        status: account.status,
+        cash: account.cashBalance.toString(),
+        startingCash: account.startingCash.toString(),
+      },
+    };
+  } catch (err) {
+    // Unique partial index (one OPEN account per user) catches the
+    // double-submit race the check above cannot. Drizzle wraps the pg error,
+    // so walk the cause chain for the unique-violation SQLSTATE.
+    const isUniqueViolation = (e: unknown): boolean => {
+      for (let cur = e; cur && typeof cur === "object"; cur = (cur as { cause?: unknown }).cause) {
+        if ((cur as { code?: unknown }).code === "23505") return true;
+      }
+      return false;
+    };
+    if (isUniqueViolation(err)) {
+      throw new AppError("CONFLICT", "Account setup is already in progress", {
+        subcode: "ACCOUNT_EXISTS",
+      });
+    }
+    throw err;
+  }
 }
 
 export async function getPortfolio(session: SessionInfo): Promise<unknown> {

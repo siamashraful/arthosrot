@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import type { Account, AccountsRepository, AccountStatus, BrokerAccountRef } from "@/core/accounts";
 import { Money } from "@/core/money";
 import { invariant, type TxHandle } from "@/core/shared";
@@ -46,6 +46,26 @@ export const accountsRepository: AccountsRepository = {
       .from(schema.accounts)
       .where(and(eq(schema.accounts.userId, userId), eq(schema.accounts.status, "ACTIVE")));
     return row ? toAccount(row) : null;
+  },
+
+  async getCurrentForUser(tx: TxHandle, userId: string): Promise<Account | null> {
+    // Latest non-ARCHIVED account: the one the user is currently living in,
+    // whatever its provisioning state.
+    const [row] = await asDb(tx)
+      .select()
+      .from(schema.accounts)
+      .where(and(eq(schema.accounts.userId, userId), ne(schema.accounts.status, "ARCHIVED")))
+      .orderBy(desc(schema.accounts.createdAt))
+      .limit(1);
+    return row ? toAccount(row) : null;
+  },
+
+  async listProvisioningIds(tx: TxHandle): Promise<string[]> {
+    const rows = await asDb(tx)
+      .select({ id: schema.accounts.id })
+      .from(schema.accounts)
+      .where(eq(schema.accounts.status, "PROVISIONING"));
+    return rows.map((r) => r.id);
   },
 
   async lockForUpdate(tx: TxHandle, id: string): Promise<Account> {

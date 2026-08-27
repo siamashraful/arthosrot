@@ -574,3 +574,18 @@ dialog.sheet::backdrop {
     min-height: 44px;
   }
 }
+
+/* ------------------------------------------------------------- onboarding */
+
+.onboarding-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+}
+
+.onboarding-card input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  min-height: 32px; /* comfortable touch target; coarse-pointer rule adds more */
+}
