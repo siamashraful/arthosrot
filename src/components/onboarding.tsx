@@ -41,8 +41,9 @@ export function OnboardingPanel({
           Setting up your account
         </h2>
         <p className="muted" style={{ margin: 0, maxWidth: "48ch" }}>
-          Your opening deposit is on its way to the trading venue. This usually takes a few minutes
-          — this page updates by itself, and you can safely leave and come back.
+          Your opening deposit is on its way to the trading venue — simulated bank transfers take
+          about 10–30 minutes to clear. This page updates by itself, and you can safely leave and
+          come back.
         </p>
       </section>
     );

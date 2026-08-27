@@ -105,10 +105,20 @@ export class AlpacaPaperBroker implements Broker {
           signed_at: new Date().toISOString(),
           ip_address: "127.0.0.1",
         },
+        {
+          // Sandbox accounts are margin-type; WITHOUT this agreement the
+          // orders endpoint returns an unhandled HTTP 500 on every submit
+          // (verified live: with it, the venue responds properly). Arthosrot
+          // still enforces cash-only semantics in its own pre-trade checks.
+          agreement: "margin_agreement",
+          signed_at: new Date().toISOString(),
+          ip_address: "127.0.0.1",
+        },
       ],
     });
 
-    // Sandbox instant funding: simulated ACH relationship + incoming transfer.
+    // Simulated ACH relationship + incoming transfer (settles in 10-30 min —
+    // INTEGRATIONS.md; activation waits via AccountProvisioner.settledCash).
     const { body: rel } = await this.request<{ id: string }>(
       "POST",
       `/v1/accounts/${account.id}/ach_relationships`,
