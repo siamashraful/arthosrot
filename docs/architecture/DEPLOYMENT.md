@@ -11,6 +11,15 @@
 | preview    | Vercel preview per PR | — (not needed)    | Neon preview branch (GH integration) | deterministic + fixture                          |
 | production | Vercel Hobby          | Render Free       | Neon main branch                     | alpaca-paper + alpaca                            |
 
+## Live deployment (2026-08-27)
+
+| Piece      | Where                                                                                                                                    |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Web        | https://arthosrot.vercel.app (Vercel project `arthosrot`, CLI-deployed; Git integration optional later)                                  |
+| Worker     | https://arthosrot-worker.onrender.com (Render `arthosrot-worker`, virginia, auto-deploys `main`)                                         |
+| DB         | Neon project `arthosrot` (us-east-2), pooled URL at runtime, unpooled for migrations                                                     |
+| GH secrets | `CRON_SECRET`, `WORKER_URL`, `PRODUCTION_DATABASE_URL`, `ALPACA_BROKER_KEY/SECRET` set; `production` environment created for migrate.yml |
+
 ## One-time setup (production)
 
 1. Public GitHub repo.
