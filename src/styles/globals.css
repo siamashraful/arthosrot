@@ -1,5 +1,16 @@
 @import "./tokens.css";
 
+/* Anek Latin (Ek Type, OFL) — variable: wght 100-800, wdth 75-125. Latin only
+   at runtime; the Bengali wordmark ships as outlined SVG (never live text —
+   BRAND.md §7), and --font-bn falls back to system Bengali faces. */
+@font-face {
+  font-family: "Anek Latin";
+  src: url("/fonts/AnekLatin-var.woff2") format("woff2");
+  font-weight: 100 800;
+  font-stretch: 75% 125%;
+  font-display: swap;
+}
+
 /*
  * Global styles (docs/design/DESIGN_SYSTEM.md). Components reference tokens
  * only — raw colors/spacing/z literals in components are review-blocking.
@@ -18,12 +29,7 @@ body {
   min-height: 100%;
   background: var(--bg);
   color: var(--ink);
-  font-family:
-    "Inter Variable",
-    ui-sans-serif,
-    system-ui,
-    -apple-system,
-    sans-serif;
+  font-family: var(--font-ui);
   font-size: var(--text-base);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -92,6 +98,29 @@ a.btn {
 }
 .loss {
   color: var(--loss);
+}
+
+/* ---------------------------------------------------------------- brand */
+
+/* The lockup/mark render via mask so one currentColor serves both themes.
+   The Bengali line is outlined vector inside the SVG — never re-set as text. */
+.brand-lockup,
+.brand-mark {
+  display: inline-block;
+  background-color: currentColor;
+  mask-repeat: no-repeat;
+  mask-size: contain;
+  mask-position: left center;
+}
+.brand-lockup {
+  mask-image: url("/brand/lockup-horizontal.svg");
+  aspect-ratio: 585.9 / 152.6;
+  height: 34px;
+}
+.brand-mark {
+  mask-image: url("/brand/mark.svg");
+  aspect-ratio: 1;
+  height: 32px;
 }
 
 /* ---------------------------------------------------------------- shell */
@@ -433,11 +462,78 @@ a.btn {
   border-bottom: 1px solid var(--border);
 }
 
+/* ---------------------------------------------------- the dyed field */
+
+/* One dyed panel per screen, owning a whole region (colour law 3). The warp
+   is a real drawn layer on the loom pitch; --warp-opacity is reserved as the
+   future account-mode signal (BRAND.md §5) — do not restyle it away. */
+.field-panel {
+  position: relative;
+  background: var(--field);
+  color: var(--on-field);
+  border-radius: var(--radius-panel);
+  padding: var(--space-5);
+  overflow: hidden;
+}
+.field-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--warp-opacity);
+  background-image: repeating-linear-gradient(
+    90deg,
+    var(--field-thread) 0,
+    var(--field-thread) var(--warp-width),
+    transparent var(--warp-width),
+    transparent var(--warp-pitch)
+  );
+  pointer-events: none;
+}
+.field-panel > * {
+  position: relative; /* content above the warp layer */
+}
+.field-panel .field-label {
+  color: var(--field-muted);
+}
+.field-panel .muted {
+  color: var(--field-muted);
+}
+.field-panel .gain {
+  color: var(--gain-on-field);
+}
+.field-panel .loss {
+  color: var(--loss-on-field);
+}
+/* controls that sit ON the cloth: chalk on dye, never dye on dye */
+.field-panel .btn-primary {
+  background: var(--on-field);
+  color: var(--field);
+}
+.field-panel .btn-primary:hover:not(:disabled) {
+  background: var(--field-muted);
+}
+.field-panel input[type="range"] {
+  accent-color: var(--on-field);
+}
+
 /* ---------------------------------------------------------------- auth */
 
+.auth-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-6);
+  padding-top: var(--space-7);
+}
+.auth-brand {
+  height: 44px;
+  color: var(--ink);
+}
+
 .auth-card {
+  width: 100%;
   max-width: 24rem;
-  margin: 4rem auto;
+  margin: 0 auto 4rem;
   padding: 0 var(--space-5);
 }
 .auth-card form {
@@ -578,14 +674,12 @@ dialog.sheet::backdrop {
 /* ------------------------------------------------------------- onboarding */
 
 .onboarding-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: var(--space-5);
+  /* the dyed field carries onboarding — see .field-panel; this only keeps
+     the slider affordance sized for touch */
 }
 
 .onboarding-card input[type="range"] {
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--on-field); /* chalk on the dyed cloth */
   min-height: 32px; /* comfortable touch target; coarse-pointer rule adds more */
 }

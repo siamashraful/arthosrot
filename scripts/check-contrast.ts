@@ -66,6 +66,11 @@ const CHECKS: Array<[string, string, number]> = [
   ["gain", "bg", 3], // large/emphasized financial figures + badges
   ["loss", "bg", 4.5], // loss doubles as error text
   ["warning", "bg", 3],
+  // the dyed field is a dark surface in BOTH themes — its own pairs
+  ["on-field", "field", 7],
+  ["field-muted", "field", 4.5],
+  ["gain-on-field", "field", 3],
+  ["loss-on-field", "field", 4.5],
 ];
 
 let failed = false;

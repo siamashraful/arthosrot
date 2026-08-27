@@ -36,7 +36,7 @@ export function OnboardingPanel({
 
   if (status === "PROVISIONING") {
     return (
-      <section aria-label="Account setup" className="onboarding-card" role="status">
+      <section aria-label="Account setup" className="field-panel onboarding-card" role="status">
         <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-2)" }}>
           Setting up your account
         </h2>
@@ -50,7 +50,7 @@ export function OnboardingPanel({
   }
 
   return (
-    <section aria-label="Open your practice account" className="onboarding-card">
+    <section aria-label="Open your practice account" className="field-panel onboarding-card">
       <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-2)" }}>
         Open your practice account
       </h2>
@@ -60,7 +60,7 @@ export function OnboardingPanel({
       </p>
 
       {status === "PROVISIONING_FAILED" ? (
-        <p role="alert" style={{ color: "var(--loss)", marginTop: 0 }}>
+        <p role="alert" className="loss" style={{ marginTop: 0 }}>
           Account setup failed at the trading venue. Nothing was created — try again.
         </p>
       ) : null}
@@ -103,7 +103,7 @@ export function OnboardingPanel({
           </button>
         </div>
         {provision.isError ? (
-          <p role="alert" style={{ color: "var(--loss)", margin: 0 }}>
+          <p role="alert" className="loss" style={{ margin: 0 }}>
             {provision.error instanceof ApiError
               ? provision.error.message
               : "Something went wrong — try again."}

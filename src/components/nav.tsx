@@ -29,7 +29,9 @@ export function SidebarNav() {
   const pathname = usePathname();
   return (
     <nav className="shell-nav" aria-label="Primary">
-      <div className="shell-brand">Arthosrot</div>
+      <Link href="/" className="shell-brand" aria-label="Arthosrot — dashboard">
+        <span className="brand-lockup" role="img" aria-label="Arthosrot · অর্থস্রোত" />
+      </Link>
       {links(pathname)}
       <Link
         href="/settings"
@@ -62,8 +64,18 @@ export function MobileTopBar() {
   const pathname = usePathname();
   return (
     <header className="mobile-top-bar">
-      <Link href="/" className="shell-brand" style={{ margin: 0, padding: 0 }}>
-        Arthosrot
+      <Link
+        href="/"
+        className="shell-brand"
+        style={{ margin: 0, padding: 0 }}
+        aria-label="Arthosrot — dashboard"
+      >
+        <span
+          className="brand-lockup"
+          style={{ height: 26 }}
+          role="img"
+          aria-label="Arthosrot · অর্থস্রোত"
+        />
       </Link>
       <div style={{ display: "flex", gap: "var(--space-1)" }}>
         <Link

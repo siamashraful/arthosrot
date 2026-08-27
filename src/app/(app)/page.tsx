@@ -60,7 +60,7 @@ export default function DashboardPage() {
       ) : (
         <section
           aria-label="Account summary"
-          className="tabular"
+          className="field-panel tabular"
           style={{
             display: "flex",
             flexWrap: "wrap",

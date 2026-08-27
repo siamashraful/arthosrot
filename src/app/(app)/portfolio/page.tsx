@@ -30,7 +30,7 @@ export default function PortfolioPage() {
 
       <section
         aria-label="Summary"
-        className="tabular"
+        className="field-panel tabular"
         style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-5) var(--space-7)" }}
       >
         <div>

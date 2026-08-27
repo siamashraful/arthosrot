@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+<style>
+  .w{fill:#33566b}.p{fill:#0c2a38}
+  @media (prefers-color-scheme: dark){.w{fill:#5b7d90}.p{fill:#e8f2f6}}
+</style>
+<g class="w"><rect x="7.9" y="4.5" width="2.2" height="23"/><rect x="14.9" y="4.5" width="2.2" height="23"/><rect x="21.9" y="4.5" width="2.2" height="23"/></g><g class="p"><rect x="4" y="5" width="3.4" height="4"/><rect x="10.6" y="5" width="3.8" height="4"/><rect x="17.6" y="5" width="3.8" height="4"/><rect x="24.6" y="5" width="3.4" height="4"/><rect x="4" y="11" width="24" height="4"/><rect x="4" y="17" width="3.4" height="4"/><rect x="10.6" y="17" width="3.8" height="4"/><rect x="17.6" y="17" width="3.8" height="4"/><rect x="24.6" y="17" width="3.4" height="4"/><rect x="4" y="23" width="16" height="4"/></g>
+</svg>
