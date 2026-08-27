@@ -1,4 +1,4 @@
-import { eq, ilike, or, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import type { Instrument, InstrumentsRepository } from "@/core/instruments";
 import type { InstrumentSummary } from "@/core/market-data";
 import { invariant, type TxHandle } from "@/core/shared";
@@ -49,16 +49,27 @@ export const instrumentsRepository: InstrumentsRepository = {
   },
 
   async search(tx: TxHandle, query: string, limit: number): Promise<Instrument[]> {
+    // Rank: exact symbol, then symbol prefix, then name substring — a user
+    // typing an exact ticker must see it first, not wherever the alphabet
+    // lands it in 13k instruments. INACTIVE (delisted) symbols never surface.
+    const upper = query.toUpperCase();
     const rows = await asDb(tx)
       .select()
       .from(schema.instruments)
       .where(
-        or(
-          ilike(schema.instruments.symbol, `${query}%`),
-          ilike(schema.instruments.name, `%${query}%`),
+        and(
+          eq(schema.instruments.status, "ACTIVE"),
+          or(
+            ilike(schema.instruments.symbol, `${query}%`),
+            ilike(schema.instruments.name, `%${query}%`),
+          ),
         ),
       )
-      .orderBy(schema.instruments.symbol)
+      .orderBy(
+        sql`(${schema.instruments.symbol} = ${upper}) DESC`,
+        sql`(${schema.instruments.symbol} ILIKE ${`${query}%`}) DESC`,
+        schema.instruments.symbol,
+      )
       .limit(limit);
     return rows.map(toInstrument);
   },
