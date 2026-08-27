@@ -306,6 +306,7 @@ a.btn {
 }
 
 .badge {
+  animation: reed-beat var(--dur-fast) var(--ease-out);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -362,6 +363,11 @@ a.btn {
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+}
+.segmented button {
+  transition:
+    background var(--dur-fast) var(--ease-out),
+    color var(--dur-fast) var(--ease-out);
 }
 .segmented button[aria-pressed="true"] {
   background: var(--accent);
@@ -422,23 +428,61 @@ a.btn {
 }
 
 .empty-state {
+  position: relative;
   padding: var(--space-6);
   text-align: center;
   color: var(--ink-muted);
-  border: 1px dashed var(--border-strong);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
+}
+.empty-state::before {
+  content: "";
+  display: block;
+  width: 28px;
+  height: 28px;
+  margin: 0 auto var(--space-3);
+  background-color: var(--border-strong);
+  mask: url("/brand/mark-compact.svg") no-repeat center / contain;
 }
 
 .skeleton {
-  background: var(--surface-2);
+  background:
+    linear-gradient(90deg, transparent 0 40%, var(--border) 50%, transparent 60% 100%) 0 0 / 200px
+      100% repeat-x,
+    var(--surface-2);
   border-radius: var(--radius-sm);
-  animation: pulse 1.4s ease-in-out infinite;
+  animation: warp-sweep 1.4s linear infinite;
   color: transparent;
   user-select: none;
 }
-@keyframes pulse {
-  50% {
-    opacity: 0.55;
+/* the reed's beat (BRAND.md §8): snap in with a ≤2px overshoot, settle.
+   Felt, not watched. Never an opacity fade between order states. */
+@keyframes reed-beat {
+  0% {
+    transform: translateY(2px);
+  }
+  70% {
+    transform: translateY(-1px);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+@keyframes reed-lay {
+  from {
+    transform: scaleX(0.4);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* skeleton: the warp shimmer — one hairline sweep, not an opacity throb */
+@keyframes warp-sweep {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
   }
 }
 
@@ -502,6 +546,73 @@ a.btn {
 }
 .field-panel input[type="range"] {
   accent-color: var(--on-field);
+}
+
+/* ------------------------------------------------------------ weave-fill */
+
+/* Fill progress in the loom's grammar: hairline warp, laid picks. Caption
+   scale — annotates the n/n text, never competes with it. */
+.weave-fill {
+  display: inline-block;
+  width: 72px;
+  height: 8px;
+  vertical-align: middle;
+}
+.weave-fill .weave-warp {
+  fill: var(--border);
+}
+.weave-fill .weave-pick {
+  fill: currentColor;
+  opacity: 0.75;
+}
+.weave-fill .weave-pick-fresh {
+  animation: reed-lay var(--dur-base) var(--ease-out);
+  transform-origin: left center;
+}
+
+/* ------------------------------------------------------------- explainer */
+
+/* In-place teaching: quiet disclosure, collapsed by default. The marker is
+   a small woven square in the warp grammar, not the default triangle. */
+.explainer {
+  font-size: var(--text-sm);
+}
+.explainer summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink-muted);
+  cursor: pointer;
+  list-style: none;
+  border-radius: var(--radius-sm);
+}
+.explainer summary::-webkit-details-marker {
+  display: none;
+}
+.explainer summary::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  transition: background var(--dur-fast) var(--ease-out);
+}
+.explainer[open] summary::before {
+  background: var(--ink-muted);
+}
+.explainer summary:hover {
+  color: var(--ink);
+}
+.explainer > p {
+  margin: var(--space-2) 0 0;
+  padding-left: calc(7px + var(--space-2) + 2px);
+  color: var(--ink-muted);
+  max-width: 52ch;
+  line-height: 1.55;
+}
+.field-panel .explainer summary,
+.field-panel .explainer > p {
+  color: var(--field-muted);
 }
 
 /* ---------------------------------------------------------------- auth */
@@ -570,6 +681,9 @@ a.btn {
 
 /* ---------------------------------------------------------------- ticket sheet */
 
+dialog.sheet[open] {
+  animation: reed-beat var(--dur-base) var(--ease-out);
+}
 dialog.sheet {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -663,6 +777,56 @@ dialog.sheet::backdrop {
 
 .onboarding-card input[type="range"] {
   width: 100%;
-  accent-color: var(--on-field); /* chalk on the dyed cloth */
+  accent-color: var(--on-field); /* fallback where the pseudo-elements are unsupported */
   min-height: 32px; /* comfortable touch target; coarse-pointer rule adds more */
+}
+/* the loom slider: warp-hairline track, laid-weft fill (--fill-pct set by
+   the component), chalk shuttle for a thumb */
+.onboarding-card input[type="range"] {
+  appearance: none;
+  background: none;
+}
+.onboarding-card input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--on-field) var(--fill-pct, 50%),
+    var(--field-thread) var(--fill-pct, 50%)
+  );
+}
+.onboarding-card input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 22px;
+  height: 14px;
+  margin-top: -5.5px;
+  border-radius: 3px;
+  border: none;
+  background: var(--on-field);
+  box-shadow: 0 1px 3px oklch(0 0 0 / 0.35);
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.onboarding-card input[type="range"]:active::-webkit-slider-thumb {
+  transform: scale(1.08);
+}
+.onboarding-card input[type="range"]::-moz-range-track {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--field-thread);
+}
+.onboarding-card input[type="range"]::-moz-range-progress {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--on-field);
+}
+.onboarding-card input[type="range"]::-moz-range-thumb {
+  width: 22px;
+  height: 14px;
+  border-radius: 3px;
+  border: none;
+  background: var(--on-field);
+}
+.onboarding-card input[type="range"]:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 4px;
 }

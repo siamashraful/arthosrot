@@ -13,5 +13,11 @@ const TONE: Record<string, string> = {
 };
 
 export function OrderStatusBadge({ state, display }: { state: string; display: string }) {
-  return <span className={TONE[state] ?? "badge"}>{display}</span>;
+  // key={state}: a state change remounts the span, playing the reed's beat
+  // exactly once per transition — states snap, they never fade (BRAND.md §8).
+  return (
+    <span key={state} className={TONE[state] ?? "badge"}>
+      {display}
+    </span>
+  );
 }

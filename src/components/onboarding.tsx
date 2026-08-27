@@ -84,6 +84,12 @@ export function OnboardingPanel({
           aria-valuetext={dollars(amount)}
           onChange={(e) => setAmount(Number(e.target.value))}
           disabled={provision.isPending}
+          style={
+            {
+              // laid-weft fill for the custom webkit track (see globals.css)
+              "--fill-pct": `${((amount - bounds.minStartingCash) / (bounds.maxStartingCash - bounds.minStartingCash)) * 100}%`,
+            } as React.CSSProperties
+          }
         />
         <div
           className="muted tabular"

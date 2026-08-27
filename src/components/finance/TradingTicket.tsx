@@ -4,7 +4,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useId, useMemo, useState } from "react";
 import { api, ApiError, type QuoteDto } from "@/lib/api";
 import { formatMoney, formatPrice } from "@/lib/format";
+import { Explainer } from "../Explainer";
 import { OrderStatusBadge } from "./OrderStatusBadge";
+import { WeaveFill } from "./WeaveFill";
 
 /**
  * The trading ticket (docs/design/UX_PATTERNS.md): labeled Buy/Sell segmented
@@ -131,6 +133,7 @@ export function TradingTicket({
               ? `Buying power ${formatMoney(buyingPower)}`
               : `Sellable ${sellable} shares`}
           </span>
+          {side === "BUY" ? <Explainer topic="buying-power" /> : null}
         </div>
 
         {type === "LIMIT" ? (
@@ -239,19 +242,23 @@ function PlacedOrderChip({ orderId }: { orderId: string }) {
   if (!data) return <div className="skeleton" style={{ height: 24 }} />;
   const { order } = data;
   return (
-    <div
-      aria-live="polite"
-      style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}
-    >
-      <OrderStatusBadge state={order.state} display={order.stateDisplay} />
-      <span className="tabular" style={{ fontSize: "var(--text-sm)" }}>
-        {order.side === "BUY" ? "Buy" : "Sell"} {order.filledQty}/{order.qty} {order.symbol}
-      </span>
-      {order.rejectReason ? (
-        <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
-          {order.rejectReason}
+    <div style={{ display: "grid", gap: "var(--space-2)" }}>
+      <div
+        aria-live="polite"
+        style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}
+      >
+        <OrderStatusBadge state={order.state} display={order.stateDisplay} />
+        <WeaveFill filledQty={order.filledQty} qty={order.qty} />
+        <span className="tabular" style={{ fontSize: "var(--text-sm)" }}>
+          {order.side === "BUY" ? "Buy" : "Sell"} {order.filledQty}/{order.qty} {order.symbol}
         </span>
-      ) : null}
+        {order.rejectReason ? (
+          <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
+            {order.rejectReason}
+          </span>
+        ) : null}
+      </div>
+      {order.state === "PARTIALLY_FILLED" ? <Explainer topic="partial-fill" /> : null}
     </div>
   );
 }
