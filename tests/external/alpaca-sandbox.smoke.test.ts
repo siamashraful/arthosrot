@@ -19,7 +19,7 @@ describe.skipIf(!enabled)("Alpaca sandbox smoke", () => {
     const broker = new AlpacaPaperBroker(KEY!, SECRET!);
 
     const ref = await broker.provisionAccount({
-      ledgerlineAccountId: crypto.randomUUID(),
+      arthosrotAccountId: crypto.randomUUID(),
       startingCash: Money.fromString("100000.00"),
     });
     expect(ref.broker).toBe("ALPACA_PAPER");

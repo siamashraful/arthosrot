@@ -5,7 +5,7 @@
 
 ## Assumptions
 
-1. US-listed equities; whole shares; long-only, cash-account semantics **enforced by Ledgerline pre-trade checks** (the sandbox opens limited-purpose margin accounts; our stricter rules mean margin/short orders are never submitted).
+1. US-listed equities; whole shares; long-only, cash-account semantics **enforced by Arthosrot pre-trade checks** (the sandbox opens limited-purpose margin accounts; our stricter rules mean margin/short orders are never submitted).
 2. One ACTIVE paper account per user; archived accounts accumulate on reset.
 3. Regular session only (`extended_hours=false`); venue queuing behavior applies to after-hours submissions and is surfaced, not re-implemented.
 4. Alpaca Broker API **Sandbox** is the deployed venue (free, self-serve, real prices/market hours, simulated execution). Its dev/test framing is a documented risk with exit paths (LIMITATIONS.md, INTEGRATIONS.md).

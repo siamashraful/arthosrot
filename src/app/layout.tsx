@@ -3,7 +3,7 @@ import "@fontsource-variable/inter";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Ledgerline — paper trading",
+  title: "Arthosrot — paper trading",
   description:
     "Paper-trading platform. Simulated money only — not real trading or investment advice.",
 };

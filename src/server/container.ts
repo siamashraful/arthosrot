@@ -97,7 +97,7 @@ function build(): Container {
   const provisioner: AccountProvisioner = {
     provision: (account) =>
       broker.provisionAccount({
-        ledgerlineAccountId: account.id,
+        arthosrotAccountId: account.id,
         startingCash: account.startingCash,
       }),
   };

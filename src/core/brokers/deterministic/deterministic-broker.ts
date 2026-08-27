@@ -100,7 +100,7 @@ export class DeterministicPaperBroker implements Broker {
   }
 
   async provisionAccount(req: ProvisionRequest): Promise<BrokerAccountRef> {
-    const externalAccountId = `det-acct-${req.ledgerlineAccountId}`;
+    const externalAccountId = `det-acct-${req.arthosrotAccountId}`;
     this.accountCash.set(externalAccountId, req.startingCash);
     return { broker: this.kind, externalAccountId };
   }

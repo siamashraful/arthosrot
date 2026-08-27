@@ -5,7 +5,7 @@ import { eventsFromSnapshot, translateTradeEvent } from "@/infra/brokers/alpaca"
 
 const base = {
   account_id: "acct-1",
-  order: { id: "bo-1", client_order_id: "ledgerline-order-1", status: "new" },
+  order: { id: "bo-1", client_order_id: "arthosrot-order-1", status: "new" },
 };
 
 describe("Alpaca trade-event translation", () => {
@@ -28,7 +28,7 @@ describe("Alpaca trade-event translation", () => {
       });
       expect(event.type).toBe(canonical);
       expect(event.externalEventId).toBe(`01ULID${vendor}`);
-      expect(event.clientOrderId).toBe("ledgerline-order-1");
+      expect(event.clientOrderId).toBe("arthosrot-order-1");
     }
   });
 

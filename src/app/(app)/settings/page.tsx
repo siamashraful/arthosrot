@@ -102,7 +102,7 @@ export default function SettingsPage() {
       <section id="data" aria-label="Data limitations" className="card">
         <h2 style={{ fontSize: "var(--text-md)" }}>About this data</h2>
         <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
-          Ledgerline is a paper-trading simulation. Displayed quotes come from a limited feed (IEX
+          Arthosrot is a paper-trading simulation. Displayed quotes come from a limited feed (IEX
           via Alpaca where configured) and may differ from consolidated market data and from
           simulated execution prices. There is no real market impact, queue position, or settlement.
           Nothing here is investment advice. Full details in the repository's LIMITATIONS document.

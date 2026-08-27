@@ -30,8 +30,8 @@ export default function SignUpPage() {
     <main className="auth-card">
       <h1>Create account</h1>
       <p className="auth-note">
-        Ledgerline is a paper-trading platform. Accounts hold <strong>simulated money only</strong>{" "}
-        — nothing here is real trading or investment advice.
+        Arthosrot is a paper-trading platform. Accounts hold <strong>simulated money only</strong> —
+        nothing here is real trading or investment advice.
       </p>
       <form onSubmit={onSubmit}>
         <label>

@@ -1,4 +1,4 @@
-# Ledgerline
+# Arthosrot
 
 A paper-trading platform for US equities that behaves like a credible modern brokerage: users get an isolated simulated brokerage account with $100,000, search instruments, view bid/ask/last quotes and charts, place **market and limit orders** with a real asynchronous order lifecycle (acknowledgement, fills, partial fills, cancellation, expiration), and track positions, P&L, and an immutable transaction ledger. Simulated money only — the UI says so persistently.
 
@@ -7,10 +7,10 @@ A paper-trading platform for US equities that behaves like a credible modern bro
 ## Architecture in ten lines
 
 - Modular monolith in one TypeScript repo, **two deployables from the same codebase**: the Next.js web app (UI + REST `/api/v1`) and a small event/reconciliation **worker**.
-- All business logic lives in framework-free [`src/core`](src/core) behind explicit module boundaries (lint-enforced). PostgreSQL is Ledgerline's system of record.
+- All business logic lives in framework-free [`src/core`](src/core) behind explicit module boundaries (lint-enforced). PostgreSQL is Arthosrot's system of record.
 - Execution goes through a canonical **Broker port**: deployed venue is the **Alpaca Broker API Sandbox** (one isolated sandbox brokerage account per user; broker-managed limit matching and fills), while tests/CI/local use a **DeterministicPaperBroker** implementing the identical contract.
 - The worker consumes the broker's **replayable SSE event stream**, translates vendor events into canonical BrokerEvents, and applies them transactionally (order state, fills, ledger, positions, cash). A REST **reconciliation engine** heals missed events exactly-once.
-- Market data is a separate **MarketDataProvider port** (free Alpaca IEX feed + deterministic fixtures). The broker is authoritative for execution facts; Ledgerline's append-only ledger is the authoritative financial history.
+- Market data is a separate **MarketDataProvider port** (free Alpaca IEX feed + deterministic fixtures). The broker is authoritative for execution facts; Arthosrot's append-only ledger is the authoritative financial history.
 
 ```
 Browser ──▶ Next.js (Vercel) ──▶ core services ──▶ Postgres (Neon)
@@ -30,7 +30,7 @@ Full picture: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE
 ## Quick start
 
 ```bash
-git clone <repo-url> ledgerline && cd ledgerline
+git clone <repo-url> arthosrot && cd arthosrot
 pnpm install
 cp .env.example .env.local
 pnpm dev            # web app on http://localhost:3000

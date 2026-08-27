@@ -9,7 +9,7 @@
 interface Broker {
   readonly kind: "DETERMINISTIC" | "ALPACA_PAPER"; // live kinds post-MVP
   provisionAccount(req: ProvisionRequest): Promise<BrokerAccountRef>; // create + fund venue account
-  submit(req: BrokerOrderRequest): Promise<SubmitResult>; // req carries clientOrderId (= Ledgerline order id)
+  submit(req: BrokerOrderRequest): Promise<SubmitResult>; // req carries clientOrderId (= Arthosrot order id)
   cancel(ref: BrokerOrderRef): Promise<CancelResult>;
   getOrder(ref: BrokerOrderRef): Promise<BrokerOrderSnapshot>;
   listOpenOrders(acct: BrokerAccountRef): Promise<BrokerOrderSnapshot[]>;
@@ -76,8 +76,8 @@ Every transition is audit-logged to `order_events`. Cancellation of a partially 
 ## Idempotency chain
 
 1. **Client → API:** UUIDv4 `idempotencyKey` per ticket; `UNIQUE(account_id, idempotency_key)`; insert-first, conflict returns the original order (200).
-2. **API → venue:** `client_order_id` = Ledgerline order UUID; the venue rejects duplicates (409) → adapter fetches the existing venue order by client id and continues.
-3. **Venue → Ledgerline:** unique `external_event_id` (ULID) and `execution_id` indexes make event application replay-safe — the same fill via SSE and again via REST reconciliation produces one financial effect.
+2. **API → venue:** `client_order_id` = Arthosrot order UUID; the venue rejects duplicates (409) → adapter fetches the existing venue order by client id and continues.
+3. **Venue → Arthosrot:** unique `external_event_id` (ULID) and `execution_id` indexes make event application replay-safe — the same fill via SSE and again via REST reconciliation produces one financial effect.
 4. **Cancel:** naturally idempotent.
 
 ## Concurrency

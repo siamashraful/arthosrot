@@ -15,7 +15,7 @@
 
 **Rationale:** D satisfies every mandatory requirement; the deterministic broker was needed for testing under any option, so its cost is not marginal to this decision. Verified facts (research 2026-08): sandbox signup is free/self-serve with "unlimited sandbox testing"; `/v2/events/trades` SSE replays via `since_ulid`; duplicate `client_order_id` → 409; rate limit ~1,000 req/min.
 
-**The honest limitation:** the sandbox is contractually a development/testing environment — indefinite public use is a gray zone and sandbox data isn't guaranteed durable. Absorbed deliberately: Ledgerline's ledger + canonical events are the durable record (sandbox state is disposable); the deterministic broker is a same-contract fallback venue; graduation (production Broker API relationship or another broker) is an adapter swap, not a rearchitecture.
+**The honest limitation:** the sandbox is contractually a development/testing environment — indefinite public use is a gray zone and sandbox data isn't guaranteed durable. Absorbed deliberately: Arthosrot's ledger + canonical events are the durable record (sandbox state is disposable); the deterministic broker is a same-contract fallback venue; graduation (production Broker API relationship or another broker) is an adapter swap, not a rearchitecture.
 
 **Consequences:** requires the worker + reconciliation machinery (ADR-010, EXECUTION.md); synthetic-KYC rule (SECURITY.md); external tests isolated from CI.
 

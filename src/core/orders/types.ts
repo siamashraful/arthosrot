@@ -96,7 +96,7 @@ export interface CanonicalBrokerEvent {
   broker: BrokerKindId;
   brokerAccountId: string;
   brokerOrderId: string | null;
-  /** = Ledgerline order id (venue-level idempotency key). */
+  /** = Arthosrot order id (venue-level idempotency key). */
   clientOrderId: string;
   /** Stable per-event id (ULID at Alpaca); null for local/synthesized events. */
   externalEventId: string | null;

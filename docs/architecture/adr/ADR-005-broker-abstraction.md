@@ -8,7 +8,7 @@
 
 1. One `Broker` port (provision/submit/cancel/getOrder/listOpenOrders/getAccountSnapshot/subscribe) — asynchronous-shaped; fills arrive as events, never as submit() return values.
 2. **Canonical BrokerEvents** (ACKNOWLEDGED/ACCEPTED/PARTIALLY_FILLED/FILLED/CANCEL_PENDING/CANCELLED/REJECTED/EXPIRED/REPLACED-reserved/UNKNOWN_VENDOR_STATUS) with stable external ids; adapters translate vendor payloads; vendor types never leave `infra/brokers/<vendor>`.
-3. **Authority split:** the broker owns execution facts (acceptance, fills, prices, cancellation, expiration); Ledgerline owns identity, mapping, canonical event history, ledger, projections, presentation. Disagreement → import missing events idempotently; never overwrite history from snapshots.
+3. **Authority split:** the broker owns execution facts (acceptance, fills, prices, cancellation, expiration); Arthosrot owns identity, mapping, canonical event history, ledger, projections, presentation. Disagreement → import missing events idempotently; never overwrite history from snapshots.
 4. **Unknown vendor status:** persist as UNKNOWN event, no state transition, flag `needs_attention`, reconciliation ERROR, error log. Safe by default.
 5. Every implementation passes the same **Broker compliance suite**; the state machine lives in the domain (`applyTransition`), not in DB triggers.
 

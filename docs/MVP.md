@@ -33,7 +33,7 @@ Real-money trading · options, margin, shorting, crypto, forex, futures · fract
 
 | #   | Decision                                                                                | Status                                  |
 | --- | --------------------------------------------------------------------------------------- | --------------------------------------- |
-| 1   | Product/repo name ("Ledgerline" is a placeholder)                                       | Open                                    |
+| 1   | Product/repo name ("Arthosrot" is a placeholder)                                        | Open                                    |
 | 2   | Password reset at MVP (needs email — Resend free tier) vs deferred                      | Open — decide before auth phase ends    |
 | 3   | Vercel Hobby non-commercial ToS comfort (Cloudflare exit documented)                    | Open                                    |
 | 4   | Public vs private repo (public recommended: free CI, portfolio value)                   | Open                                    |

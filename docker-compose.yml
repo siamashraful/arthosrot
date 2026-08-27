@@ -4,15 +4,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: ledgerline
-      POSTGRES_PASSWORD: ledgerline
-      POSTGRES_DB: ledgerline
+      POSTGRES_USER: arthosrot
+      POSTGRES_PASSWORD: arthosrot
+      POSTGRES_DB: arthosrot
     ports:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ledgerline"]
+      test: ["CMD-SHELL", "pg_isready -U arthosrot"]
       interval: 5s
       timeout: 3s
       retries: 10

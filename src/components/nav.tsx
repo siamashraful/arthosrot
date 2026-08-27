@@ -29,7 +29,7 @@ export function SidebarNav() {
   const pathname = usePathname();
   return (
     <nav className="shell-nav" aria-label="Primary">
-      <div className="shell-brand">Ledgerline</div>
+      <div className="shell-brand">Arthosrot</div>
       {links(pathname)}
       <Link
         href="/settings"
@@ -63,7 +63,7 @@ export function MobileTopBar() {
   return (
     <header className="mobile-top-bar">
       <Link href="/" className="shell-brand" style={{ margin: 0, padding: 0 }}>
-        Ledgerline
+        Arthosrot
       </Link>
       <div style={{ display: "flex", gap: "var(--space-1)" }}>
         <Link

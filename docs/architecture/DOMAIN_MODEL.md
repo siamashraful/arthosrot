@@ -6,8 +6,8 @@
 ## Glossary
 
 - **User** — an authenticated identity.
-- **Account** — a Ledgerline trading account owned by a user; `mode` PAPER; lifecycle PROVISIONING → ACTIVE → ARCHIVED (or PROVISIONING_FAILED). One ACTIVE per user; resets archive and re-provision.
-- **Broker account** — the external venue account mapped 1:1 to a Ledgerline account (`broker_accounts`), carrying reconciliation health fields.
+- **Account** — a Arthosrot trading account owned by a user; `mode` PAPER; lifecycle PROVISIONING → ACTIVE → ARCHIVED (or PROVISIONING_FAILED). One ACTIVE per user; resets archive and re-provision.
+- **Broker account** — the external venue account mapped 1:1 to a Arthosrot account (`broker_accounts`), carrying reconciliation health fields.
 - **Instrument** — a tradable US equity (symbol, name, exchange, status).
 - **Quote** — `{bid, bidSize, ask, askSize, last, ts, source, marketStatus}` — always timestamped; never "current" without qualification.
 - **Order** — an instruction to trade: side (BUY/SELL), type (MARKET/LIMIT), qty (whole shares), limit price, time-in-force (DAY), state (EXECUTION.md), idempotency key, venue ids.
@@ -17,7 +17,7 @@
 - **Sellable quantity** — position qty − Σ remaining qty of open SELL orders.
 - **Reservation** — buying power or shares earmarked by an open order's remaining quantity (derived, never stored).
 - **Buying power** — cash projection − Σ active buy reservations.
-- **Ledger entry** — append-only record of a cash movement with type, signed 2dp amount, and cause reference. The ledger is the authoritative Ledgerline financial history.
+- **Ledger entry** — append-only record of a cash movement with type, signed 2dp amount, and cause reference. The ledger is the authoritative Arthosrot financial history.
 - **Cash projection** — `accounts.cash_balance`, a cached value asserted equal to Σ(ledger entries).
 - **Realized P&L** — locked in by sells: proceeds − fees − allocated cost basis (average-cost method).
 - **Unrealized P&L** — (market − avg cost) × qty, always carrying the quote `asOf`.

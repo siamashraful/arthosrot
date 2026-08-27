@@ -10,7 +10,7 @@ A modular monolith in one TypeScript repository producing **two deployables from
 ```
 Browser (React) ── HTTPS ──▶ Next.js on Vercel
    │  pages + /api/v1/*  (adaptive polling for order/portfolio updates)
-   │  server/container.ts → core services → infra/db ──▶ Neon Postgres (Ledgerline system of record)
+   │  server/container.ts → core services → infra/db ──▶ Neon Postgres (Arthosrot system of record)
    │                                    └─ infra/market-data ─▶ Alpaca IEX (cached)
    │  order placement: validate + reserve locally → AlpacaPaperBroker.submit (REST)
    │
@@ -24,18 +24,18 @@ Worker on Render (same codebase)
 GitHub Actions (market hours, ~10 min) ──▶ POST worker /reconcile   # genuine reconciliation; also wakes a slept worker
 ```
 
-No queues, Redis, Kubernetes, or event bus. All Ledgerline state lives in Postgres; the broker's SSE stream is **replayable via ULID cursors**, so worker restarts and free-tier sleeps are safe — missed events are recovered exactly-once. Two deployables is the minimum topology satisfying "broker-pushed events, near-real-time, $0": serverless can't hold an outbound SSE subscription, and a slow scheduler as the primary matching/notification path is rejected by design (ADR-010).
+No queues, Redis, Kubernetes, or event bus. All Arthosrot state lives in Postgres; the broker's SSE stream is **replayable via ULID cursors**, so worker restarts and free-tier sleeps are safe — missed events are recovered exactly-once. Two deployables is the minimum topology satisfying "broker-pushed events, near-real-time, $0": serverless can't hold an outbound SSE subscription, and a slow scheduler as the primary matching/notification path is rejected by design (ADR-010).
 
 ## Authority split (normative)
 
-| Fact                                                                          | Authority                                                    | Ledgerline's role                                                          |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------ | -------------------------------------------------------------------------- |
-| Order acceptance/rejection, fills (qty/price/time), cancellation, expiration  | **Broker**                                                   | Import via canonical events; immutable once recorded                       |
-| Order execution status                                                        | Broker                                                       | Local state = projection of canonical events; converges via reconciliation |
-| Positions, cash, buying power                                                 | **Ledgerline projections** derived from its own ledger/fills | Broker snapshots are a _reconciliation reference_, never blindly copied    |
-| P&L, ledger, canonical event history, identity, account mapping, presentation | **Ledgerline**                                               | Sole owner                                                                 |
+| Fact                                                                          | Authority                                                   | Arthosrot's role                                                           |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------- |
+| Order acceptance/rejection, fills (qty/price/time), cancellation, expiration  | **Broker**                                                  | Import via canonical events; immutable once recorded                       |
+| Order execution status                                                        | Broker                                                      | Local state = projection of canonical events; converges via reconciliation |
+| Positions, cash, buying power                                                 | **Arthosrot projections** derived from its own ledger/fills | Broker snapshots are a _reconciliation reference_, never blindly copied    |
+| P&L, ledger, canonical event history, identity, account mapping, presentation | **Arthosrot**                                               | Sole owner                                                                 |
 
-Disagreement handling: broker execution facts win; Ledgerline discovers missing/extra events, applies them idempotently, logs the discrepancy — it never silently overwrites its history from a snapshot.
+Disagreement handling: broker execution facts win; Arthosrot discovers missing/extra events, applies them idempotently, logs the discrepancy — it never silently overwrites its history from a snapshot.
 
 ## Directory responsibilities
 

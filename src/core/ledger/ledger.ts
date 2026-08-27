@@ -2,7 +2,7 @@ import { Money } from "../money";
 import { invariant, type TxHandle } from "../shared";
 
 /**
- * The append-only ledger is the authoritative Ledgerline record of cash
+ * The append-only ledger is the authoritative Arthosrot record of cash
  * movements (ADR-004). accounts.cash_balance is a cached projection kept in
  * sync by post(); reconcile() asserts invariant 6.
  */

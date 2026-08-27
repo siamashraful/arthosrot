@@ -16,7 +16,7 @@ function makeHarness(): BrokerComplianceHarness {
       fixture.setMarketStatus("OPEN");
       current = new DeterministicPaperBroker(fixedClock, fixture);
       const ref = await current.provisionAccount({
-        ledgerlineAccountId: crypto.randomUUID(),
+        arthosrotAccountId: crypto.randomUUID(),
         startingCash: Money.fromString("100000.00"),
       });
       return { broker: current, brokerAccountId: ref.externalAccountId, symbol: "AAPL" };
@@ -53,7 +53,7 @@ describe("DeterministicPaperBroker id uniqueness (regression)", () => {
       fixture.setMarketStatus("OPEN");
       const broker = new DeterministicPaperBroker(clock, fixture);
       const ref = await broker.provisionAccount({
-        ledgerlineAccountId: crypto.randomUUID(),
+        arthosrotAccountId: crypto.randomUUID(),
         startingCash: Money.fromString("1000.00"),
       });
       const events: string[] = [];

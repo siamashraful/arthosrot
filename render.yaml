@@ -6,7 +6,7 @@
 # missed stream events are recovered exactly-once via the replayable SSE cursor.
 services:
   - type: web
-    name: ledgerline-worker
+    name: arthosrot-worker
     runtime: node
     plan: free
     buildCommand: pnpm install --frozen-lockfile

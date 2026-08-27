@@ -22,7 +22,7 @@ import {
 
 /**
  * AlpacaPaperBroker — the deployed execution venue (ADR-006): one isolated
- * SANDBOX brokerage account per Ledgerline account. The sandbox base URL is a
+ * SANDBOX brokerage account per Arthosrot account. The sandbox base URL is a
  * constant: the production broker-api hostname appears nowhere at MVP
  * (SECURITY.md paper/live isolation). Synthetic KYC only — never real PII.
  *
@@ -72,7 +72,7 @@ export class AlpacaPaperBroker implements Broker {
 
   /** Create + fund a sandbox brokerage account with SYNTHETIC KYC data. */
   async provisionAccount(req: ProvisionRequest): Promise<BrokerAccountRef> {
-    const suffix = req.ledgerlineAccountId.replace(/-/g, "").slice(0, 12);
+    const suffix = req.arthosrotAccountId.replace(/-/g, "").slice(0, 12);
     const { body: account } = await this.request<{ id: string }>("POST", "/v1/accounts", {
       contact: {
         email_address: `paper-${suffix}@example.com`,

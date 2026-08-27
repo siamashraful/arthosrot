@@ -1,6 +1,6 @@
 # Product
 
-> **Purpose:** what Ledgerline is, why it exists, who it serves. Read this first.
+> **Purpose:** what Arthosrot is, why it exists, who it serves. Read this first.
 > **Audience:** anyone entering the repo. **Belongs here:** vision, users, product principles. **Lives elsewhere:** scope (MVP.md), requirements (REQUIREMENTS.md), architecture (architecture/).
 
 ## Vision
@@ -17,7 +17,7 @@ A paper-trading platform that behaves and feels like a credible modern brokerage
 
 1. **Financial correctness outranks everything** — data integrity, then security, then architecture, testability, maintainability, usability, accessibility, performance, extensibility, visual polish, in that order.
 2. **Honesty over illusion.** Simulated money is labeled persistently; data freshness is always visible; execution price is shown separately from displayed quotes; limitations are documented (LIMITATIONS.md), never papered over.
-3. **Realism through a real venue.** Orders execute at an external paper venue with genuine asynchronous lifecycles (acks, resting limit orders, partial fills, expiration) — Ledgerline does not pretend a balance mutation is a trade.
+3. **Realism through a real venue.** Orders execute at an external paper venue with genuine asynchronous lifecycles (acks, resting limit orders, partial fills, expiration) — Arthosrot does not pretend a balance mutation is a trade.
 4. **Credible, restrained design.** Closer to a professional brokerage/institutional analytics product than a gamified app; green/red carry financial meaning only; numbers are the interface.
 5. **$0/month MVP** on reputable free tiers, without sacrificing correctness — every provider is abstracted and replaceable.
 

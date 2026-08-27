@@ -5,7 +5,7 @@ import { env } from "@/env";
 import { getContainer } from "@/server/container";
 
 /**
- * Ledgerline event/reconciliation worker (ADR-010, EXECUTION.md).
+ * Arthosrot event/reconciliation worker (ADR-010, EXECUTION.md).
  *
  * - Consumes the broker's replayable event stream from the persisted cursor
  *   (stream_cursors) and applies canonical events via ExecutionService —

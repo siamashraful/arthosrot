@@ -10,7 +10,7 @@ import type { CanonicalBrokerEvent, OrderSide, OrderType, TimeInForce } from "..
  */
 
 export interface BrokerOrderRequest {
-  /** Ledgerline order id — the venue-level idempotency key (client_order_id). */
+  /** Arthosrot order id — the venue-level idempotency key (client_order_id). */
   clientOrderId: string;
   brokerAccountId: string;
   symbol: string;
@@ -59,7 +59,7 @@ export interface Subscription {
 }
 
 export interface ProvisionRequest {
-  ledgerlineAccountId: string;
+  arthosrotAccountId: string;
   startingCash: Money;
 }
 

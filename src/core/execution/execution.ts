@@ -142,7 +142,7 @@ export class ExecutionService {
     await this.txRunner.run(async (tx) => {
       const preliminary = await this.orders.getById(tx, event.clientOrderId);
       if (!preliminary) {
-        // Event for an order Ledgerline doesn't know — reconciliation surface,
+        // Event for an order Arthosrot doesn't know — reconciliation surface,
         // never silently dropped.
         throw new AppError("INTERNAL", `broker event for unknown order ${event.clientOrderId}`);
       }

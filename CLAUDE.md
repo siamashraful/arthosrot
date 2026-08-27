@@ -1,4 +1,4 @@
-# CLAUDE.md — Ledgerline
+# CLAUDE.md — Arthosrot
 
 Paper-trading platform with external broker-managed execution. Financial correctness outranks everything. Read docs/ROADMAP.md for current state and the feature spec in docs/specs/ before implementing.
 
