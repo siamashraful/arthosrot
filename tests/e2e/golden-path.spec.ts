@@ -50,6 +50,22 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
   await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
   await page.getByRole("button", { name: "Create account" }).click();
 
+  // The brand lockup must actually PAINT — it renders via CSS mask over
+  // currentColor, so a styling regression can leave it invisible while every
+  // text assertion still passes (this happened once; never again).
+  const lockupPainted = await page.locator(".brand-lockup").evaluateAll((els) =>
+    els.some((el) => {
+      const cs = getComputedStyle(el);
+      const mask = cs.maskImage || (cs as unknown as { webkitMaskImage: string }).webkitMaskImage;
+      return (
+        el.getBoundingClientRect().width > 40 &&
+        cs.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+        String(mask).includes("lockup-horizontal")
+      );
+    }),
+  );
+  expect(lockupPainted, "brand lockup is not painting (mask/currentColor)").toBe(true);
+
   // Onboarding: the user picks starting cash (default $10,000) — the account
   // is NOT auto-provisioned at signup.
   await expect(page.getByRole("heading", { name: "Open your practice account" })).toBeVisible();

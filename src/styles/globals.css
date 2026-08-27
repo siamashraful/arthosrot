@@ -102,11 +102,12 @@ a.btn {
 
 /* ---------------------------------------------------------------- brand */
 
-/* The lockup/mark render via mask so one currentColor serves both themes.
+/* The lockup renders via mask so one currentColor serves both themes.
    The Bengali line is outlined vector inside the SVG — never re-set as text. */
-.brand-lockup,
 .brand-lockup {
-  mask-image: url("/brand/lockup-horizontal.svg");
+  display: inline-block;
+  background-color: currentColor;
+  mask: url("/brand/lockup-horizontal.svg") no-repeat left center / contain;
   aspect-ratio: 585.9 / 152.6;
   height: 34px;
 }
