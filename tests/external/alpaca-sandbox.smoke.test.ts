@@ -20,7 +20,11 @@ describe.skipIf(!enabled)("Alpaca sandbox smoke", () => {
 
     const ref = await broker.provisionAccount({
       arthosrotAccountId: crypto.randomUUID(),
-      startingCash: Money.fromString("100000.00"),
+      // The sandbox caps INCOMING transfers at $50,000 per account per day,
+      // so provisioning must stay at or under that ceiling. Verified against
+      // the live sandbox: two separate accounts each funded 50,000 fine, so
+      // the cap is per-account and does not limit how many users we onboard.
+      startingCash: Money.fromString("50000.00"),
     });
     expect(ref.broker).toBe("ALPACA_PAPER");
     expect(ref.externalAccountId).toBeTruthy();

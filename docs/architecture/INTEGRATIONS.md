@@ -13,6 +13,24 @@
 - **Replacement:** any broker adapter passing the compliance suite; DeterministicPaperBroker is a same-contract emergency fallback venue.
 - **Paid trigger:** going live (production Broker API relationship) or sandbox policy change.
 
+### Sandbox funding constraints (verified against the live sandbox, 2026-08-27)
+
+Findings from the first real run of `pnpm test:external`. These are venue
+behaviours that recorded fixtures cannot reproduce:
+
+| Behaviour                                | Detail                                                                                                                                     | Consequence                                                                                                                                                                                                                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Daily transfer cap**                   | `POST /v1/accounts/{id}/transfers` rejects with `40010001 maximum total daily transfer allowed is $50000`.                                 | `STARTING_CASH` must be **<= 50000** in any alpaca-paper deployment.                                                                                                                                                                                                     |
+| Cap is **per account**, not firm-wide    | Two fresh accounts were each funded 50,000 successfully in the same minute.                                                                | Onboarding many users per day is unaffected.                                                                                                                                                                                                                             |
+| **ACH transfers do NOT settle promptly** | A successful (HTTP 200) ACH transfer sits at `status: QUEUED`; the trading account still reports `cash: 0, buying_power: 0` minutes later. | **`provisionAccount()` currently returns as if funded when it is not.** A local account would go ACTIVE with a full DEPOSIT ledger entry against a venue balance of 0 — guaranteed reconciliation drift on every signup, and venue rejections on the user's first order. |
+
+**Open item.** Instant funding needs the Journals API
+(`POST /v1/journals`, `entry_type: JNLC`) moving cash from the firm account to
+the customer account, rather than a simulated ACH relationship. The endpoint
+exists and validates account ids; wiring it requires the firm account id from
+the Broker dashboard (Firm Balance). Until that lands, `alpaca-paper`
+provisioning is not production-ready — see ROADMAP Phase 18.
+
 ## Alpaca Market Data — free IEX feed (display data)
 
 - **Why:** instrument search, bid/ask/last quotes, historical candles.

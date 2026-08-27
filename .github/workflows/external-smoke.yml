@@ -35,4 +35,4 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: DATABASE_URL=$TEST_DATABASE_URL pnpm db:migrate
       - name: External smoke suite (real sandbox)
-        run: pnpm vitest run tests/external --no-file-parallelism
+        run: pnpm test:external
