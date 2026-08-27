@@ -155,7 +155,7 @@ Meaning is never carried by colour alone — always a sign, arrow, or label too.
 
 ### Verification
 
-Every load-bearing pair was computed, not eyeballed — 32 pairs across both themes via this repo's [`scripts/check-contrast.ts`](../../../scripts/check-contrast.ts) against [`tokens.brand.css`](tokens.brand.css), plus 16 mode pairs and 2 perceptual-separation checks.
+Every load-bearing pair was computed, not eyeballed — 32 pairs across both themes via this repo's [`scripts/check-contrast.ts`](../../../scripts/check-contrast.ts) against [`src/styles/tokens.css`](../../../src/styles/tokens.css), plus 16 mode pairs and 2 perceptual-separation checks.
 
 Two real defects were caught by those gates and fixed:
 
@@ -232,7 +232,7 @@ It is right to tell someone they've understood what a limit order does. It is ne
 Nothing here is wired in. In dependency order:
 
 1. Add Anek Latin + Anek Bangla (OFL, self-hosted `woff2`, `font-display: swap`); keep `--font-mono`.
-2. Replace `src/styles/tokens.css` with [`tokens.brand.css`](tokens.brand.css) — it mirrors the existing names, so it's a drop-in — then re-point `scripts/check-contrast.ts` and add the `-on-field` pairs to its `CHECKS`.
+2. Replace `src/styles/tokens.css` with [`src/styles/tokens.css`](../../../src/styles/tokens.css) — it mirrors the existing names, so it's a drop-in — then re-point `scripts/check-contrast.ts` and add the `-on-field` pairs to its `CHECKS`.
 3. Add `--field` panels (dashboard, portfolio summary) and the warp hairline at `--warp-pitch`, driven by `--warp-opacity`.
 4. Copy the SVGs into `public/brand/`, replace the text brand in `src/components/nav.tsx`, set the favicon from `mark-compact.svg`.
 5. Rename Ledgerline → Arthosrot across code, docs, and package metadata.

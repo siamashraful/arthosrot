@@ -105,22 +105,10 @@ a.btn {
 /* The lockup/mark render via mask so one currentColor serves both themes.
    The Bengali line is outlined vector inside the SVG — never re-set as text. */
 .brand-lockup,
-.brand-mark {
-  display: inline-block;
-  background-color: currentColor;
-  mask-repeat: no-repeat;
-  mask-size: contain;
-  mask-position: left center;
-}
 .brand-lockup {
   mask-image: url("/brand/lockup-horizontal.svg");
   aspect-ratio: 585.9 / 152.6;
   height: 34px;
-}
-.brand-mark {
-  mask-image: url("/brand/mark.svg");
-  aspect-ratio: 1;
-  height: 32px;
 }
 
 /* ---------------------------------------------------------------- shell */
@@ -672,11 +660,6 @@ dialog.sheet::backdrop {
 }
 
 /* ------------------------------------------------------------- onboarding */
-
-.onboarding-card {
-  /* the dyed field carries onboarding — see .field-panel; this only keeps
-     the slider affordance sized for touch */
-}
 
 .onboarding-card input[type="range"] {
   width: 100%;

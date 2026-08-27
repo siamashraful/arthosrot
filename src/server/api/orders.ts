@@ -5,6 +5,7 @@ import { AppError, systemClock } from "@/core/shared";
 import { accountsRepository } from "@/infra/db/repositories/accounts";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import type { SessionInfo } from "../session";
+import { requireActiveAccount } from "./portfolio";
 import { getContainer } from "../container";
 
 const placeOrderSchema = z.object({
@@ -41,16 +42,6 @@ export function serializeOrder(order: Order) {
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
   };
-}
-
-async function requireActiveAccount(session: SessionInfo) {
-  const account = await getContainer().accountService.getActiveForUser(session.userId);
-  if (!account) {
-    throw new AppError("DOMAIN_RULE", "No active trading account", {
-      subcode: "ACCOUNT_NOT_ACTIVE",
-    });
-  }
-  return account;
 }
 
 /** Ownership guard: the order's account must belong to the session user (else 404). */

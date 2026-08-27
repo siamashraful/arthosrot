@@ -37,10 +37,6 @@ export function formatPrice4(value: string): string {
   return value ? `$${value}` : "—";
 }
 
-export function formatQty(value: string): string {
-  return Number(value).toLocaleString("en-US");
-}
-
 /** "+1.23%" / "−1.23%" */
 export function formatSignedPercent(value: number): string {
   const sign = value < 0 ? "−" : "+";

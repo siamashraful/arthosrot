@@ -8,9 +8,8 @@ import { pgTransactionRunner } from "@/infra/db/tx";
 import type { SessionInfo } from "../session";
 import { getContainer } from "../container";
 import { serializeQuote } from "./market";
-import { serializeOrder } from "./orders";
 
-async function requireActiveAccount(session: SessionInfo) {
+export async function requireActiveAccount(session: SessionInfo) {
   const account = await getContainer().accountService.getActiveForUser(session.userId);
   if (!account) {
     throw new AppError("DOMAIN_RULE", "No active trading account", {
@@ -243,6 +242,3 @@ export async function resetAccount(request: Request, session: SessionInfo): Prom
     },
   };
 }
-
-/** Recent orders serialization is shared with /orders — re-export for dashboard use. */
-export { serializeOrder };

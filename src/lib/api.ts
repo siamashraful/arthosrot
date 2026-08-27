@@ -2,7 +2,7 @@
 
 /** Typed client for /api/v1 — money/prices stay strings end to end. */
 
-export interface ApiErrorBody {
+interface ApiErrorBody {
   error: { code: string; subcode?: string; message: string; requestId: string };
 }
 
@@ -58,14 +58,14 @@ export interface OrderDto {
   updatedAt: string;
 }
 
-export interface InstrumentDetailDto {
+interface InstrumentDetailDto {
   instrument: { symbol: string; name: string; exchange: string };
   quote: QuoteDto;
   market: { status: string; asOf: string };
   freshness: "live" | "aging" | "stale" | "at-close";
 }
 
-export interface PortfolioDto {
+interface PortfolioDto {
   positions: Array<{
     symbol: string;
     qty: string;
@@ -87,7 +87,7 @@ export interface PortfolioDto {
   market: { status: string; asOf: string };
 }
 
-export interface LedgerEntryDto {
+interface LedgerEntryDto {
   id: string;
   type: string;
   amount: string;
@@ -96,14 +96,14 @@ export interface LedgerEntryDto {
   createdAt: string;
 }
 
-export interface WatchlistItemDto {
+interface WatchlistItemDto {
   id: string;
   symbol: string;
   name: string;
   quote: QuoteDto | null;
 }
 
-export interface CandleDto {
+interface CandleDto {
   time: string;
   open: string;
   high: string;
