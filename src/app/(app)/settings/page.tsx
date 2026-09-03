@@ -3,12 +3,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TradingModeSwitch } from "@/components/trading-mode-switch";
+import { useTradingMode } from "@/components/trading-mode";
 import { Money } from "@/components/finance/Money";
 import { api } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
+  const mode = useTradingMode();
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: api.me });
   const [confirmText, setConfirmText] = useState("");
 
@@ -58,6 +61,24 @@ export default function SettingsPage() {
             Sign out
           </button>
         </div>
+      </section>
+
+      <section
+        aria-label="Trading mode"
+        className="card"
+        style={{ display: "grid", gap: "var(--space-3)" }}
+      >
+        <h2 style={{ fontSize: "var(--text-md)" }}>Trading mode</h2>
+        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+          Practice trades simulated money on real market prices. Live is where real money will be
+          traded — it isn&apos;t enabled yet, and switching shows a preview of the live experience.
+          The two are always kept visually distinct so a practice result can never be mistaken for a
+          real one.
+        </p>
+        <TradingModeSwitch />
+        <p className="muted" style={{ margin: 0, fontSize: "var(--text-xs)" }}>
+          Currently in {mode === "live" ? "live preview" : "practice"} mode.
+        </p>
       </section>
 
       <section

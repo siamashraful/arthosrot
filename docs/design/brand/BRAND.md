@@ -102,7 +102,7 @@ The open corner is the idea. Completing it turns the mark into a plain grid and 
 
 **This is the highest-severity design problem in the product.** Once real trading exists, a user who believes they are in practice while placing a real order — or the reverse — has been failed in a way no amount of polish compensates for.
 
-> **Implementation status: specification only.** No live-trading code exists, and none may be added without a human-approved ADR (CLAUDE.md safety rules; `accounts.mode` is PAPER-only at the DB level). This section exists so the distinction is _designed before it is needed_ rather than bolted on under deadline.
+> **Implementation status: presentation implemented (ADR-011).** `data-mode="live"` is set client-side by the Settings trading-mode switch and drives all three signals; live surfaces render only their own empty states. No live-trading BACKEND exists, and none may be added without a human-approved ADR (CLAUDE.md safety rules; `accounts.mode` is PAPER-only at the DB level). **One deliberate deviation while live is a preview:** the persistent label reads "Live preview — real trading isn't available yet" instead of the final "Live — real money" — the label must never claim real money before real money exists. It flips to the spec'd wording the day trading is real.
 
 The identity carries it in the material: **practice is cloth still on the loom; real money is finished cloth.**
 

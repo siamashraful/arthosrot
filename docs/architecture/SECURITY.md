@@ -33,9 +33,9 @@ Single role (user). Every query is filtered by the session's account at the repo
 
 1. `accounts.mode` DB CHECK allows only 'PAPER'.
 2. The broker registry contains only DETERMINISTIC and ALPACA_PAPER kinds — no live adapter code exists.
-3. ExecutionService asserts `broker.kind` is a paper kind (alert-level log on violation).
+3. ExecutionService asserts `broker.kind` is a paper kind (alert-level log on violation) — `src/core/execution/execution.ts` constructor guard.
 4. No live credentials exist in any environment.
-5. Persistent "Paper trading — simulated money" UI badge.
+5. Persistent mode ribbon: "Practice — simulated money". The Settings "live" switch is a client-side visual PREVIEW only (ADR-011): its ribbon says "Live preview — real trading isn't available yet", live surfaces render only their own empty states (never paper data re-badged as live), and nothing server-side changes. The deposit/withdraw sheets are non-functional by design.
 
 ## Mandatory before any live trading (not built at MVP; do not delete this list)
 

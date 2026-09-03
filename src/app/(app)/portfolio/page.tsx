@@ -5,15 +5,30 @@ import Link from "next/link";
 import { Money } from "@/components/finance/Money";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { PriceChange } from "@/components/finance/PriceChange";
+import { LiveEmptyState } from "@/components/live-preview";
+import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
 import { formatPrice, formatPrice4, formatTime } from "@/lib/format";
 
 export default function PortfolioPage() {
+  const mode = useTradingMode();
   const { data, isPending, isError } = useQuery({
     queryKey: ["portfolio"],
     queryFn: api.portfolio,
     refetchInterval: 30_000,
+    enabled: mode === "paper",
   });
+
+  // Live preview shows live's own empty state — paper holdings never
+  // re-badge as live (ADR-011).
+  if (mode === "live") {
+    return (
+      <LiveEmptyState
+        heading="Portfolio"
+        body="No live positions — your live portfolio starts after your first deposit."
+      />
+    );
+  }
 
   if (isPending) return <div className="skeleton" style={{ height: 240 }} />;
   if (isError || !data) {

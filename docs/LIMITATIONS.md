@@ -15,4 +15,6 @@ Paper trading is not real trading, even with a realistic execution venue. Arthos
 - **Sandbox infrastructure** may behave differently from production brokerage systems (latency, occasional resets); sandbox state is treated as disposable — Arthosrot's own ledger and canonical event history are the durable record.
 - **Delayed status worst case.** While the free-tier worker sleeps, order-status updates can be delayed up to the reconciliation cadence; the UI shows pipeline staleness honestly instead of pretending state is live.
 
-**Product rule:** the persistent "Paper trading — simulated money" badge and the data disclosure are non-removable parts of the interface.
+- **"Live" mode is a preview.** The Settings switch to live trading re-skins the app and shows the live experience's empty states and funding flows — but no real trading, deposits, or withdrawals exist. No money can move. Your practice account is untouched by switching.
+
+**Product rule:** the persistent mode ribbon ("Practice — simulated money" / the live-preview notice) and the data disclosure are non-removable parts of the interface.

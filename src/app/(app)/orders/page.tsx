@@ -2,9 +2,23 @@
 
 import { useState } from "react";
 import { OrdersTable } from "@/components/finance/OrdersTable";
+import { LiveEmptyState } from "@/components/live-preview";
+import { useTradingMode } from "@/components/trading-mode";
 
 export default function OrdersPage() {
+  const mode = useTradingMode();
   const [tab, setTab] = useState<"open" | "all">("open");
+
+  // Paper orders must never read as live orders (ADR-011).
+  if (mode === "live") {
+    return (
+      <LiveEmptyState
+        heading="Orders"
+        body="No live orders — real order placement isn't available yet."
+      />
+    );
+  }
+
   return (
     <div style={{ display: "grid", gap: "var(--space-5)" }}>
       <header>

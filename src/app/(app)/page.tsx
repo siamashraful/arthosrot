@@ -8,16 +8,23 @@ import { OnboardingPanel } from "@/components/onboarding";
 import { OrdersTable } from "@/components/finance/OrdersTable";
 import { Money } from "@/components/finance/Money";
 import { PriceChange } from "@/components/finance/PriceChange";
+import { LiveDashboard } from "@/components/live-preview";
+import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
 
 export default function DashboardPage() {
+  // Live preview never shows paper data (ADR-011): gate BEFORE any paper
+  // markup — the queries below stay disabled while in live mode.
+  const mode = useTradingMode();
+
   // Account gate: no account yet (or still provisioning) renders onboarding.
   // While PROVISIONING the me-poll doubles as the activation check — the
   // server tries to activate on every read once venue funding settles.
   const { data: me, isPending: mePending } = useQuery({
     queryKey: ["me"],
     queryFn: api.me,
+    enabled: mode === "paper",
     refetchInterval: (query) =>
       query.state.data?.account?.status === "PROVISIONING" ? 4_000 : false,
   });
@@ -27,14 +34,16 @@ export default function DashboardPage() {
     queryKey: ["portfolio"],
     queryFn: api.portfolio,
     refetchInterval: 30_000,
-    enabled: accountActive,
+    enabled: mode === "paper" && accountActive,
   });
   const { data: watchlist } = useQuery({
     queryKey: ["watchlist"],
     queryFn: api.watchlist,
     refetchInterval: 15_000,
-    enabled: accountActive,
+    enabled: mode === "paper" && accountActive,
   });
+
+  if (mode === "live") return <LiveDashboard />;
 
   if (!mePending && me && !accountActive) {
     const status =

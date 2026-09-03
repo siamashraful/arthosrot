@@ -7,7 +7,12 @@ import { invariant, type TxHandle } from "../shared";
  * sync by post(); reconcile() asserts invariant 6.
  */
 
-export type LedgerEntryType = "DEPOSIT" | "TRADE" | "FEE" | "ADJUSTMENT";
+/**
+ * WITHDRAWAL exists in the DB enum and is reserved for live funding — no
+ * writer exists yet. When one appears, net-deposits derivations
+ * (core/portfolio/equity-series.ts) must subtract withdrawals (LIVE_TRADING_TODO.md).
+ */
+export type LedgerEntryType = "DEPOSIT" | "WITHDRAWAL" | "TRADE" | "FEE" | "ADJUSTMENT";
 
 export interface LedgerEntry {
   id: string;

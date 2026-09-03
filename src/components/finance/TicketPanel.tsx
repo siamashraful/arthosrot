@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { useTradingMode } from "@/components/trading-mode";
 import type { QuoteDto } from "@/lib/api";
 import { TradingTicket } from "./TradingTicket";
 
@@ -15,7 +16,20 @@ export function TicketPanel(props: {
   buyingPower: string;
   sellable: string;
 }) {
+  const mode = useTradingMode();
   const dialogRef = useRef<HTMLDialogElement>(null);
+
+  // In live preview no order may even be drafted — the ticket would price a
+  // paper account's buying power as if it were real money (ADR-011).
+  if (mode === "live") {
+    return (
+      <div className="card">
+        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+          Live orders aren&apos;t available yet — switch back to Practice in Settings to trade.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <>

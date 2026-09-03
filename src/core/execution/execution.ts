@@ -38,6 +38,13 @@ export interface FillsRepository {
   listForOrder(tx: TxHandle, orderId: string): Promise<FillRecord[]>;
 }
 
+/**
+ * Paper/live isolation, control 3 (SECURITY.md): a runtime guard on top of
+ * the BrokerKindId type, so a future widening of the union cannot silently
+ * route real-money execution through this paper pipeline.
+ */
+const PAPER_BROKER_KINDS: ReadonlySet<string> = new Set(["DETERMINISTIC", "ALPACA_PAPER"]);
+
 export class ExecutionService {
   constructor(
     private readonly broker: Broker,
@@ -48,7 +55,18 @@ export class ExecutionService {
     private readonly ledger: LedgerService,
     private readonly txRunner: TransactionRunner,
     private readonly clock: Clock,
-  ) {}
+  ) {
+    if (!PAPER_BROKER_KINDS.has(broker.kind)) {
+      console.error(
+        JSON.stringify({
+          level: "alert",
+          msg: "non-paper broker kind wired into ExecutionService",
+          kind: broker.kind,
+        }),
+      );
+      invariant(false, `ExecutionService requires a paper broker kind, got ${broker.kind}`);
+    }
+  }
 
   /** Wire the in-process event stream (deterministic broker) or replayed stream (worker). */
   start(): void {

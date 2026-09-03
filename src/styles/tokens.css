@@ -75,6 +75,9 @@
   --warp-width: 1px;
   --warp-opacity: 1;
 
+  /* the mode ribbon's height — the shell subtracts it, so they must agree */
+  --ribbon-h: 30px;
+
   /* radii — the woven panel is soft, the rows and threads are not */
   --radius-sm: 3px;
   --radius-md: 6px;
@@ -206,10 +209,11 @@
 }
 
 /* ------------------------------------------------------------ account mode
- * SPECIFICATION ONLY — no live-trading code exists, and none may be added
- * without a human-approved ADR (CLAUDE.md safety rules). This block defines
- * how the identity would signal a real-money account, so the distinction is
- * designed before it is ever needed rather than bolted on afterwards.
+ * PRESENTATION ONLY — data-mode="live" is set client-side by the Settings
+ * trading-mode switch (ADR-011) and re-skins the app into the live PREVIEW.
+ * No live-trading backend exists, and none may be added without a
+ * human-approved ADR (CLAUDE.md safety rules). Live surfaces render their
+ * own empty states; paper data must never render under this attribute.
  *
  * Mode is signalled THREE redundant ways, never by colour alone:
  *   1. texture — paper shows its warp (still on the loom); live does not

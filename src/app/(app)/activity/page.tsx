@@ -2,18 +2,36 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { PriceChange } from "@/components/finance/PriceChange";
+import { LiveEmptyState } from "@/components/live-preview";
+import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
 const TYPE_LABEL: Record<string, string> = {
   DEPOSIT: "Deposit",
+  WITHDRAWAL: "Withdrawal",
   TRADE: "Trade",
   FEE: "Fee",
   ADJUSTMENT: "Adjustment",
 };
 
 export default function ActivityPage() {
-  const { data, isPending, isError } = useQuery({ queryKey: ["ledger"], queryFn: api.ledger });
+  const mode = useTradingMode();
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["ledger"],
+    queryFn: api.ledger,
+    enabled: mode === "paper",
+  });
+
+  // The paper ledger must never read as live history (ADR-011).
+  if (mode === "live") {
+    return (
+      <LiveEmptyState
+        heading="Activity"
+        body="No live activity — deposits, withdrawals, and trades will appear here once live trading launches."
+      />
+    );
+  }
 
   return (
     <div style={{ display: "grid", gap: "var(--space-5)", maxWidth: "44rem" }}>
