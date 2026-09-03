@@ -206,7 +206,7 @@ dialog.sheet {
 [data-mode="live"] .mode-ribbon {
   background: var(--hero);
   color: var(--on-hero);
-  border-color: transparent;
+  border-bottom-color: oklch(1 0 0 / 0.14); /* keeps its edge on a dark canvas */
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
@@ -484,6 +484,8 @@ dialog.sheet {
   font: inherit;
   font-weight: 500;
   cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
   transition:
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out),
@@ -671,7 +673,7 @@ dialog.sheet {
   color: var(--on-hero);
   border-radius: var(--radius-panel);
   /* a hairline of light keeps the card's edge on a dark-theme canvas */
-  border: 1px solid oklch(1 0 0 / 0.07);
+  border: 1px solid oklch(1 0 0 / 0.11);
   padding: var(--space-6);
   overflow: hidden;
   box-shadow: var(--shadow-hero);
@@ -798,6 +800,15 @@ dialog.sheet {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-3);
+}
+/* < md: two columns; an odd last tile spans the row instead of orphaning */
+@media (max-width: 767px) {
+  .tile-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tile-row > :last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
 }
 .stat-tile {
   --tile-pop: var(--accent);
@@ -1106,6 +1117,24 @@ dialog.sheet::backdrop {
   .ticket-mobile {
     display: block;
   }
+}
+/* < md: the Trade CTA rides above the bottom nav instead of under it */
+@media (max-width: 767px) {
+  .ticket-mobile {
+    position: sticky;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: var(--z-sticky);
+    /* content fades under the pinned CTA instead of butting against it */
+    padding-top: var(--space-4);
+    background: linear-gradient(to bottom, transparent, var(--bg) 45%);
+  }
+}
+/* a ticket opened inside a sheet is the sheet's content, not a card in a card */
+dialog.sheet .card {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
 }
 
 /* Touch targets: 44px minimum on coarse pointers (ACCESSIBILITY.md) */

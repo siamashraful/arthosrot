@@ -99,7 +99,12 @@ export function TradingTicket({
       <div style={{ display: "grid", gap: "var(--space-4)" }}>
         <div className="segmented" role="group" aria-label="Order side">
           {(["BUY", "SELL"] as const).map((s) => (
-            <button key={s} aria-pressed={side === s} onClick={() => onEdit(setSide)(s)}>
+            <button
+              key={s}
+              type="button"
+              aria-pressed={side === s}
+              onClick={() => onEdit(setSide)(s)}
+            >
               {s === "BUY" ? "Buy" : "Sell"}
             </button>
           ))}

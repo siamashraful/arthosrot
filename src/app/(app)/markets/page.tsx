@@ -3,6 +3,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { api } from "@/lib/api";
 
 /** One request per pause in typing, not one per keystroke. */
@@ -64,6 +65,7 @@ export default function MarketsPage() {
           {data!.instruments.map((i) => (
             <li key={i.symbol}>
               <Link href={`/i/${i.symbol}`} className="list-row">
+                <SymbolLogo symbol={i.symbol} size={28} />
                 <span style={{ flex: 1, minWidth: 0 }}>
                   <strong>{i.symbol}</strong>{" "}
                   <span className="muted" style={{ fontWeight: 400 }}>

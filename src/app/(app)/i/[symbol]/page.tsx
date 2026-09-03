@@ -46,20 +46,15 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
         }}
       >
         <div>
-          <h1
-            style={{
-              fontSize: "var(--text-xl)",
-              display: "flex",
-              alignItems: "center",
-              gap: "var(--space-2)",
-            }}
-          >
+          {/* the heading is the ticker alone; the company/venue meta sits
+              beside it so assistive tech reads a clean page title */}
+          <div style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
             <SymbolLogo symbol={symbol} size={28} />
-            {symbol}{" "}
+            <h1 style={{ fontSize: "var(--text-xl)" }}>{symbol}</h1>
             <span className="muted" style={{ fontWeight: 400, fontSize: "var(--text-base)" }}>
               {data.instrument.name} · {data.instrument.exchange}
             </span>
-          </h1>
+          </div>
         </div>
         {data.quote ? (
           <div
