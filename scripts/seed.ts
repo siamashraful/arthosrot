@@ -42,7 +42,10 @@ async function main(): Promise<void> {
       .values(inst)
       .onConflictDoUpdate({
         target: schema.instruments.symbol,
-        set: { name: inst.name, exchange: inst.exchange },
+        // status: seeded liquid names are always tradable — re-seeding is
+        // also the recovery path for a DB poisoned by a bad sync (INACTIVE
+        // must never be a one-way trap).
+        set: { name: inst.name, exchange: inst.exchange, status: "ACTIVE" },
       });
   }
   console.log(`seeded ${all.length} instruments`);

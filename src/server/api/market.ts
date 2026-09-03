@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { displayFreshness, type Quote } from "@/core/market-data";
+import { displayFreshness, UnknownSymbolError, type Quote } from "@/core/market-data";
 import { systemClock } from "@/core/shared";
 import { getContainer } from "../container";
 
@@ -41,15 +41,22 @@ export async function getInstrumentDetail(symbolRaw: string): Promise<unknown> {
   const symbol = symbolSchema.parse(symbolRaw).toUpperCase();
   const { instrumentService, marketData } = getContainer();
   const instrument = await instrumentService.getOrRegister(symbol);
+  // A KNOWN instrument whose feed quote is gone (delisting window) must not
+  // 404 — this page hosts the only trading ticket, and a holder must always
+  // be able to SELL. quote:null is the honest answer; garbage symbols still
+  // 404 inside getOrRegister above.
   const [quote, market] = await Promise.all([
-    marketData.getQuote(symbol),
+    marketData.getQuote(symbol).catch((err) => {
+      if (err instanceof UnknownSymbolError) return null;
+      throw err;
+    }),
     marketData.getMarketStatus(),
   ]);
   return {
     instrument,
-    quote: serializeQuote(quote),
+    quote: quote ? serializeQuote(quote) : null,
     market: { status: market.status, asOf: market.asOf.toISOString() },
-    freshness: displayFreshness(quote, systemClock.now(), market.status),
+    freshness: quote ? displayFreshness(quote, systemClock.now(), market.status) : null,
   };
 }
 

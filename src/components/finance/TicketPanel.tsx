@@ -11,7 +11,7 @@ import { TradingTicket } from "./TradingTicket";
  */
 export function TicketPanel(props: {
   symbol: string;
-  quote: QuoteDto;
+  quote: QuoteDto | null;
   buyingPower: string;
   sellable: string;
 }) {

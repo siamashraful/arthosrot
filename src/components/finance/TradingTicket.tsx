@@ -25,14 +25,16 @@ export function TradingTicket({
   sellable,
 }: {
   symbol: string;
-  quote: QuoteDto;
+  /** null when the feed no longer quotes this instrument — LIMIT-only then. */
+  quote: QuoteDto | null;
   buyingPower: string;
   sellable: string;
 }) {
   const queryClient = useQueryClient();
   const uid = useId();
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
-  const [type, setType] = useState<"MARKET" | "LIMIT">("MARKET");
+  // No quote -> no market-order reference price: LIMIT is the only honest type.
+  const [type, setType] = useState<"MARKET" | "LIMIT">(quote ? "MARKET" : "LIMIT");
   const [qty, setQty] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [reviewing, setReviewing] = useState(false);
@@ -49,8 +51,10 @@ export function TradingTicket({
     const ref =
       type === "LIMIT" && validLimit && limitPrice
         ? Number(limitPrice)
-        : Number((side === "BUY" ? (quote.ask ?? quote.last) : (quote.bid ?? quote.last)) ?? 0);
-    return (ref * qtyNum).toFixed(2);
+        : quote
+          ? Number((side === "BUY" ? (quote.ask ?? quote.last) : (quote.bid ?? quote.last)) ?? 0)
+          : null;
+    return ref === null ? null : (ref * qtyNum).toFixed(2);
   }, [validQty, qtyNum, type, validLimit, limitPrice, side, quote]);
 
   const place = useMutation({
@@ -110,7 +114,9 @@ export function TradingTicket({
             value={type}
             onChange={(e) => onEdit(setType)(e.target.value as "MARKET" | "LIMIT")}
           >
-            <option value="MARKET">Market</option>
+            <option value="MARKET" disabled={!quote}>
+              Market
+            </option>
             <option value="LIMIT">Limit (day)</option>
           </select>
         </div>
@@ -163,7 +169,7 @@ export function TradingTicket({
         >
           <dt className="muted">{side === "BUY" ? "Ask" : "Bid"}</dt>
           <dd style={{ margin: 0, textAlign: "right" }}>
-            {formatPrice((side === "BUY" ? quote.ask : quote.bid) ?? quote.last)}
+            {quote ? formatPrice((side === "BUY" ? quote.ask : quote.bid) ?? quote.last) : "—"}
           </dd>
           <dt className="muted">Estimated {side === "BUY" ? "cost" : "proceeds"}</dt>
           <dd style={{ margin: 0, textAlign: "right" }}>

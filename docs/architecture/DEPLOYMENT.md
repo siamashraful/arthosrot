@@ -28,7 +28,8 @@
 4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH_MIN=1000`, `STARTING_CASH_MAX=25000`, `STARTING_CASH_DEFAULT=10000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
 5. **Render:** create the worker from `render.yaml` (free plan); set the `sync: false` env vars (same values as Vercel where shared).
 6. **GitHub Actions secrets:** `WORKER_URL`, `CRON_SECRET` (for reconcile.yml); Alpaca sandbox creds for external-smoke.yml.
-7. Verify this document from scratch — if a step surprised you, fix the doc in the same PR.
+7. **Instrument catalog:** run `DATABASE_URL=<prod-unpooled> pnpm db:sync-instruments` (needs `ALPACA_BROKER_KEY/SECRET`). Search is DB-backed — the alpaca data provider has no name-search — so without this step the platform searches only the 30-symbol bootstrap seed. Re-run occasionally (listings change); the script refuses degraded venue responses rather than mass-delisting.
+8. Verify this document from scratch — if a step surprised you, fix the doc in the same PR.
 
 ## Release flow
 

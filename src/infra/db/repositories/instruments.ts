@@ -32,6 +32,9 @@ export const instrumentsRepository: InstrumentsRepository = {
           // Never downgrade good reference data to placeholders.
           name: sql`CASE WHEN excluded.name <> excluded.symbol THEN excluded.name ELSE ${schema.instruments.name} END`,
           exchange: sql`CASE WHEN excluded.exchange <> 'UNKNOWN' THEN excluded.exchange ELSE ${schema.instruments.exchange} END`,
+          // A provider vouching for the symbol reactivates it — INACTIVE is
+          // sync-owned state, never a one-way trap for quotable instruments.
+          status: sql`'ACTIVE'`,
           updatedAt: sql`now()`,
         },
       })

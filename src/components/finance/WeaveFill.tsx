@@ -23,6 +23,17 @@ const PITCH = W / INTERVALS;
 const PICK_H = 3.6;
 const GAP = 1.2; // breathing room around the warp where a pick is notched
 
+/**
+ * Picks laid for a fill count. Honest at the extremes: a real partial never
+ * rounds to "empty" (1/25) or "complete" (24/25) — it clamps to [1, 9] so the
+ * figure can never contradict the badge beside it.
+ */
+export function laidPicks(filled: number, total: number): number {
+  if (filled <= 0) return 0;
+  if (filled >= total) return INTERVALS;
+  return Math.min(INTERVALS - 1, Math.max(1, Math.round((filled / total) * INTERVALS)));
+}
+
 export function WeaveFill({ filledQty, qty }: { filledQty: string; qty: string }) {
   const filled = Number(filledQty);
   const total = Number(qty);
@@ -30,7 +41,10 @@ export function WeaveFill({ filledQty, qty }: { filledQty: string; qty: string }
   const settledRef = useRef(filled);
   if (!Number.isFinite(filled) || !Number.isFinite(total) || total <= 0) return null;
 
-  const laid = Math.round((Math.min(filled, total) / total) * INTERVALS);
+  const laid = laidPicks(filled, total);
+  // Quantize the settled count IDENTICALLY to `laid` — comparing a raw ratio
+  // against rounded picks re-animated already-settled picks on mount.
+  const settledLaid = laidPicks(settledRef.current, total);
 
   return (
     <svg
@@ -53,7 +67,7 @@ export function WeaveFill({ filledQty, qty }: { filledQty: string; qty: string }
       ))}
       {/* the picks: one per filled interval, laid left to right */}
       {Array.from({ length: laid }, (_, i) => {
-        const fresh = (i + 1) / INTERVALS > settledRef.current / total + 1e-9;
+        const fresh = i >= settledLaid;
         return (
           <rect
             key={`p${i}`}

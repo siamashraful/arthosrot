@@ -112,6 +112,14 @@ export class OrdersService {
           subcode: "ACCOUNT_NOT_ACTIVE",
         });
       }
+      // Delisted instruments accept SELLs (holders must always have an exit)
+      // but never BUYs — search already hides them; the direct-URL path must
+      // agree (422, no order row — the validation taxonomy).
+      if (input.side === "BUY" && input.instrument.status !== "ACTIVE") {
+        throw new AppError("VALIDATION", "This symbol is no longer tradable", {
+          subcode: "INSTRUMENT_INACTIVE",
+        });
+      }
 
       // Idempotent replay (link 1 of the chain): same key returns the original.
       const existing = await this.repo.getByIdempotencyKey(tx, account.id, input.idempotencyKey);

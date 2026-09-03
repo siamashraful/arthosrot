@@ -227,18 +227,22 @@ It is right to tell someone they've understood what a limit order does. It is ne
 
 ---
 
-## 10. Adoption
+## 10. Adoption — status
 
-Nothing here is wired in. In dependency order:
+Steps 1–6 are DONE and live (the built system is recorded in
+[../DESIGN.md](../DESIGN.md), which is now the ground truth for styling work):
+Anek Latin self-hosted (`public/fonts/`); the brand tokens ARE
+`src/styles/tokens.css` (the proposal copy was deleted once adopted — no
+drift); dyed-field panels + warp on dashboard/portfolio/onboarding; brand
+SVGs in `public/brand/` with the mask-rendered lockup and the
+`prefers-color-scheme` favicon; the Ledgerline → Arthosrot rename shipped;
+first in-place explainers and the loom motion grammar shipped.
 
-1. Add Anek Latin + Anek Bangla (OFL, self-hosted `woff2`, `font-display: swap`); keep `--font-mono`.
-2. Replace `src/styles/tokens.css` with [`src/styles/tokens.css`](../../../src/styles/tokens.css) — it mirrors the existing names, so it's a drop-in — then re-point `scripts/check-contrast.ts` and add the `-on-field` pairs to its `CHECKS`.
-3. Add `--field` panels (dashboard, portfolio summary) and the warp hairline at `--warp-pitch`, driven by `--warp-opacity`.
-4. Copy the SVGs into `public/brand/`, replace the text brand in `src/components/nav.tsx`, set the favicon from `mark-compact.svg`.
-5. Rename Ledgerline → Arthosrot across code, docs, and package metadata.
-6. Build the Read register and the first in-place explainers (order states, reservations, freshness).
-7. **Only behind an approved ADR:** implement `[data-mode]`, its three redundant signals, and a mode-confusion test in the E2E suite.
-8. Re-run the full gate: `pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm check:contrast`, plus axe.
+Still open:
+
+1. **Only behind an approved ADR:** implement `[data-mode]`, its three
+   redundant signals, and a mode-confusion test in the E2E suite (§5).
+2. The full Read register (lessons); explainers exist, long-form does not.
 
 ---
 

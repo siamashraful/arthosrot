@@ -307,7 +307,6 @@ a.btn {
 }
 
 .badge {
-  animation: reed-beat var(--dur-fast) var(--ease-out);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -448,8 +447,8 @@ a.btn {
 
 .skeleton {
   background:
-    linear-gradient(90deg, transparent 0 40%, var(--border) 50%, transparent 60% 100%) 0 0 / 200px
-      100% repeat-x,
+    linear-gradient(90deg, transparent 0 40%, var(--border) 50%, transparent 60% 100%) -200px 0 /
+      200px 100% no-repeat,
     var(--surface-2);
   border-radius: var(--radius-sm);
   animation: warp-sweep 1.4s linear infinite;
@@ -457,7 +456,12 @@ a.btn {
   user-select: none;
 }
 /* the reed's beat (BRAND.md §8): snap in with a ≤2px overshoot, settle.
-   Felt, not watched. Never an opacity fade between order states. */
+   Felt, not watched. Never an opacity fade between order states.
+   Applied via .badge-beat on STATE TRANSITIONS only (OrderStatusBadge) —
+   never on the base class, or every history row bounces on page load. */
+.badge-beat {
+  animation: reed-beat var(--dur-base) var(--ease-out);
+}
 @keyframes reed-beat {
   0% {
     transform: translateY(2px);
@@ -483,7 +487,7 @@ a.btn {
     background-position: -200px 0;
   }
   to {
-    background-position: 200px 0;
+    background-position: calc(100% + 200px) 0;
   }
 }
 
@@ -521,6 +525,11 @@ a.btn {
     transparent var(--warp-pitch)
   );
   pointer-events: none;
+}
+.field-panel {
+  /* the page focus ring is invisible on the dye (2.18:1 in light theme) —
+     on the cloth, focus is chalk like every other control */
+  --focus-ring: var(--on-field);
 }
 .field-panel > * {
   position: relative; /* content above the warp layer */
@@ -567,6 +576,9 @@ a.btn {
   opacity: 0.75;
 }
 .weave-fill .weave-pick-fresh {
+  /* SVG defaults to transform-box: view-box — without fill-box the scaleX
+     origin is the SVG's left edge and a new pick slides across the cloth */
+  transform-box: fill-box;
   animation: reed-lay var(--dur-base) var(--ease-out);
   transform-origin: left center;
 }
@@ -712,7 +724,11 @@ dialog.sheet::backdrop {
   *,
   *::before,
   *::after {
+    /* iteration-count matters as much as duration: an INFINITE animation at
+       0.01ms lands at a random phase every frame — a strobe, the exact
+       opposite of reduced motion. One near-instant run, then stillness. */
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
@@ -804,7 +820,7 @@ dialog.sheet::backdrop {
   border-radius: 3px;
   border: none;
   background: var(--on-field);
-  box-shadow: 0 1px 3px oklch(0 0 0 / 0.35);
+  box-shadow: var(--shadow-1);
   transition: transform var(--dur-fast) var(--ease-out);
 }
 .onboarding-card input[type="range"]:active::-webkit-slider-thumb {

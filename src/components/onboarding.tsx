@@ -87,7 +87,13 @@ export function OnboardingPanel({
           style={
             {
               // laid-weft fill for the custom webkit track (see globals.css)
-              "--fill-pct": `${((amount - bounds.minStartingCash) / (bounds.maxStartingCash - bounds.minStartingCash)) * 100}%`,
+              "--fill-pct": `${
+                bounds.maxStartingCash > bounds.minStartingCash
+                  ? ((amount - bounds.minStartingCash) /
+                      (bounds.maxStartingCash - bounds.minStartingCash)) *
+                    100
+                  : 100 // degenerate min===max config: full track, no NaN
+              }%`,
             } as React.CSSProperties
           }
         />

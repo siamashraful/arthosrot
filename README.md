@@ -53,7 +53,7 @@ The defaults run **fully offline**: `BROKER_PROVIDER=deterministic` and `MARKET_
 
 ## Environment
 
-Every variable is documented in [.env.example](.env.example). Highlights: `BROKER_PROVIDER` (`deterministic` \| `alpaca-paper`), `MARKET_DATA_PROVIDER` (`fixture` \| `alpaca`), `DATABASE_URL`, `STARTING_CASH_MIN/MAX/DEFAULT`, `MARKET_BUY_BUFFER`, `CRON_SECRET`. Secrets are never committed; deployment values are covered in [docs/architecture/DEPLOYMENT.md](docs/architecture/DEPLOYMENT.md).
+Instrument search is DB-backed: `pnpm db:sync-instruments` imports the venue's ~13k tradable US equities (see docs/architecture/DEPLOYMENT.md). Every variable is documented in [.env.example](.env.example). Highlights: `BROKER_PROVIDER` (`deterministic` \| `alpaca-paper`), `MARKET_DATA_PROVIDER` (`fixture` \| `alpaca`), `DATABASE_URL`, `STARTING_CASH_MIN/MAX/DEFAULT`, `MARKET_BUY_BUFFER`, `CRON_SECRET`. Secrets are never committed; deployment values are covered in [docs/architecture/DEPLOYMENT.md](docs/architecture/DEPLOYMENT.md).
 
 ## Repository map
 

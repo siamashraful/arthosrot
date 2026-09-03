@@ -30,7 +30,7 @@ export function SidebarNav() {
   return (
     <nav className="shell-nav" aria-label="Primary">
       <Link href="/" className="shell-brand" aria-label="Arthosrot — dashboard">
-        <span className="brand-lockup" role="img" aria-label="Arthosrot · অর্থস্রোত" />
+        <span className="brand-lockup" aria-hidden />
       </Link>
       {links(pathname)}
       <Link
@@ -70,12 +70,7 @@ export function MobileTopBar() {
         style={{ margin: 0, padding: 0 }}
         aria-label="Arthosrot — dashboard"
       >
-        <span
-          className="brand-lockup"
-          style={{ height: 26 }}
-          role="img"
-          aria-label="Arthosrot · অর্থস্রোত"
-        />
+        <span className="brand-lockup" style={{ height: 26 }} aria-hidden />
       </Link>
       <div style={{ display: "flex", gap: "var(--space-1)" }}>
         <Link

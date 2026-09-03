@@ -65,6 +65,10 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
     }),
   );
   expect(lockupPainted, "brand lockup is not painting (mask/currentColor)").toBe(true);
+  // Computed styles report the mask URL whether or not the asset resolved —
+  // fetch it so a renamed/404'd SVG cannot pass the paint check silently.
+  const maskAsset = await page.request.get("/brand/lockup-horizontal.svg");
+  expect(maskAsset.ok(), "lockup mask asset does not resolve").toBe(true);
 
   // Onboarding: the user picks starting cash (default $10,000) — the account
   // is NOT auto-provisioned at signup.

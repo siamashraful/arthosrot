@@ -52,27 +52,34 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
             </span>
           </h1>
         </div>
-        <div
-          className="tabular"
-          style={{ display: "flex", gap: "var(--space-4)", alignItems: "baseline" }}
-        >
-          <span style={{ fontSize: "var(--text-lg)", fontWeight: 600 }}>
-            {formatPrice(data.quote.last)}
-          </span>
+        {data.quote ? (
+          <div
+            className="tabular"
+            style={{ display: "flex", gap: "var(--space-4)", alignItems: "baseline" }}
+          >
+            <span style={{ fontSize: "var(--text-lg)", fontWeight: 600 }}>
+              {formatPrice(data.quote.last)}
+            </span>
+            <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
+              Bid {data.quote.bid ? formatPrice(data.quote.bid) : "—"}
+              {data.quote.bidSize ? ` ×${data.quote.bidSize}` : ""}
+            </span>
+            <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
+              Ask {data.quote.ask ? formatPrice(data.quote.ask) : "—"}
+              {data.quote.askSize ? ` ×${data.quote.askSize}` : ""}
+            </span>
+            <FreshnessChip
+              ts={data.quote.ts}
+              source={data.quote.source}
+              marketStatus={data.market.status}
+            />
+          </div>
+        ) : (
           <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
-            Bid {data.quote.bid ? formatPrice(data.quote.bid) : "—"}
-            {data.quote.bidSize ? ` ×${data.quote.bidSize}` : ""}
+            No live quote — this symbol may be delisted. Existing holdings can still be sold with a
+            limit order.
           </span>
-          <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
-            Ask {data.quote.ask ? formatPrice(data.quote.ask) : "—"}
-            {data.quote.askSize ? ` ×${data.quote.askSize}` : ""}
-          </span>
-          <FreshnessChip
-            ts={data.quote.ts}
-            source={data.quote.source}
-            marketStatus={data.market.status}
-          />
-        </div>
+        )}
         <button
           type="button"
           className="btn btn-ghost"

@@ -1,5 +1,7 @@
-import { notInArray, sql } from "drizzle-orm";
+import { and, eq, ne, notInArray, sql } from "drizzle-orm";
+import { env } from "../src/env";
 import { closeDb, getDb, schema } from "../src/infra/db";
+import { SANDBOX_BASE } from "../src/infra/brokers/alpaca";
 
 /**
  * Sync the instruments reference table from the Alpaca Assets API.
@@ -21,8 +23,6 @@ import { closeDb, getDb, schema } from "../src/infra/db";
  *          pnpm db:sync-instruments
  */
 
-const SANDBOX = "https://broker-api.sandbox.alpaca.markets";
-
 interface AssetRow {
   symbol: string;
   name: string;
@@ -33,11 +33,10 @@ interface AssetRow {
 }
 
 async function fetchAssets(): Promise<AssetRow[]> {
-  const key = process.env.ALPACA_BROKER_KEY;
-  const secret = process.env.ALPACA_BROKER_SECRET;
+  const { ALPACA_BROKER_KEY: key, ALPACA_BROKER_SECRET: secret } = env();
   if (!key || !secret) throw new Error("ALPACA_BROKER_KEY/SECRET required");
   const auth = Buffer.from(`${key}:${secret}`).toString("base64");
-  const res = await fetch(`${SANDBOX}/v1/assets?status=active&asset_class=us_equity`, {
+  const res = await fetch(`${SANDBOX_BASE}/v1/assets?status=active&asset_class=us_equity`, {
     headers: { Authorization: `Basic ${auth}` },
   });
   if (!res.ok) throw new Error(`assets fetch failed: HTTP ${res.status}`);
@@ -49,6 +48,18 @@ async function main(): Promise<void> {
     (a) => a.tradable && a.exchange !== "OTC" && a.symbol.length <= 10,
   );
   console.log(`venue lists ${assets.length} tradable non-OTC US equities`);
+
+  // Sanity floor BEFORE any write. The venue lists ~13k US equities; a
+  // response far below that is a degraded/empty payload, and the INACTIVE
+  // sweep below would mass-delist the whole table on it (drizzle renders
+  // notInArray(col, []) as WHERE true — verified). Refuse, loudly.
+  const MIN_PLAUSIBLE_ASSETS = 5_000;
+  if (assets.length < MIN_PLAUSIBLE_ASSETS) {
+    throw new Error(
+      `refusing to sync: venue returned ${assets.length} assets (< ${MIN_PLAUSIBLE_ASSETS}) — ` +
+        "degraded or empty response; the INACTIVE sweep would mass-delist the table",
+    );
+  }
 
   const db = getDb();
   const BATCH = 500;
@@ -69,7 +80,8 @@ async function main(): Promise<void> {
         set: {
           name: sql`excluded.name`,
           exchange: sql`excluded.exchange`,
-          status: sql`excluded.status`,
+          status: sql`excluded.status`, // venue re-listing REACTIVATES a row
+          updatedAt: sql`now()`,
         },
       });
     process.stdout.write(`\rupserted ${Math.min(i + BATCH, assets.length)}/${assets.length}`);
@@ -77,11 +89,21 @@ async function main(): Promise<void> {
   console.log();
 
   // Symbols no longer on the venue's tradable list: INACTIVE, never deleted.
+  // Scoped three ways: only currently-ACTIVE rows (idempotent runs report a
+  // real delta, not the cumulative history), and only rows this sync ever
+  // owned — getOrRegister-created symbols carry exchange UNKNOWN and live in
+  // the IEX-quotable universe, which the broker asset list does not govern.
   const symbols = assets.map((a) => a.symbol);
   const inactive = await db
     .update(schema.instruments)
-    .set({ status: "INACTIVE" })
-    .where(notInArray(schema.instruments.symbol, symbols))
+    .set({ status: "INACTIVE", updatedAt: sql`now()` })
+    .where(
+      and(
+        eq(schema.instruments.status, "ACTIVE"),
+        ne(schema.instruments.exchange, "UNKNOWN"),
+        notInArray(schema.instruments.symbol, symbols),
+      ),
+    )
     .returning({ symbol: schema.instruments.symbol });
   if (inactive.length > 0) {
     console.log(`marked INACTIVE (left the venue list): ${inactive.length}`);

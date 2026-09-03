@@ -219,8 +219,7 @@
   --field-thread: oklch(0.3 0.012 228);
 }
 
-[data-theme="dark"][data-mode="live"],
-[data-mode="live"] [data-theme="dark"] {
+[data-theme="dark"][data-mode="live"] {
   --field: oklch(0.145 0.008 228);
   --field-thread: oklch(0.3 0.012 228);
 }

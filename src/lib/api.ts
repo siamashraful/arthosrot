@@ -60,9 +60,10 @@ export interface OrderDto {
 
 interface InstrumentDetailDto {
   instrument: { symbol: string; name: string; exchange: string };
-  quote: QuoteDto;
+  /** null when the feed no longer quotes a known instrument (delisting). */
+  quote: QuoteDto | null;
   market: { status: string; asOf: string };
-  freshness: "live" | "aging" | "stale" | "at-close";
+  freshness: "live" | "aging" | "stale" | "at-close" | null;
 }
 
 interface PortfolioDto {

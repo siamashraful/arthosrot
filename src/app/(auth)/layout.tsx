@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth-shell">
       <Link href="/" aria-label="Arthosrot">
-        <span className="brand-lockup auth-brand" role="img" aria-label="Arthosrot · অর্থস্রোত" />
+        <span className="brand-lockup auth-brand" aria-hidden />
       </Link>
       {children}
     </div>

@@ -31,7 +31,7 @@ import {
  * DeterministicPaperBroker under the same contract.
  */
 
-const SANDBOX_BASE = "https://broker-api.sandbox.alpaca.markets";
+export const SANDBOX_BASE = "https://broker-api.sandbox.alpaca.markets";
 
 export type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 
