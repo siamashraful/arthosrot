@@ -21,8 +21,8 @@ const RANGE_LABEL: Record<HistoryRange, string> = {
 
 /**
  * Net-worth curve on the dyed field (BRAND.md: the field owns the account's
- * primary region). Wealthsimple-shaped — delta line, smooth chalk area, range
- * tabs — but on this platform's terms: the series is derived from the ledger
+ * primary region). Delta line, smooth chalk area, range
+ * tabs — on this platform's terms: the series is derived from the ledger
  * and fills (equity-series.ts owns the honesty rules), the delta is computed
  * server-side in decimal, and gain/loss colour never means anything alone
  * (sign + sr-text always accompany it). Chart numbers are the sanctioned

@@ -50,6 +50,18 @@ the user's own `getMe` polling and by the worker's `activatePendingAccounts`
 sweep — both idempotent under the account row lock. The onboarding UI shows an
 honest "setting up your account" state while funding settles.
 
+## Stock logos — keyless CDN via LOGO_UPSTREAM
+
+Alpaca's logo API is **subscription-gated** on both broker and data keys
+(verified 2026-09: `{"message":"Subscription does not permit querying
+logos"}`), so at $0 the upstream is a keyless public CDN configured as a URL
+template (`LOGO_UPSTREAM`, `{SYMBOL}` placeholder; production uses Parqet's
+logo endpoint). Our server proxies and caches the bytes (`market_data_cache`,
+7-day TTL) — the browser never talks to the third party. Misses and an unset
+template fall back to the designed monogram tile, so dev/CI run hermetically
+and the product degrades gracefully if the CDN disappears. Replacement path:
+change one env var.
+
 ## Alpaca Market Data — free IEX feed (display data)
 
 - **Why:** instrument search, bid/ask/last quotes, historical candles.

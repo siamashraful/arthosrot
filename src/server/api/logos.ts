@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { env } from "@/env";
-import { SANDBOX_BASE } from "@/infra/brokers/alpaca";
 import { getCachedLogo, putCachedLogo, type CachedLogo } from "@/infra/market-data/logo-cache";
 
 /**
- * Stock-logo proxy. The Alpaca logos endpoint needs broker credentials,
- * which never reach the browser — so the server fetches once and caches the
- * bytes (7-day TTL, market_data_cache). Without a broker key
- * (deterministic/dev) this 404s immediately and the UI's monogram fallback
- * takes over; offline dev never breaks.
+ * Stock-logo proxy over a keyless public CDN (LOGO_UPSTREAM template —
+ * Alpaca's own logo API is subscription-gated, verified: "Subscription does
+ * not permit querying logos"). The server fetches once and caches the bytes
+ * (7-day TTL, market_data_cache); the browser never talks to the third
+ * party. Unset upstream (dev/CI) or a miss -> 404 -> the UI's designed
+ * monogram tile. The upstream is config, not code: swap the env var to swap
+ * vendors (INTEGRATIONS.md).
  */
 
 const symbolSchema = z
@@ -22,21 +23,18 @@ export async function getLogo(symbolRaw: string): Promise<Response> {
   if (!parsed.success) return new Response(null, { status: 404 });
   const symbol = parsed.data.toUpperCase();
 
-  const { ALPACA_BROKER_KEY, ALPACA_BROKER_SECRET } = env();
-  if (!ALPACA_BROKER_KEY || !ALPACA_BROKER_SECRET) {
-    return new Response(null, { status: 404 });
-  }
+  const { LOGO_UPSTREAM } = env();
+  if (!LOGO_UPSTREAM) return new Response(null, { status: 404 });
 
   const cached = await getCachedLogo(symbol);
   if (cached) return logoResponse(cached);
 
-  const upstream = await fetch(`${SANDBOX_BASE}/v1beta1/logos/${symbol}`, {
-    headers: {
-      Authorization: `Basic ${Buffer.from(`${ALPACA_BROKER_KEY}:${ALPACA_BROKER_SECRET}`).toString("base64")}`,
-    },
+  const upstream = await fetch(LOGO_UPSTREAM.replace("{SYMBOL}", encodeURIComponent(symbol)), {
     signal: AbortSignal.timeout(5_000),
   }).catch(() => null);
-  if (!upstream || !upstream.ok) return new Response(null, { status: 404 });
+  if (!upstream || !upstream.ok || !upstream.headers.get("content-type")?.startsWith("image/")) {
+    return new Response(null, { status: 404 });
+  }
 
   const bytes = Buffer.from(await upstream.arrayBuffer());
   const logo: CachedLogo = {

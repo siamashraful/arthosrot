@@ -20,6 +20,20 @@ const envSchema = z.object({
   ALPACA_DATA_KEY: z.string().optional(),
   ALPACA_DATA_SECRET: z.string().optional(),
 
+  /**
+   * Stock-logo upstream: a URL template containing {SYMBOL}. Keyless public
+   * CDN (Alpaca's logo API is subscription-gated — INTEGRATIONS.md). Unset
+   * (dev/CI) the logos route 404s and the UI shows monogram tiles; no test
+   * ever touches an external host.
+   */
+  LOGO_UPSTREAM: z
+    .string()
+    .url()
+    .refine((u) => u.includes("{SYMBOL}"), {
+      message: "LOGO_UPSTREAM must contain {SYMBOL}",
+    })
+    .optional(),
+
   // Onboarding starting-cash bounds (whole dollars). The user picks within
   // [MIN, MAX] at account creation; DEFAULT seeds the slider. MAX must stay
   // <= 50_000: the Alpaca sandbox caps transfers at $50k/account/day

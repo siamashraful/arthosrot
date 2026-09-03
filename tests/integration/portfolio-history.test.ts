@@ -87,3 +87,12 @@ describe("portfolio history endpoint", () => {
     await expect(getPortfolioHistory(historyRequest("2W"), session)).rejects.toThrow();
   });
 });
+
+describe("logos route", () => {
+  it("404s with no upstream configured (dev/CI hermetic) and on garbage symbols", async () => {
+    const { getLogo } = await import("@/server/api/logos");
+    expect((await getLogo("AAPL")).status).toBe(404);
+    expect((await getLogo("../../etc/passwd")).status).toBe(404);
+    expect((await getLogo("A".repeat(40))).status).toBe(404);
+  });
+});
