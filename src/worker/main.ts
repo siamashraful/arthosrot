@@ -1,4 +1,6 @@
 import http from "node:http";
+import { timingSafeEqual } from "node:crypto";
+import { closeDb } from "@/infra/db";
 import { streamCursorsRepository } from "@/infra/db/repositories/reconciliation";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import { env } from "@/env";
@@ -24,6 +26,14 @@ const STREAM = "trades";
 
 let lastEventAt: Date | null = null;
 let lastReconcileAt: Date | null = null;
+let subscription: { close(): void } | null = null;
+
+/** Constant-time bearer check — a string !== leaks match length via timing. */
+function bearerMatches(header: string | undefined, secret: string): boolean {
+  const presented = Buffer.from(header ?? "");
+  const expected = Buffer.from(`Bearer ${secret}`);
+  return presented.length === expected.length && timingSafeEqual(presented, expected);
+}
 
 async function startIngestion(): Promise<void> {
   const c = getContainer();
@@ -37,7 +47,7 @@ async function startIngestion(): Promise<void> {
   );
   console.log(JSON.stringify({ msg: "subscribing to broker stream", sinceUlid: cursor }));
 
-  c.broker.subscribe(cursor ? { lastExternalEventId: cursor } : null, async (event) => {
+  subscription = c.broker.subscribe(cursor ? { lastExternalEventId: cursor } : null, async (event) => {
     await c.executionService.onBrokerEvent(event);
     lastEventAt = new Date();
     if (event.externalEventId) {
@@ -58,6 +68,11 @@ async function runReconciliation(): Promise<unknown> {
   }
   const result = await c.reconciliationService.reconcileAll();
   lastReconcileAt = new Date();
+  // Heartbeat row: the web app's system-status endpoint derives pipeline
+  // health from this (a fresh beat means order state is bounded-stale).
+  await pgTransactionRunner.run((tx) =>
+    streamCursorsRepository.set(tx, c.broker.kind, "reconcile-heartbeat", new Date().toISOString()),
+  );
   return { ...(result as object), provisioning };
 }
 
@@ -90,13 +105,19 @@ function main(): void {
       return;
     }
     if (req.url === "/reconcile" && req.method === "POST") {
-      if (!CRON_SECRET || req.headers.authorization !== `Bearer ${CRON_SECRET}`) {
+      if (!CRON_SECRET || !bearerMatches(req.headers.authorization, CRON_SECRET)) {
         respond(401, { status: "unauthorized" });
         return;
       }
       runReconciliation()
         .then((result) => respond(200, { status: "ok", result }))
-        .catch((err) => respond(500, { status: "error", error: String(err) }));
+        .catch((err) => {
+          // Details go to the log, not the wire (the caller only needs pass/fail).
+          console.error(
+            JSON.stringify({ level: "error", msg: "reconcile failed", err: String(err) }),
+          );
+          respond(500, { status: "error" });
+        });
       return;
     }
     respond(404, { status: "not-found" });
@@ -105,6 +126,20 @@ function main(): void {
   server.listen(PORT, () => {
     console.log(JSON.stringify({ msg: "worker listening", port: PORT }));
   });
+
+  // Graceful shutdown (Render sends SIGTERM on deploy/restart): stop taking
+  // requests, close the event stream, drain the pool, then exit.
+  const shutdown = (signal: string) => {
+    console.log(JSON.stringify({ msg: "shutting down", signal }));
+    subscription?.close();
+    server.close(() => {
+      void closeDb().finally(() => process.exit(0));
+    });
+    // Hard stop if a request or the pool refuses to drain.
+    setTimeout(() => process.exit(1), 10_000).unref();
+  };
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
 
   // Startup reconciliation heals anything missed while asleep, THEN the
   // stream resumes from the persisted cursor (order matters: reconcile-first

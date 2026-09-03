@@ -1,6 +1,6 @@
-import { z } from "zod";
 import { env } from "@/env";
 import { getCachedLogo, putCachedLogo, type CachedLogo } from "@/infra/market-data/logo-cache";
+import { symbolSchema } from "./market";
 
 /**
  * Stock-logo proxy over a keyless public CDN (LOGO_UPSTREAM template —
@@ -11,12 +11,6 @@ import { getCachedLogo, putCachedLogo, type CachedLogo } from "@/infra/market-da
  * monogram tile. The upstream is config, not code: swap the env var to swap
  * vendors (INTEGRATIONS.md).
  */
-
-const symbolSchema = z
-  .string()
-  .min(1)
-  .max(10)
-  .regex(/^[A-Za-z.\-]+$/);
 
 export async function getLogo(symbolRaw: string): Promise<Response> {
   const parsed = symbolSchema.safeParse(symbolRaw);

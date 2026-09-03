@@ -139,6 +139,24 @@ export const ordersRepository: OrdersRepository = {
     return Money.fromString(raw.includes(".") ? raw : `${raw}.00`);
   },
 
+  async sumOpenSellRemaindersByInstrument(tx, accountId): Promise<Map<string, Qty>> {
+    const rows = await asDb(tx)
+      .select({
+        instrumentId: schema.orders.instrumentId,
+        total: sql<string>`sum(${schema.orders.qty} - ${schema.orders.filledQty})::text`,
+      })
+      .from(schema.orders)
+      .where(
+        and(
+          eq(schema.orders.accountId, accountId),
+          eq(schema.orders.side, "SELL"),
+          inArray(schema.orders.state, OPEN_STATES),
+        ),
+      )
+      .groupBy(schema.orders.instrumentId);
+    return new Map(rows.map((r) => [r.instrumentId, Qty.of(r.total ?? "0")]));
+  },
+
   async sumOpenSellRemainders(tx, accountId, instrumentId): Promise<Qty> {
     const [row] = await asDb(tx)
       .select({

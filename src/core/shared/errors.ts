@@ -12,6 +12,7 @@ export type ErrorCode =
   | "PROVIDER_UNAVAILABLE"
   | "PROVIDER_TIMEOUT"
   | "CONFLICT"
+  | "RATE_LIMITED"
   | "INTERNAL";
 
 export type DomainSubcode =
@@ -38,6 +39,7 @@ export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   PROVIDER_UNAVAILABLE: 502,
   PROVIDER_TIMEOUT: 504,
   CONFLICT: 409,
+  RATE_LIMITED: 429,
   INTERNAL: 500,
 };
 

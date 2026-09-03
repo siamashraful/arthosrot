@@ -7,7 +7,8 @@ import { getContainer } from "../container";
 
 const searchSchema = z.object({ query: z.string().min(1).max(40) });
 const candleRangeSchema = z.enum(["1D", "1W", "1M", "3M", "1Y", "5Y"]);
-const symbolSchema = z
+/** The one ticker-symbol input schema — every /api/v1 surface validates with this. */
+export const symbolSchema = z
   .string()
   .min(1)
   .max(10)

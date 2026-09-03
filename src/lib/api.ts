@@ -185,7 +185,8 @@ export const api = {
       body: JSON.stringify({ confirm: "RESET" }),
     }),
   systemStatus: () =>
-    request<{ market: { status: string; asOf: string }; broker: { pipeline: string } }>(
-      "/api/v1/system/status",
-    ),
+    request<{
+      market: { status: string; asOf: string };
+      broker: { pipeline: string; lastSyncAt: string | null };
+    }>("/api/v1/system/status"),
 };

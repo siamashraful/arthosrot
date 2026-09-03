@@ -96,27 +96,4 @@ export const ledgerRepository = {
     }));
   },
 
-  async listForAccount(
-    tx: TxHandle,
-    accountId: string,
-    limit: number,
-    beforeId?: string,
-  ): Promise<LedgerEntry[]> {
-    const db = asDb(tx);
-    const conditions = [eq(schema.ledgerEntries.accountId, accountId)];
-    if (beforeId) {
-      const [pivot] = await db
-        .select({ createdAt: schema.ledgerEntries.createdAt })
-        .from(schema.ledgerEntries)
-        .where(eq(schema.ledgerEntries.id, beforeId));
-      if (pivot) conditions.push(lt(schema.ledgerEntries.createdAt, pivot.createdAt));
-    }
-    const rows = await db
-      .select()
-      .from(schema.ledgerEntries)
-      .where(and(...conditions))
-      .orderBy(desc(schema.ledgerEntries.createdAt))
-      .limit(limit);
-    return rows.map(toEntry);
-  },
 } satisfies LedgerRepository & Record<string, unknown>;

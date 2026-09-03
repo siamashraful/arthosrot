@@ -11,6 +11,12 @@ const envSchema = z.object({
   DATABASE_URL: z.string().url().optional(),
 
   BETTER_AUTH_SECRET: z.string().min(16).optional(),
+  /**
+   * Canonical public origin (e.g. https://arthosrot.vercel.app). When set,
+   * auth pins its baseURL/trusted origin to it instead of trusting the
+   * request's own Host header — set it in every deployed environment.
+   */
+  BETTER_AUTH_URL: z.string().url().optional(),
 
   BROKER_PROVIDER: z.enum(["deterministic", "alpaca-paper"]).default("deterministic"),
   MARKET_DATA_PROVIDER: z.enum(["fixture", "alpaca"]).default("fixture"),

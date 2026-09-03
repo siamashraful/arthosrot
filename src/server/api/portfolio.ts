@@ -9,7 +9,7 @@ import { watchlistsRepository } from "@/infra/db/repositories/watchlists";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import type { SessionInfo } from "../session";
 import { getContainer } from "../container";
-import { serializeQuote } from "./market";
+import { serializeQuote, symbolSchema } from "./market";
 
 export async function requireActiveAccount(session: SessionInfo) {
   const account = await getContainer().accountService.getActiveForUser(session.userId);
@@ -208,13 +208,7 @@ export async function getWatchlist(session: SessionInfo): Promise<unknown> {
   };
 }
 
-const addWatchlistSchema = z.object({
-  symbol: z
-    .string()
-    .min(1)
-    .max(10)
-    .regex(/^[A-Za-z.\-]+$/),
-});
+const addWatchlistSchema = z.object({ symbol: symbolSchema });
 
 export async function addWatchlistItem(request: Request, session: SessionInfo): Promise<unknown> {
   const { symbol } = addWatchlistSchema.parse(await request.json());

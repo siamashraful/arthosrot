@@ -22,12 +22,17 @@ export function passwordIsAcceptable(password: string): boolean {
 
 function buildAuth() {
   {
-    const { BETTER_AUTH_SECRET, NODE_ENV } = env();
+    const { BETTER_AUTH_SECRET, BETTER_AUTH_URL, NODE_ENV } = env();
     if (!BETTER_AUTH_SECRET) {
       throw new Error("BETTER_AUTH_SECRET is not configured (see .env.example)");
     }
     const instance = betterAuth({
       secret: BETTER_AUTH_SECRET,
+      // Pin the origin when configured — origin checks must not trust the
+      // request's own Host header in a deployed environment (SECURITY.md).
+      ...(BETTER_AUTH_URL
+        ? { baseURL: BETTER_AUTH_URL, trustedOrigins: [BETTER_AUTH_URL] }
+        : {}),
       database: drizzleAdapter(getDb(), {
         provider: "pg",
         schema: {

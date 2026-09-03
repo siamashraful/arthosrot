@@ -38,7 +38,7 @@ export function errorResponse(err: unknown, requestId: string): Response {
       JSON.stringify({ level: "error", requestId, err: String(appError.cause ?? appError) }),
     );
   }
-  return jsonResponse(
+  const res = jsonResponse(
     {
       error: {
         code: appError.code,
@@ -50,6 +50,9 @@ export function errorResponse(err: unknown, requestId: string): Response {
     },
     appError.httpStatus,
   );
+  // Correlation without a body parse — support/debugging reads it off the wire.
+  res.headers.set("x-request-id", requestId);
+  return res;
 }
 
 type AuthedHandler = (request: Request, session: SessionInfo) => Promise<Response>;

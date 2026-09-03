@@ -38,12 +38,6 @@ export interface NewLedgerEntry {
 export interface LedgerRepository {
   insert(tx: TxHandle, entry: NewLedgerEntry): Promise<LedgerEntry>;
   sumForAccount(tx: TxHandle, accountId: string): Promise<Money>;
-  listForAccount(
-    tx: TxHandle,
-    accountId: string,
-    limit: number,
-    beforeId?: string,
-  ): Promise<LedgerEntry[]>;
 }
 
 /** Port implemented by core/accounts — lets the ledger bump the cash projection. */
@@ -82,9 +76,5 @@ export class LedgerService {
     const cached = await this.cash.getCachedCash(tx, accountId);
     const drift = cached.subtract(projected);
     return { projected, cached, drift, inBalance: drift.isZero() };
-  }
-
-  list(tx: TxHandle, accountId: string, limit = 50, beforeId?: string): Promise<LedgerEntry[]> {
-    return this.repo.listForAccount(tx, accountId, limit, beforeId);
   }
 }

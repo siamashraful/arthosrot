@@ -25,7 +25,7 @@
 1. Public GitHub repo.
 2. **Neon:** create project; `main` branch = prod DB; enable the GitHub integration for preview branches. No keep-alive pings — Neon is allowed to sleep; cold starts are absorbed by loading states.
 3. **Alpaca:** create the free Broker Dashboard sandbox team (broker-app.alpaca.markets/sign-up) → sandbox key/secret. Separately create a free Trading API account → market-data key/secret (IEX feed).
-4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH_MIN=1000`, `STARTING_CASH_MAX=25000`, `STARTING_CASH_DEFAULT=10000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
+4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (the canonical https origin — pins auth origin checks), `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH_MIN=1000`, `STARTING_CASH_MAX=25000`, `STARTING_CASH_DEFAULT=10000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
 5. **Render:** create the worker from `render.yaml` (free plan); set the `sync: false` env vars (same values as Vercel where shared).
 6. **GitHub Actions secrets:** `WORKER_URL`, `CRON_SECRET` (for reconcile.yml); Alpaca sandbox creds for external-smoke.yml.
 7. **Instrument catalog:** run `DATABASE_URL=<prod-unpooled> pnpm db:sync-instruments` (needs `ALPACA_BROKER_KEY/SECRET`). Search is DB-backed — the alpaca data provider has no name-search — so without this step the platform searches only the 30-symbol bootstrap seed. Re-run occasionally (listings change); the script refuses degraded venue responses rather than mass-delisting.
@@ -50,7 +50,7 @@
 | `GET /api/health/ready`     | web    | DB reachable                                                                  |
 | `GET /healthz`              | worker | DB reachable (503 otherwise); stale event/reconcile activity degrades status  |
 | `POST /reconcile`           | worker | CRON_SECRET-guarded reconciliation trigger                                    |
-| `GET /api/v1/system/status` | web    | Cached pipeline/provider health for the UI banner — never spends vendor calls |
+| `GET /api/v1/system/status` | web    | Cached pipeline/provider health for the UI banner — never spends vendor calls. Pipeline health derives from the worker's reconcile-heartbeat row (`stream_cursors`, stream `reconcile-heartbeat`): fresh within 30 min while the market is OPEN ⇒ LIVE; a stale beat off-hours is normal (the cron sleeps by design) |
 
 A market-data or broker outage must never mark the web process itself unhealthy — external status is observed separately (system/status), and monitoring must not consume scarce market-data calls.
 

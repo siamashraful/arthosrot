@@ -599,7 +599,7 @@ a.btn {
   color: var(--field-muted);
 }
 .field-panel .segmented button[aria-pressed="true"],
-.segmented button[aria-selected="true"] {
+.field-panel .segmented button[aria-selected="true"] {
   background: var(--on-field);
   color: var(--field);
 }

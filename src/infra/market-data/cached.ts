@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 import {
   ProviderUnavailableError,
   type Candle,
@@ -144,23 +144,84 @@ export class CachedMarketData implements MarketDataProvider {
   }
 
   async getQuotes(symbols: readonly string[]): Promise<Map<string, Quote>> {
-    // Batch endpoint: cache per-symbol so mixed-freshness batches refetch minimally.
+    // Batch endpoint: cached per-symbol at BOTH layers — memo (this instance)
+    // and the shared DB rows (other serverless instances) — so a watchlist
+    // poll on a cold instance doesn't re-spend the vendor budget. Same
+    // degradation as the single path: on vendor failure, expired rows serve,
+    // flagged by their own embedded quote timestamps.
     const out = new Map<string, Quote>();
-    const misses: string[] = [];
     const ttl = await this.quoteTtl();
     const now = this.clock.now().getTime();
+    const misses: string[] = [];
     for (const s of symbols) {
-      const hit = this.memo.get(`quote:${s.toUpperCase()}`);
-      if (hit && hit.staleAfter > now) out.set(s.toUpperCase(), hit.value as Quote);
-      else misses.push(s);
+      const sym = s.toUpperCase();
+      const hit = this.memo.get(`quote:${sym}`);
+      if (hit && hit.staleAfter > now) out.set(sym, hit.value as Quote);
+      else misses.push(sym);
     }
-    if (misses.length > 0) {
-      const fresh = await this.inner.getQuotes(misses);
-      const staleAfter = now + ttl;
+    if (misses.length === 0) return out;
+
+    const db = getDb();
+    const rows = await db
+      .select()
+      .from(schema.marketDataCache)
+      .where(
+        inArray(
+          schema.marketDataCache.cacheKey,
+          misses.map((s) => `quote:${s}`),
+        ),
+      );
+    const expired = new Map<string, Quote>();
+    const uncached: string[] = [];
+    for (const sym of misses) {
+      const row = rows.find((r) => r.cacheKey === `quote:${sym}`);
+      if (row && row.staleAfter.getTime() > now) {
+        const value = deserializeQuote(row.payload as SerializedQuote);
+        out.set(sym, value);
+        this.memo.set(`quote:${sym}`, { value, staleAfter: row.staleAfter.getTime() });
+      } else {
+        if (row) expired.set(sym, deserializeQuote(row.payload as SerializedQuote));
+        uncached.push(sym);
+      }
+    }
+    if (uncached.length === 0) return out;
+
+    try {
+      const fresh = await this.inner.getQuotes(uncached);
+      const staleAfter = new Date(now + ttl);
       for (const [sym, quote] of fresh) {
         out.set(sym, quote);
-        this.memo.set(`quote:${sym}`, { value: quote, staleAfter });
+        this.memo.set(`quote:${sym}`, { value: quote, staleAfter: staleAfter.getTime() });
       }
+      if (fresh.size > 0) {
+        await db
+          .insert(schema.marketDataCache)
+          .values(
+            [...fresh].map(([sym, quote]) => ({
+              cacheKey: `quote:${sym}`,
+              payload: serializeQuote(quote),
+              fetchedAt: this.clock.now(),
+              staleAfter,
+            })),
+          )
+          .onConflictDoUpdate({
+            target: schema.marketDataCache.cacheKey,
+            set: {
+              payload: sql`excluded.payload`,
+              fetchedAt: sql`excluded.fetched_at`,
+              staleAfter: sql`excluded.stale_after`,
+            },
+          });
+      }
+    } catch (err) {
+      // Symbols with no cache at all stay absent from the map (callers
+      // already render a missing quote honestly); only a total miss throws.
+      if (expired.size === 0 && out.size === 0) {
+        throw err instanceof ProviderUnavailableError
+          ? err
+          : new ProviderUnavailableError("market data unavailable", err);
+      }
+      for (const [sym, quote] of expired) out.set(sym, quote);
     }
     return out;
   }

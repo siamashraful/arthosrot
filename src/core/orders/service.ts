@@ -71,6 +71,8 @@ export interface OrdersRepository {
   sumOpenBuyReservations(tx: TxHandle, accountId: string): Promise<Money>;
   /** Σ (qty - filled_qty) over open SELL orders for one instrument. */
   sumOpenSellRemainders(tx: TxHandle, accountId: string, instrumentId: string): Promise<Qty>;
+  /** Same sum for EVERY instrument with open sells, in one grouped query. */
+  sumOpenSellRemaindersByInstrument(tx: TxHandle, accountId: string): Promise<Map<string, Qty>>;
   /** Insert an audit event; returns false on external_event_id conflict (duplicate delivery). */
   insertEvent(tx: TxHandle, event: OrderEventRecord): Promise<boolean>;
   /** True if this exact event envelope was already recorded (replay pre-check). */

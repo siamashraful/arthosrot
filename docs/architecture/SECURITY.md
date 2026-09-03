@@ -5,7 +5,7 @@
 
 ## Authentication & sessions
 
-Better Auth (OSS, self-hosted): email/password, scrypt hashing (no custom crypto), database sessions in our Postgres — HttpOnly, Secure, SameSite=Lax cookies; 30-day rolling, revocable server-side. Signup requires zxcvbn score ≥ 3. CSRF: Better Auth origin checks + SameSite; state-changing endpoints additionally verify the Origin header. Rate limits: 10/min on auth endpoints; 60/min per session on order placement. Password recovery: deferred pending MVP.md open decision #2. The rest of the app sees only `getSession()` — the provider-swap seam.
+Better Auth (OSS, self-hosted): email/password, scrypt hashing (no custom crypto), database sessions in our Postgres — HttpOnly, Secure, SameSite=Lax cookies; 30-day rolling, revocable server-side. Signup requires zxcvbn score ≥ 3. CSRF: Better Auth origin checks + SameSite; `BETTER_AUTH_URL` pins the trusted origin in deployed environments so origin checks never trust the request's own Host header (set it in Vercel — unset falls back to request-derived). Rate limits: 10/min on auth endpoints (Better Auth, production only); 60/min per user on order placement (`src/server/api/rate-limit.ts` — in-memory, per serverless instance; a burst brake, not a distributed quota). Password recovery: deferred pending MVP.md open decision #2. The rest of the app sees only `getSession()` — the provider-swap seam.
 
 ## Authorization
 
@@ -14,12 +14,13 @@ Single role (user). Every query is filtered by the session's account at the repo
 ## Application controls
 
 - **Input:** Zod on every boundary (API bodies, env via `src/env.ts`, cron header).
-- **Output:** React escaping; no `dangerouslySetInnerHTML` (single sanctioned exception: the constant theme-bootstrap script in `src/app/layout.tsx` — static string, no user input); security headers via next.config (nosniff, referrer-policy, frame-deny); CSP tightened in the hardening phase.
+- **Output:** React escaping; no `dangerouslySetInnerHTML` (single sanctioned exception: the constant theme/mode-bootstrap script in `src/app/layout.tsx` — static string, no user input); security headers via next.config (nosniff, referrer-policy, frame-deny, HSTS, permissions-policy); CSP remains future hardening (Next inline scripts need nonce plumbing).
 - **SQLi:** Drizzle parameterized queries; raw SQL only via the parameterized `sql` template — string-concatenated SQL is review-blocked.
-- **SSRF:** outbound calls go only to pinned Alpaca base-URL constants; no user-supplied URLs are fetched.
-- **Secrets:** env vars only; `.env.example` documents all; gitleaks in CI; pino redaction list (password, cookie, authorization, api keys); no secrets in client bundles (`process.env` only in src/env.ts; no `NEXT_PUBLIC_` secrets).
-- **Dependencies:** lockfile committed; pnpm audit + Dependabot weekly.
-- **Transport:** HTTPS everywhere (platform TLS), HSTS in hardening phase.
+- **SSRF:** outbound calls go only to pinned Alpaca base-URL constants plus the operator-configured `LOGO_UPSTREAM` template; no user-supplied URLs are fetched.
+- **Secrets:** env vars only; `.env.example` documents all; gitleaks in CI; logging is structured console JSON that never includes credentials, tokens, or request bodies; `order_events.raw_payload` passes a redaction filter before persistence; no secrets in client bundles (`process.env` only in src/env.ts; no `NEXT_PUBLIC_` secrets).
+- **Dependencies:** lockfile committed; Dependabot weekly (npm + actions).
+- **Errors:** one envelope (`src/server/api/http.ts`); internal causes are logged with a request id (also returned as `x-request-id`), never sent to the client. The worker's `/reconcile` responds pass/fail only; its `CRON_SECRET` check is constant-time.
+- **Transport:** HTTPS everywhere (platform TLS) + HSTS (2y, includeSubDomains).
 
 ## Broker-integration specifics
 

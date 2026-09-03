@@ -24,7 +24,7 @@ export interface FillsReplaySource {
 }
 
 export interface OpenSellReader {
-  sumOpenSellRemainders(tx: TxHandle, accountId: string, instrumentId: string): Promise<Qty>;
+  sumOpenSellRemaindersByInstrument(tx: TxHandle, accountId: string): Promise<Map<string, Qty>>;
   sumOpenBuyReservations(tx: TxHandle, accountId: string): Promise<Money>;
 }
 
@@ -91,6 +91,10 @@ export class PortfolioService {
       const quotes = symbols.length
         ? await this.marketData.getQuotes(symbols)
         : new Map<string, never>();
+      // One grouped query for every open-sell remainder — not one per position.
+      const openSells = held.length
+        ? await this.orders.sumOpenSellRemaindersByInstrument(tx, accountId)
+        : new Map<string, Qty>();
 
       let positionsValue = Money.zero();
       const positions: PositionView[] = [];
@@ -103,9 +107,7 @@ export class PortfolioService {
         positions.push({
           symbol: p.symbol,
           qty: p.qty.toString(),
-          sellableQty: p.qty
-            .subtract(await this.orders.sumOpenSellRemainders(tx, accountId, p.instrumentId))
-            .toString(),
+          sellableQty: p.qty.subtract(openSells.get(p.instrumentId) ?? Qty.of(0)).toString(),
           avgCost: p.costBasisTotal.avgPx(p.qty).toString(),
           lastPrice: last?.toString() ?? "",
           marketValue: marketValue?.toString() ?? "",

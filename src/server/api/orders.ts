@@ -6,14 +6,12 @@ import { accountsRepository } from "@/infra/db/repositories/accounts";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import type { SessionInfo } from "../session";
 import { requireActiveAccount } from "./portfolio";
+import { symbolSchema } from "./market";
+import { enforceRateLimit } from "./rate-limit";
 import { getContainer } from "../container";
 
 const placeOrderSchema = z.object({
-  symbol: z
-    .string()
-    .min(1)
-    .max(10)
-    .regex(/^[A-Za-z.\-]+$/),
+  symbol: symbolSchema,
   side: z.enum(["BUY", "SELL"]),
   type: z.enum(["MARKET", "LIMIT"]),
   qty: z.number().int().positive().max(1_000_000),
@@ -63,6 +61,7 @@ export async function placeOrder(
   request: Request,
   session: SessionInfo,
 ): Promise<{ body: unknown; status: number }> {
+  enforceRateLimit(`orders:${session.userId}`, 60, 60_000);
   const input = placeOrderSchema.parse(await request.json());
   const { instrumentService, marketData, ordersService } = getContainer();
 

@@ -1,16 +1,28 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+
+/** One request per pause in typing, not one per keystroke. */
+function useDebounced(value: string, delayMs: number): string {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(t);
+  }, [value, delayMs]);
+  return debounced;
+}
 
 export default function MarketsPage() {
   const [query, setQuery] = useState("");
+  const debouncedQuery = useDebounced(query.trim(), 300);
   const { data, isFetching } = useQuery({
-    queryKey: ["instrument-search", query],
-    queryFn: () => api.searchInstruments(query),
-    enabled: query.trim().length > 0,
+    queryKey: ["instrument-search", debouncedQuery],
+    queryFn: () => api.searchInstruments(debouncedQuery),
+    enabled: debouncedQuery.length > 0,
+    placeholderData: keepPreviousData,
   });
 
   return (

@@ -31,8 +31,9 @@ export function StatusBanner() {
 
   return (
     <div className="status-banner" role="status">
-      Order updates may be delayed — last sync {relativeAge(data.market.asOf)}. Recent orders will
-      catch up automatically.
+      Order updates may be delayed
+      {data.broker.lastSyncAt ? <> — last sync {relativeAge(data.broker.lastSyncAt)}</> : null}.
+      Recent orders will catch up automatically.
     </div>
   );
 }
