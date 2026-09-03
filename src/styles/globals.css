@@ -369,7 +369,8 @@ a.btn {
     background var(--dur-fast) var(--ease-out),
     color var(--dur-fast) var(--ease-out);
 }
-.segmented button[aria-pressed="true"] {
+.segmented button[aria-pressed="true"],
+.segmented button[aria-selected="true"] {
   background: var(--accent);
   color: var(--on-accent);
 }
@@ -556,6 +557,22 @@ a.btn {
 }
 .field-panel input[type="range"] {
   accent-color: var(--on-field);
+}
+/* chart chrome on the cloth: chalk selection, thread borders */
+.field-panel .segmented {
+  border-color: var(--field-thread);
+}
+.field-panel .segmented button {
+  color: var(--field-muted);
+}
+.field-panel .segmented button[aria-pressed="true"],
+.segmented button[aria-selected="true"] {
+  background: var(--on-field);
+  color: var(--field);
+}
+.field-panel .data-table th,
+.field-panel .data-table td {
+  border-color: var(--field-thread);
 }
 
 /* ------------------------------------------------------------ weave-fill */

@@ -47,6 +47,22 @@ export const ledgerRepository = {
     return Money.fromString(raw.includes(".") ? raw : `${raw}.00`);
   },
 
+  /** Full ascending walk for one account — the equity-series cash input. */
+  async listForAccountAscending(
+    tx: TxHandle,
+    accountId: string,
+  ): Promise<Array<{ amount: Money; createdAt: Date }>> {
+    const rows = await asDb(tx)
+      .select({
+        amount: schema.ledgerEntries.amount,
+        createdAt: schema.ledgerEntries.createdAt,
+      })
+      .from(schema.ledgerEntries)
+      .where(eq(schema.ledgerEntries.accountId, accountId))
+      .orderBy(schema.ledgerEntries.createdAt, schema.ledgerEntries.id);
+    return rows.map((r) => ({ amount: Money.fromString(r.amount), createdAt: r.createdAt }));
+  },
+
   async listForUser(
     tx: TxHandle,
     userId: string,

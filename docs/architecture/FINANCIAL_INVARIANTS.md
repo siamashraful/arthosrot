@@ -35,3 +35,17 @@ Every invariant ships with a test that _attempts to violate it_. The test-file c
 ## Arithmetic rules
 
 decimal.js behind branded `Money` (USD, 2dp) / `Px` (4dp) / `Qty` (integer) — raw `number` arithmetic on financial values is lint-banned in core. ROUND_HALF_EVEN, applied **once per derivation**: notional = round(price × qty, 2) at fill time; fees rounded at computation; P&L computed from stored rounded values. Average-cost method: sell allocates basis = avgCost × soldQty (2dp); the final sell allocates the exact remaining basis so Σ never drifts. JSON carries money/prices as strings (matches the venue's numbers-as-strings convention); vendor decimal strings parse to Decimal at the adapter boundary.
+
+## Display derivations
+
+- **Chart-rendering boundary:** converting a decimal string to a JS number is
+  permitted ONLY at the final hand-off to a canvas chart library (which
+  demands numbers), and only for display — never for arithmetic, comparison,
+  or anything that feeds back into state. All series math (equity curve,
+  deltas, percentages) happens in decimal inside `core` first
+  (`core/portfolio/equity-series.ts`, `core/money percentChange`).
+- **Series honesty:** the net-worth series fails whole
+  (`ProviderUnavailableError`) when any held symbol cannot be priced at a
+  grid point. A net worth silently missing one holding is fabricated data —
+  worse than no chart. The series covers the ACTIVE account only; resets
+  start the curve fresh (archived history stays on Activity — invariant 14).

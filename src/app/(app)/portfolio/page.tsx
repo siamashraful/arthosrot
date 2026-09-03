@@ -3,6 +3,7 @@
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { Money } from "@/components/finance/Money";
+import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { PriceChange } from "@/components/finance/PriceChange";
 import { api } from "@/lib/api";
 import { formatPrice, formatPrice4, formatTime } from "@/lib/format";
@@ -84,7 +85,12 @@ export default function PortfolioPage() {
             {data.positions.map((p) => (
               <tr key={p.symbol}>
                 <td>
-                  <Link href={`/i/${p.symbol}`}>{p.symbol}</Link>
+                  <span
+                    style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}
+                  >
+                    <SymbolLogo symbol={p.symbol} />
+                    <Link href={`/i/${p.symbol}`}>{p.symbol}</Link>
+                  </span>
                 </td>
                 <td className="num tabular" data-cell="secondary">
                   {p.qty}

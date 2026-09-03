@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { use } from "react";
 import { CandleChart } from "@/components/finance/CandleChart";
 import { FreshnessChip } from "@/components/finance/FreshnessChip";
+import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { TicketPanel } from "@/components/finance/TicketPanel";
 import { api } from "@/lib/api";
 import { formatPrice, formatPrice4 } from "@/lib/format";
@@ -45,7 +46,15 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
         }}
       >
         <div>
-          <h1 style={{ fontSize: "var(--text-xl)" }}>
+          <h1
+            style={{
+              fontSize: "var(--text-xl)",
+              display: "flex",
+              alignItems: "center",
+              gap: "var(--space-2)",
+            }}
+          >
+            <SymbolLogo symbol={symbol} size={28} />
             {symbol}{" "}
             <span className="muted" style={{ fontWeight: 400, fontSize: "var(--text-base)" }}>
               {data.instrument.name} · {data.instrument.exchange}

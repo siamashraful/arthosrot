@@ -140,6 +140,14 @@ export const api = {
       `/api/v1/instruments/${encodeURIComponent(symbol)}/candles?range=${range}`,
     ),
   portfolio: () => request<PortfolioDto>("/api/v1/portfolio"),
+  portfolioHistory: (range: string) =>
+    request<{
+      range: string;
+      resolvedRange: string;
+      points: Array<{ t: string; value: string }>;
+      change: { absolute: string; percent: string | null };
+      asOf: string;
+    }>(`/api/v1/portfolio/history?range=${range}`),
   orders: (status: "open" | "all") =>
     request<{ orders: OrderDto[] }>(`/api/v1/orders?status=${status}`),
   orderDetail: (id: string) =>

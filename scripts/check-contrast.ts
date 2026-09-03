@@ -71,6 +71,7 @@ const CHECKS: Array<[string, string, number]> = [
   ["field-muted", "field", 4.5],
   ["gain-on-field", "field", 3],
   ["loss-on-field", "field", 4.5],
+  ["chart-line-on-field", "field", 3],
 ];
 
 let failed = false;

@@ -117,6 +117,10 @@
      need the dark-ground pair, or they fail contrast (verified, not assumed) */
   --gain-on-field: oklch(0.775 0.145 160);
   --loss-on-field: oklch(0.705 0.185 27);
+  /* the net-worth curve on the dyed cloth: chalk line, faint chalk fill */
+  --chart-line-on-field: oklch(0.93 0.01 225);
+  --chart-fill-on-field: oklch(0.93 0.01 225 / 0.14);
+  --chart-grid-on-field: oklch(0.45 0.04 228);
 
   --gain: oklch(0.495 0.135 158);
   --loss: oklch(0.515 0.198 27);
@@ -150,6 +154,9 @@
   --field-thread: oklch(0.42 0.04 228);
   --gain-on-field: oklch(0.775 0.145 160);
   --loss-on-field: oklch(0.705 0.185 27);
+  --chart-line-on-field: oklch(0.93 0.01 225);
+  --chart-fill-on-field: oklch(0.93 0.01 225 / 0.14);
+  --chart-grid-on-field: oklch(0.47 0.04 228);
 
   --gain: oklch(0.775 0.145 160);
   --loss: oklch(0.705 0.185 27);
@@ -182,6 +189,9 @@
     --field-thread: oklch(0.42 0.04 228);
     --gain-on-field: oklch(0.775 0.145 160);
     --loss-on-field: oklch(0.705 0.185 27);
+    --chart-line-on-field: oklch(0.93 0.01 225);
+    --chart-fill-on-field: oklch(0.93 0.01 225 / 0.14);
+    --chart-grid-on-field: oklch(0.47 0.04 228);
     --gain: oklch(0.775 0.145 160);
     --loss: oklch(0.705 0.185 27);
     --warning: oklch(0.815 0.14 82);

@@ -79,6 +79,11 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
   // Dashboard: provisioned account with the persistent paper badge.
   await expect(page.getByText("$10,000.00").first()).toBeVisible();
   await expect(page.getByRole("note", { name: "Simulation notice" })).toBeVisible();
+  // Net-worth module: range tabs + the delta line. A minutes-old account
+  // charts its deposit event and the live tail — a flat, honest $0.00 delta
+  // (history clips to account creation; nothing is backfilled).
+  await expect(page.getByRole("tablist", { name: "Net worth range" })).toBeVisible();
+  await expect(page.getByText("past month", { exact: false })).toBeVisible({ timeout: 15_000 });
   await expectNoSeriousA11yViolations(page);
 
   // Instrument page: quote with freshness context.

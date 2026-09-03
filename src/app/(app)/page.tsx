@@ -2,6 +2,8 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { NetWorthChart } from "@/components/finance/NetWorthChart";
+import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { OnboardingPanel } from "@/components/onboarding";
 import { OrdersTable } from "@/components/finance/OrdersTable";
 import { Money } from "@/components/finance/Money";
@@ -58,41 +60,47 @@ export default function DashboardPage() {
       {isPending || !portfolio ? (
         <div className="skeleton" style={{ height: 72 }} />
       ) : (
-        <section
-          aria-label="Account summary"
-          className="field-panel tabular"
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: "var(--space-5) var(--space-7)",
-            alignItems: "baseline",
-          }}
-        >
-          <div>
-            <div className="field-label">Portfolio value</div>
-            <div style={{ fontSize: "var(--text-hero)", fontWeight: 600 }}>
-              <Money value={portfolio.summary.equity} />
-            </div>
-            <div className="muted" style={{ fontSize: "var(--text-xs)" }}>
-              as of {formatTime(portfolio.summary.asOf)} · market {portfolio.market.status}
-            </div>
+        <section aria-label="Account summary" className="field-panel tabular">
+          <div className="field-label">Portfolio value</div>
+          <div style={{ fontSize: "var(--text-hero)", fontWeight: 600 }}>
+            <Money value={portfolio.summary.equity} />
           </div>
-          <div>
-            <div className="field-label">Cash</div>
-            <div style={{ fontSize: "var(--text-md)" }}>
-              <Money value={portfolio.summary.cash} />
-            </div>
+          <div
+            className="muted"
+            style={{ fontSize: "var(--text-xs)", marginBottom: "var(--space-3)" }}
+          >
+            as of {formatTime(portfolio.summary.asOf)} · market {portfolio.market.status}
           </div>
-          <div>
-            <div className="field-label">Buying power</div>
-            <div style={{ fontSize: "var(--text-md)" }}>
-              <Money value={portfolio.summary.buyingPower} />
+
+          <NetWorthChart />
+
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: "var(--space-3) var(--space-7)",
+              marginTop: "var(--space-4)",
+              paddingTop: "var(--space-4)",
+              borderTop: "1px solid var(--field-thread)",
+            }}
+          >
+            <div>
+              <div className="field-label">Cash</div>
+              <div style={{ fontSize: "var(--text-md)" }}>
+                <Money value={portfolio.summary.cash} />
+              </div>
             </div>
-          </div>
-          <div>
-            <div className="field-label">Realized P&L</div>
-            <div style={{ fontSize: "var(--text-md)" }}>
-              <PriceChange amount={portfolio.summary.realizedPnl} />
+            <div>
+              <div className="field-label">Buying power</div>
+              <div style={{ fontSize: "var(--text-md)" }}>
+                <Money value={portfolio.summary.buyingPower} />
+              </div>
+            </div>
+            <div>
+              <div className="field-label">Realized P&L</div>
+              <div style={{ fontSize: "var(--text-md)" }}>
+                <PriceChange amount={portfolio.summary.realizedPnl} />
+              </div>
             </div>
           </div>
         </section>
@@ -129,7 +137,16 @@ export default function DashboardPage() {
               {portfolio.positions.slice(0, 5).map((p) => (
                 <tr key={p.symbol}>
                   <td>
-                    <Link href={`/i/${p.symbol}`}>{p.symbol}</Link>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-2)",
+                      }}
+                    >
+                      <SymbolLogo symbol={p.symbol} />
+                      <Link href={`/i/${p.symbol}`}>{p.symbol}</Link>
+                    </span>
                   </td>
                   <td className="num tabular" data-cell="secondary">
                     {p.qty}
@@ -170,7 +187,16 @@ export default function DashboardPage() {
               {watchlist.items.map((item) => (
                 <tr key={item.id}>
                   <td>
-                    <Link href={`/i/${item.symbol}`}>{item.symbol}</Link>{" "}
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: "var(--space-2)",
+                      }}
+                    >
+                      <SymbolLogo symbol={item.symbol} />
+                      <Link href={`/i/${item.symbol}`}>{item.symbol}</Link>
+                    </span>{" "}
                     <span className="muted" data-cell="secondary">
                       {item.name}
                     </span>

@@ -99,6 +99,17 @@ export class Money {
   }
 }
 
+/**
+ * Percent change from -> to, as a fixed-2dp string ("4.10", "-12.50"), or
+ * null when `from` is zero or negative (a percentage of nothing is not a
+ * number worth printing). Derivation helper: rounds exactly once, HALF_EVEN.
+ */
+export function percentChange(from: Money, to: Money): string | null {
+  const base = from.toDecimal();
+  if (base.lte(0)) return null;
+  return to.toDecimal().minus(base).div(base).times(100).toFixed(2);
+}
+
 export class Px {
   private constructor(private readonly d: InstanceType<typeof Dec>) {}
 

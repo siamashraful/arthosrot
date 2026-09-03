@@ -4,40 +4,16 @@ import { useQuery } from "@tanstack/react-query";
 import { AreaSeries, createChart, type IChartApi } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
+import { chartTokens, useThemeVersion } from "./chart-theme";
 
 const RANGES = ["1D", "1W", "1M", "3M", "1Y", "5Y"] as const;
 type Range = (typeof RANGES)[number];
-
-/**
- * lightweight-charts' color parser predates oklch()/lab(); normalize token
- * colors to rgba via a canvas round-trip before handing them over.
- */
-function normalizeColor(color: string): string {
-  const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = 1;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return "#888888";
-  ctx.fillStyle = color;
-  ctx.fillRect(0, 0, 1, 1);
-  const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
-  return `rgba(${r}, ${g}, ${b}, ${((a ?? 255) / 255).toFixed(3)})`;
-}
-
-function tokens(el: HTMLElement) {
-  const styles = getComputedStyle(el);
-  const get = (name: string) => normalizeColor(styles.getPropertyValue(name).trim());
-  return {
-    line: get("--chart-line"),
-    fill: get("--chart-fill"),
-    grid: get("--chart-grid"),
-    text: get("--ink-muted"),
-  };
-}
 
 export function CandleChart({ symbol }: { symbol: string }) {
   const [range, setRange] = useState<Range>("1M");
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const themeVersion = useThemeVersion();
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["candles", symbol, range],
@@ -47,7 +23,12 @@ export function CandleChart({ symbol }: { symbol: string }) {
   useEffect(() => {
     const el = containerRef.current;
     if (!el || !data?.candles?.length) return;
-    const t = tokens(el);
+    const t = chartTokens(el, {
+      line: "--chart-line",
+      fill: "--chart-fill",
+      grid: "--chart-grid",
+      text: "--ink-muted",
+    });
     const chart = createChart(el, {
       autoSize: true,
       layout: {
@@ -80,7 +61,7 @@ export function CandleChart({ symbol }: { symbol: string }) {
       chart.remove();
       chartRef.current = null;
     };
-  }, [data]);
+  }, [data, themeVersion]);
 
   return (
     <section aria-label={`${symbol} price chart`}>
@@ -91,13 +72,7 @@ export function CandleChart({ symbol }: { symbol: string }) {
         style={{ maxWidth: "22rem", marginBottom: "var(--space-3)" }}
       >
         {RANGES.map((r) => (
-          <button
-            key={r}
-            role="tab"
-            aria-selected={range === r}
-            aria-pressed={range === r}
-            onClick={() => setRange(r)}
-          >
+          <button key={r} role="tab" aria-selected={range === r} onClick={() => setRange(r)}>
             {r}
           </button>
         ))}

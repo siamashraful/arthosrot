@@ -11,6 +11,15 @@ export {
   type SellApplication,
 } from "./positions";
 export {
+  BAR_DURATION_MS,
+  equitySeries,
+  RANGE_LOOKBACK_MS,
+  resolveAllRange,
+  type EquityPoint,
+  type EquitySeriesResult,
+  type LedgerAmountAt,
+} from "./equity-series";
+export {
   PortfolioService,
   type FillForReplay,
   type FillsReplaySource,

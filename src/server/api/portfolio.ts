@@ -1,7 +1,9 @@
 import { z } from "zod";
 import { Money } from "@/core/money";
+import { equitySeries, resolveAllRange } from "@/core/portfolio";
 import { AppError, systemClock } from "@/core/shared";
 import { env } from "@/env";
+import { fillsReplaySource } from "@/infra/db/repositories/fills";
 import { ledgerRepository } from "@/infra/db/repositories/ledger";
 import { watchlistsRepository } from "@/infra/db/repositories/watchlists";
 import { pgTransactionRunner } from "@/infra/db/tx";
@@ -138,6 +140,50 @@ export async function getLedger(request: Request, session: SessionInfo): Promise
       archived: e.accountArchived,
       createdAt: e.createdAt.toISOString(),
     })),
+  };
+}
+
+const historySchema = z.object({ range: z.enum(["1D", "1W", "1M", "3M", "1Y", "ALL"]) });
+
+/**
+ * Net-worth series for the ACTIVE account (equity-series.ts owns the math
+ * and the honesty rules). ALL maps to the smallest provider range covering
+ * the account's age, then clips — echoed back as resolvedRange.
+ */
+export async function getPortfolioHistory(
+  request: Request,
+  session: SessionInfo,
+): Promise<unknown> {
+  const url = new URL(request.url);
+  const { range } = historySchema.parse({ range: url.searchParams.get("range") ?? "1M" });
+  const account = await requireActiveAccount(session);
+  const c = getContainer();
+  const now = systemClock.now();
+  const resolvedRange = range === "ALL" ? resolveAllRange(account.createdAt, now) : range;
+
+  const [fills, ledger] = await pgTransactionRunner.run((tx) =>
+    Promise.all([
+      fillsReplaySource.listForAccountChronological(tx, account.id),
+      ledgerRepository.listForAccountAscending(tx, account.id),
+    ]),
+  );
+  const view = await c.portfolioService.view(account.id, account.cashBalance, now);
+  const series = await equitySeries({
+    range: resolvedRange,
+    fills,
+    ledger,
+    accountCreatedAt: account.createdAt,
+    now,
+    liveEquity: Money.fromString(view.summary.equity),
+    getCandles: (symbol) => c.marketData.getCandles(symbol, resolvedRange),
+  });
+
+  return {
+    range,
+    resolvedRange,
+    points: series.points.map((p) => ({ t: p.t.toISOString(), value: p.value.toString() })),
+    change: { absolute: series.change.absolute.toString(), percent: series.change.percent },
+    asOf: now.toISOString(),
   };
 }
 
