@@ -9,7 +9,7 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: pnpm/action-setup@v4 # version from package.json "packageManager"
 
@@ -60,7 +60,7 @@ jobs:
     env:
       TEST_DATABASE_URL: postgres://arthosrot:arthosrot@localhost:5432/arthosrot_test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -95,7 +95,7 @@ jobs:
       MARKET_DATA_PROVIDER: fixture
       FORCE_MARKET_OPEN: "1"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
