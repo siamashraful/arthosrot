@@ -196,9 +196,9 @@ export default function DashboardPage() {
                     >
                       <SymbolLogo symbol={item.symbol} />
                       <Link href={`/i/${item.symbol}`}>{item.symbol}</Link>
-                    </span>{" "}
-                    <span className="muted" data-cell="secondary">
-                      {item.name}
+                      <span className="muted" data-cell="secondary">
+                        {item.name}
+                      </span>
                     </span>
                   </td>
                   <td className="num tabular">{item.quote ? `$${item.quote.last}` : "—"}</td>

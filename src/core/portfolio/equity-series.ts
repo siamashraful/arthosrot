@@ -25,11 +25,18 @@ import type { FillForReplay } from "./portfolio";
 export interface LedgerAmountAt {
   amount: Money;
   createdAt: Date;
+  /** Ledger entry type — DEPOSIT rows are external contributions. */
+  entryType: string;
 }
 
 export interface EquityPoint {
   t: Date;
   value: Money;
+  /**
+   * Cumulative external contributions (DEPOSIT entries) at this instant —
+   * the comparison line that separates market movement from money added.
+   */
+  netDeposits: Money;
 }
 
 export interface EquitySeriesResult {
@@ -156,6 +163,7 @@ export async function equitySeries(input: EquitySeriesInput): Promise<EquitySeri
   const points: EquityPoint[] = [];
   const book = new Map<string, Qty>();
   let cash = Money.zero();
+  let depositsCum = Money.zero();
   let fillIdx = 0;
   let ledgerIdx = 0;
   for (const barStart of grid) {
@@ -163,6 +171,9 @@ export async function equitySeries(input: EquitySeriesInput): Promise<EquitySeri
     const cutoff = gridBarMs > 0 ? barStart + gridBarMs : barStart + 1;
     while (ledgerIdx < ledger.length && ledger[ledgerIdx]!.createdAt.getTime() < cutoff) {
       cash = cash.add(ledger[ledgerIdx]!.amount);
+      if (ledger[ledgerIdx]!.entryType === "DEPOSIT") {
+        depositsCum = depositsCum.add(ledger[ledgerIdx]!.amount);
+      }
       ledgerIdx += 1;
     }
     while (fillIdx < fills.length && fills[fillIdx]!.occurredAt.getTime() < cutoff) {
@@ -189,7 +200,7 @@ export async function equitySeries(input: EquitySeriesInput): Promise<EquitySeri
       const c = bySlot.get(barStart);
       if (c) carry.set(symbol, c);
     }
-    points.push({ t: new Date(barStart + gridBarMs), value });
+    points.push({ t: new Date(barStart + gridBarMs), value, netDeposits: depositsCum });
   }
 
   // The live tail: today's equity as the venue and ledger currently know it.
@@ -199,7 +210,10 @@ export async function equitySeries(input: EquitySeriesInput): Promise<EquitySeri
   while (points.length > 0 && points[points.length - 1]!.t.getTime() >= now.getTime()) {
     points.pop();
   }
-  points.push({ t: now, value: liveEquity });
+  const totalDeposits = Money.sum(
+    ledger.filter((e) => e.entryType === "DEPOSIT").map((e) => e.amount),
+  );
+  points.push({ t: now, value: liveEquity, netDeposits: totalDeposits });
 
   const first = points[0]!.value;
   const last = points[points.length - 1]!.value;

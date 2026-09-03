@@ -181,7 +181,11 @@ export async function getPortfolioHistory(
   return {
     range,
     resolvedRange,
-    points: series.points.map((p) => ({ t: p.t.toISOString(), value: p.value.toString() })),
+    points: series.points.map((p) => ({
+      t: p.t.toISOString(),
+      value: p.value.toString(),
+      netDeposits: p.netDeposits.toString(),
+    })),
     change: { absolute: series.change.absolute.toString(), percent: series.change.percent },
     asOf: now.toISOString(),
   };

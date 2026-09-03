@@ -144,7 +144,7 @@ export const api = {
     request<{
       range: string;
       resolvedRange: string;
-      points: Array<{ t: string; value: string }>;
+      points: Array<{ t: string; value: string; netDeposits: string }>;
       change: { absolute: string; percent: string | null };
       asOf: string;
     }>(`/api/v1/portfolio/history?range=${range}`),

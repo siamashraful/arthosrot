@@ -36,9 +36,10 @@ function fill(side: "BUY" | "SELL", qty: number, notional: string, atMs: number)
   };
 }
 
-const deposit = (amount: string, atMs: number) => ({
+const deposit = (amount: string, atMs: number, entryType = "DEPOSIT") => ({
   amount: Money.fromString(amount),
   createdAt: new Date(atMs),
+  entryType,
 });
 
 describe("equitySeries", () => {
@@ -70,7 +71,7 @@ describe("equitySeries", () => {
     const result = await equitySeries({
       range: "1M",
       fills: [fill("BUY", 10, "1000.00", T0 + DAY / 2)],
-      ledger: [deposit("10000.00", T0), deposit("-1000.00", T0 + DAY / 2)],
+      ledger: [deposit("10000.00", T0), deposit("-1000.00", T0 + DAY / 2, "TRADE")],
       accountCreatedAt: new Date(T0),
       now: new Date(T0 + 3 * DAY),
       liveEquity: Money.fromString("10050.00"),
@@ -78,6 +79,9 @@ describe("equitySeries", () => {
     });
     // day0 point: cash 9000 + 10 x 100 = 10000 (position INCLUDED, at day0 close)
     expect(result.points[0]!.value.toString()).toBe("10000.00");
+    // the deposits line tracks contributions only — trades never move it
+    expect(result.points[0]!.netDeposits.toString()).toBe("10000.00");
+    expect(result.points.at(-1)!.netDeposits.toString()).toBe("10000.00");
     // day1 point: 9000 + 10 x 110 = 10100
     expect(result.points[1]!.value.toString()).toBe("10100.00");
     // live tail replaces nothing — appended after day2
@@ -125,7 +129,7 @@ describe("equitySeries", () => {
     const result = await equitySeries({
       range: "1M",
       fills,
-      ledger: [deposit("10000.00", T0), deposit("-1100.00", T0 + 60_000)],
+      ledger: [deposit("10000.00", T0), deposit("-1100.00", T0 + 60_000, "TRADE")],
       accountCreatedAt: new Date(T0),
       now: new Date(T0 + 4 * DAY),
       liveEquity: Money.fromString("10200.00"),
@@ -158,8 +162,8 @@ describe("equitySeries", () => {
       fills,
       ledger: [
         deposit("10000.00", T0),
-        deposit("-1100.00", T0 + 60_000),
-        deposit("1100.00", T0 + DAY + 60_000),
+        deposit("-1100.00", T0 + 60_000, "TRADE"),
+        deposit("1100.00", T0 + DAY + 60_000, "TRADE"),
       ],
       accountCreatedAt: new Date(T0),
       now: new Date(T0 + 4 * DAY),
@@ -190,7 +194,7 @@ describe("equitySeries", () => {
     const result = await equitySeries({
       range: "1M",
       fills: [fill("BUY", 10, "1000.00", T0 + 60_000)],
-      ledger: [deposit("10000.00", T0), deposit("-1000.00", T0 + 60_000)],
+      ledger: [deposit("10000.00", T0), deposit("-1000.00", T0 + 60_000, "TRADE")],
       accountCreatedAt: new Date(T0),
       // just past the bar end — the live tail APPENDS (at exactly the bar
       // end it would correctly replace the bar's own point instead)

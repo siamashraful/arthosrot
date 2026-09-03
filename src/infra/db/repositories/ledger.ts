@@ -51,16 +51,21 @@ export const ledgerRepository = {
   async listForAccountAscending(
     tx: TxHandle,
     accountId: string,
-  ): Promise<Array<{ amount: Money; createdAt: Date }>> {
+  ): Promise<Array<{ amount: Money; createdAt: Date; entryType: string }>> {
     const rows = await asDb(tx)
       .select({
         amount: schema.ledgerEntries.amount,
         createdAt: schema.ledgerEntries.createdAt,
+        entryType: schema.ledgerEntries.entryType,
       })
       .from(schema.ledgerEntries)
       .where(eq(schema.ledgerEntries.accountId, accountId))
       .orderBy(schema.ledgerEntries.createdAt, schema.ledgerEntries.id);
-    return rows.map((r) => ({ amount: Money.fromString(r.amount), createdAt: r.createdAt }));
+    return rows.map((r) => ({
+      amount: Money.fromString(r.amount),
+      createdAt: r.createdAt,
+      entryType: r.entryType,
+    }));
   },
 
   async listForUser(

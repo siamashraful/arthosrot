@@ -1,10 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AreaSeries, createChart } from "lightweight-charts";
+import { AreaSeries, createChart, LineSeries, LineStyle } from "lightweight-charts";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { formatMoney, formatTime } from "@/lib/format";
+import { formatDateTime, formatMoney, formatTime } from "@/lib/format";
 import { chartTokens, useThemeVersion } from "./chart-theme";
 
 const RANGES = ["1D", "1W", "1M", "3M", "1Y", "ALL"] as const;
@@ -31,6 +31,11 @@ const RANGE_LABEL: Record<HistoryRange, string> = {
 export function NetWorthChart() {
   const [range, setRange] = useState<HistoryRange>("1M");
   const containerRef = useRef<HTMLDivElement>(null);
+  // Hover readout is driven imperatively from the chart callback (the
+  // standard lightweight-charts legend pattern): zero re-renders per
+  // mousemove, and immune to setState timing across chart lifecycles.
+  const deltaRef = useRef<HTMLParagraphElement>(null);
+  const readoutRef = useRef<HTMLParagraphElement>(null);
   const themeVersion = useThemeVersion();
 
   const { data, isPending, isError } = useQuery({
@@ -48,6 +53,20 @@ export function NetWorthChart() {
       grid: "--chart-grid-on-field",
       text: "--field-muted",
     });
+    const depositsColor = t.text; // field-muted: quiet beside the chalk line
+    // Second-resolution render points: floor to whole seconds (the keys must
+    // round-trip exactly through the crosshair callback), then collapse
+    // same-second neighbours to the LATEST value — lightweight-charts
+    // hard-throws on duplicate timestamps, and a fresh account's deposit
+    // event and live tail can land inside one second.
+    const renderPoints: Array<{ sec: number; p: (typeof data.points)[number] }> = [];
+    for (const point of data.points) {
+      const sec = Math.floor(new Date(point.t).getTime() / 1000);
+      const last = renderPoints[renderPoints.length - 1];
+      if (last && last.sec === sec) last.p = point;
+      else renderPoints.push({ sec, p: point });
+    }
+    if (renderPoints.length < 2) return;
     const chart = createChart(el, {
       autoSize: true,
       layout: {
@@ -67,23 +86,87 @@ export function NetWorthChart() {
       handleScroll: false,
       handleScale: false,
     });
+    // a flat young series should sit anchored mid-panel, not float at an edge
+    chart.priceScale("right").applyOptions({ scaleMargins: { top: 0.22, bottom: 0.18 } });
     const series = chart.addSeries(AreaSeries, {
       lineColor: t.line,
       topColor: t.fill,
-      bottomColor: "transparent",
+      // fade, never vanish: an anchored gradient keeps a flat line from
+      // reading as a floating fragment
+      bottomColor: t.fill.replace(/[0-9.]+\)$/, "0.02)"),
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
       crosshairMarkerVisible: true,
     });
     series.setData(
-      data.points.map((p) => ({
-        time: (new Date(p.t).getTime() / 1000) as never,
+      renderPoints.map(({ sec, p }) => ({
+        time: sec as never,
         value: Number(p.value), // rendering boundary: conversion, no arithmetic
       })),
     );
+    // Net deposits: the dotted grey comparison line — dotted vs solid is the
+    // non-colour distinction (meaning never by colour alone).
+    const depositsSeries = chart.addSeries(LineSeries, {
+      color: depositsColor,
+      lineWidth: 1,
+      lineStyle: LineStyle.Dotted,
+      priceLineVisible: false,
+      lastValueVisible: false,
+      crosshairMarkerVisible: false,
+      // surfaces only while the user is ON the chart (hover/touch) — at rest
+      // the panel shows one line, the story; the comparison appears on ask
+      visible: false,
+    });
+    depositsSeries.setData(
+      renderPoints.map(({ sec, p }) => ({ time: sec as never, value: Number(p.netDeposits) })),
+    );
+    // Hover/touch: surface the date and both values in the readout line.
+    const showHover = (point: (typeof data.points)[number] | undefined) => {
+      depositsSeries.applyOptions({ visible: point !== undefined });
+      const delta = deltaRef.current;
+      const readout = readoutRef.current;
+      if (!delta || !readout) return;
+      if (point) {
+        const when = range === "1D" ? formatTime(point.t) : formatDateTime(point.t);
+        readout.textContent = `${when} · Net worth ${formatMoney(point.value)} · ┈ Net deposits ${formatMoney(point.netDeposits)}`;
+      }
+      readout.hidden = !point;
+      delta.hidden = !!point;
+    };
+    // Own pointer listeners instead of subscribeCrosshairMove: the library
+    // callback proved unreliable across chart rebuilds; nearest-point math
+    // over timeToCoordinate is deterministic. The chart still paints its
+    // native crosshair — we only drive the readout + deposits line.
+    if (readoutRef.current) readoutRef.current.hidden = true;
+    const timeScale = chart.timeScale();
+    const nearestPoint = (clientX: number) => {
+      const rect = el.getBoundingClientRect();
+      const x = clientX - rect.left;
+      let best: { d: number; p: (typeof renderPoints)[number]["p"] } | null = null;
+      for (const { sec, p: point } of renderPoints) {
+        const cx = timeScale.timeToCoordinate(sec as never);
+        if (cx === null) continue;
+        const d = Math.abs(cx - x);
+        if (!best || d < best.d) best = { d, p: point };
+      }
+      return best?.p;
+    };
+    const onMove = (ev: PointerEvent) => showHover(nearestPoint(ev.clientX));
+    const onLeave = () => showHover(undefined);
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerdown", onMove);
+    el.addEventListener("pointerleave", onLeave);
+    el.addEventListener("pointercancel", onLeave);
     chart.timeScale().fitContent();
-    return () => chart.remove();
+    return () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerdown", onMove);
+      el.removeEventListener("pointerleave", onLeave);
+      el.removeEventListener("pointercancel", onLeave);
+      showHover(undefined);
+      chart.remove();
+    };
   }, [data, range, themeVersion]);
 
   const negative = data?.change.absolute.startsWith("-");
@@ -91,8 +174,15 @@ export function NetWorthChart() {
 
   return (
     <div>
+      <p
+        ref={readoutRef}
+        className="muted tabular"
+        style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)" }}
+        aria-live="off"
+      />
       {data ? (
         <p
+          ref={deltaRef}
           className={flat ? "muted" : negative ? "loss" : "gain"}
           style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)" }}
           aria-live="off"
@@ -149,6 +239,9 @@ export function NetWorthChart() {
                 <th scope="col" className="num">
                   Net worth
                 </th>
+                <th scope="col" className="num">
+                  Net deposits
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -156,6 +249,7 @@ export function NetWorthChart() {
                 <tr key={p.t}>
                   <td>{formatTime(p.t)}</td>
                   <td className="num">{formatMoney(p.value)}</td>
+                  <td className="num">{formatMoney(p.netDeposits)}</td>
                 </tr>
               ))}
             </tbody>
