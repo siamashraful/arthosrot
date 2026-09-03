@@ -17,7 +17,7 @@ const TONE: Record<string, string> = {
 };
 
 export function OrderStatusBadge({ state, display }: { state: string; display: string }) {
-  // The reed's beat plays on STATE CHANGES only — never on mount, so a
+  // The pulse plays on STATE CHANGES only — never on mount, so a
   // 50-row history page loads still instead of bouncing (BRAND.md §8: no
   // entrance animation on data). A ref distinguishes transition from mount.
   const prev = useRef(state);

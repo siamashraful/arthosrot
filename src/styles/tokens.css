@@ -64,6 +64,9 @@
      surfaces carry a fine grain; [data-mode="live"] zeroes this ONE variable
      and the grain disappears everywhere it is drawn. */
   --mode-texture-opacity: 1;
+  /* the colour shapes at the hero card's corners — practice only (live is
+     plain black, in addition to the three mode signals) */
+  --hero-blob-opacity: 1;
 
   /* the mode ribbon's height — the shell subtracts it, so they must agree */
   --ribbon-h: 30px;
@@ -158,36 +161,36 @@
 
 [data-theme="dark"] {
   /* ---- dark theme — the ledger after hours ---- */
-  --bg: oklch(0.17 0.008 265);
-  --surface: oklch(0.215 0.01 265);
-  --surface-2: oklch(0.26 0.012 265);
-  --border: oklch(0.32 0.012 265);
-  --border-strong: oklch(0.44 0.012 265);
-  --ink: oklch(0.955 0.005 265);
-  --ink-muted: oklch(0.73 0.01 265);
+  --bg: oklch(0.13 0.01 265);
+  --surface: oklch(0.19 0.012 265);
+  --surface-2: oklch(0.25 0.014 265);
+  --border: oklch(0.3 0.014 265);
+  --border-strong: oklch(0.47 0.016 265);
+  --ink: oklch(0.97 0.005 265);
+  --ink-muted: oklch(0.76 0.012 265);
 
   --accent: oklch(0.72 0.13 250);
   --accent-hover: oklch(0.79 0.12 250);
   --accent-soft: oklch(0.72 0.13 250 / 0.16);
   --on-accent: oklch(0.16 0.02 255);
 
-  --pop-coral: oklch(0.7 0.17 30);
-  --pop-coral-soft: oklch(0.7 0.17 30 / 0.18);
+  --pop-coral: oklch(0.72 0.175 30);
+  --pop-coral-soft: oklch(0.72 0.175 30 / 0.22);
   --on-pop-coral: oklch(0.17 0.03 30);
-  --pop-teal: oklch(0.72 0.11 175);
-  --pop-teal-soft: oklch(0.72 0.11 175 / 0.18);
+  --pop-teal: oklch(0.75 0.12 175);
+  --pop-teal-soft: oklch(0.75 0.12 175 / 0.22);
   --on-pop-teal: oklch(0.17 0.03 175);
-  --pop-amber: oklch(0.8 0.14 82);
-  --pop-amber-soft: oklch(0.8 0.14 82 / 0.18);
+  --pop-amber: oklch(0.83 0.15 82);
+  --pop-amber-soft: oklch(0.83 0.15 82 / 0.22);
   --on-pop-amber: oklch(0.2 0.03 82);
-  --pop-blue: oklch(0.72 0.13 250);
-  --pop-blue-soft: oklch(0.72 0.13 250 / 0.16);
+  --pop-blue: oklch(0.75 0.14 250);
+  --pop-blue-soft: oklch(0.75 0.14 250 / 0.2);
   --on-pop-blue: oklch(0.16 0.02 255);
 
-  --hero: oklch(0.145 0.014 265);
-  --on-hero: oklch(0.965 0.005 265);
-  --hero-muted: oklch(0.71 0.012 265);
-  --hero-line: oklch(0.3 0.014 265);
+  --hero: oklch(0.09 0.012 265);
+  --on-hero: oklch(0.975 0.005 265);
+  --hero-muted: oklch(0.74 0.012 265);
+  --hero-line: oklch(0.27 0.014 265);
   --gain-on-hero: oklch(0.78 0.145 160);
   --loss-on-hero: oklch(0.71 0.185 27);
   --chart-line-on-hero: oklch(0.93 0.008 265);
@@ -201,12 +204,12 @@
   --focus-ring: oklch(0.72 0.13 250);
   --chart-line: oklch(0.72 0.13 250);
   --chart-fill: oklch(0.72 0.13 250 / 0.12);
-  --chart-grid: oklch(0.27 0.01 265);
+  --chart-grid: oklch(0.3 0.012 265);
 
-  --glass-bg: oklch(0.21 0.012 265 / 0.62);
-  --glass-bg-solid: oklch(0.215 0.01 265);
-  --glass-border: oklch(1 0 0 / 0.08);
-  --glass-highlight: oklch(1 0 0 / 0.09);
+  --glass-bg: oklch(0.17 0.012 265 / 0.62);
+  --glass-bg-solid: oklch(0.19 0.012 265);
+  --glass-border: oklch(1 0 0 / 0.14);
+  --glass-highlight: oklch(1 0 0 / 0.16);
   --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.45);
 
   --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
@@ -216,33 +219,33 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: oklch(0.17 0.008 265);
-    --surface: oklch(0.215 0.01 265);
-    --surface-2: oklch(0.26 0.012 265);
-    --border: oklch(0.32 0.012 265);
-    --border-strong: oklch(0.44 0.012 265);
-    --ink: oklch(0.955 0.005 265);
-    --ink-muted: oklch(0.73 0.01 265);
+    --bg: oklch(0.13 0.01 265);
+    --surface: oklch(0.19 0.012 265);
+    --surface-2: oklch(0.25 0.014 265);
+    --border: oklch(0.3 0.014 265);
+    --border-strong: oklch(0.47 0.016 265);
+    --ink: oklch(0.97 0.005 265);
+    --ink-muted: oklch(0.76 0.012 265);
     --accent: oklch(0.72 0.13 250);
     --accent-hover: oklch(0.79 0.12 250);
     --accent-soft: oklch(0.72 0.13 250 / 0.16);
     --on-accent: oklch(0.16 0.02 255);
-    --pop-coral: oklch(0.7 0.17 30);
-    --pop-coral-soft: oklch(0.7 0.17 30 / 0.18);
+    --pop-coral: oklch(0.72 0.175 30);
+    --pop-coral-soft: oklch(0.72 0.175 30 / 0.22);
     --on-pop-coral: oklch(0.17 0.03 30);
-    --pop-teal: oklch(0.72 0.11 175);
-    --pop-teal-soft: oklch(0.72 0.11 175 / 0.18);
+    --pop-teal: oklch(0.75 0.12 175);
+    --pop-teal-soft: oklch(0.75 0.12 175 / 0.22);
     --on-pop-teal: oklch(0.17 0.03 175);
-    --pop-amber: oklch(0.8 0.14 82);
-    --pop-amber-soft: oklch(0.8 0.14 82 / 0.18);
+    --pop-amber: oklch(0.83 0.15 82);
+    --pop-amber-soft: oklch(0.83 0.15 82 / 0.22);
     --on-pop-amber: oklch(0.2 0.03 82);
-    --pop-blue: oklch(0.72 0.13 250);
-    --pop-blue-soft: oklch(0.72 0.13 250 / 0.16);
+    --pop-blue: oklch(0.75 0.14 250);
+    --pop-blue-soft: oklch(0.75 0.14 250 / 0.2);
     --on-pop-blue: oklch(0.16 0.02 255);
-    --hero: oklch(0.145 0.014 265);
-    --on-hero: oklch(0.965 0.005 265);
-    --hero-muted: oklch(0.71 0.012 265);
-    --hero-line: oklch(0.3 0.014 265);
+    --hero: oklch(0.09 0.012 265);
+    --on-hero: oklch(0.975 0.005 265);
+    --hero-muted: oklch(0.74 0.012 265);
+    --hero-line: oklch(0.27 0.014 265);
     --gain-on-hero: oklch(0.78 0.145 160);
     --loss-on-hero: oklch(0.71 0.185 27);
     --chart-line-on-hero: oklch(0.93 0.008 265);
@@ -255,11 +258,11 @@
     --focus-ring: oklch(0.72 0.13 250);
     --chart-line: oklch(0.72 0.13 250);
     --chart-fill: oklch(0.72 0.13 250 / 0.12);
-    --chart-grid: oklch(0.27 0.01 265);
-    --glass-bg: oklch(0.21 0.012 265 / 0.62);
-    --glass-bg-solid: oklch(0.215 0.01 265);
-    --glass-border: oklch(1 0 0 / 0.08);
-    --glass-highlight: oklch(1 0 0 / 0.09);
+    --chart-grid: oklch(0.3 0.012 265);
+    --glass-bg: oklch(0.17 0.012 265 / 0.62);
+    --glass-bg-solid: oklch(0.19 0.012 265);
+    --glass-border: oklch(1 0 0 / 0.14);
+    --glass-highlight: oklch(1 0 0 / 0.16);
     --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.45);
     --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
     --shadow-2: 0 8px 24px oklch(0 0 0 / 0.5);
@@ -288,13 +291,14 @@
  */
 [data-mode="live"] {
   --mode-texture-opacity: 0;
+  --hero-blob-opacity: 0;
   --hero: oklch(0.13 0 0);
   --hero-line: oklch(0.27 0 0);
   --chart-grid-on-hero: oklch(0.32 0 0);
 }
 
 [data-theme="dark"][data-mode="live"] {
-  --hero: oklch(0.1 0 0);
-  --hero-line: oklch(0.26 0 0);
+  --hero: oklch(0.05 0 0);
+  --hero-line: oklch(0.24 0 0);
   --chart-grid-on-hero: oklch(0.3 0 0);
 }

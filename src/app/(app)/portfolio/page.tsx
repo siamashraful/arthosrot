@@ -53,7 +53,7 @@ export default function PortfolioPage() {
       </section>
 
       <div className="tile-row tabular">
-        <div className="stat-tile stat-tile--blue">
+        <div className="stat-tile stat-tile--blue stat-tile--solid">
           <span className="stat-tile-icon" aria-hidden>
             <Wallet size={18} />
           </span>
@@ -62,7 +62,7 @@ export default function PortfolioPage() {
             <Money value={data.summary.cash} />
           </div>
         </div>
-        <div className="stat-tile stat-tile--teal">
+        <div className="stat-tile stat-tile--teal stat-tile--solid">
           <span className="stat-tile-icon" aria-hidden>
             <Layers size={18} />
           </span>

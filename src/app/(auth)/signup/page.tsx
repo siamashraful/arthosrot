@@ -33,10 +33,7 @@ export default function SignUpPage() {
         Arthosrot is a paper-trading platform. Accounts hold <strong>simulated money only</strong> —
         nothing here is real trading or investment advice.
       </p>
-      <form
-        onSubmit={onSubmit}
-        style={{ display: "grid", gap: "var(--space-4)", marginBlock: "var(--space-5)" }}
-      >
+      <form onSubmit={onSubmit}>
         <div className="field">
           <label className="field-label" htmlFor="name">
             Name

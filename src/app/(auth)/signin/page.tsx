@@ -28,10 +28,7 @@ export default function SignInPage() {
   return (
     <main className="auth-card">
       <h1 style={{ fontSize: "var(--text-xl)" }}>Sign in</h1>
-      <form
-        onSubmit={onSubmit}
-        style={{ display: "grid", gap: "var(--space-4)", marginBlock: "var(--space-5)" }}
-      >
+      <form onSubmit={onSubmit}>
         <div className="field">
           <label className="field-label" htmlFor="email">
             Email

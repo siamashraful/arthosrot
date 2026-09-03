@@ -20,8 +20,8 @@ const RANGE_LABEL: Record<HistoryRange, string> = {
 };
 
 /**
- * Net-worth curve on the dyed field (BRAND.md: the field owns the account's
- * primary region). Delta line, smooth chalk area, range
+ * Net-worth curve on the wallet-card hero (BRAND.md: the hero owns the
+ * account's primary region). Delta line, smooth chalk area, range
  * tabs — on this platform's terms: the series is derived from the ledger
  * and fills (equity-series.ts owns the honesty rules), the delta is computed
  * server-side in decimal, and gain/loss colour never means anything alone
@@ -74,7 +74,7 @@ export function NetWorthChart() {
         textColor: t.text,
         attributionLogo: false,
       },
-      // the warp behind the panel is the texture; the chart itself stays bare
+      // the hero card's grain is the only texture; the chart itself stays bare
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       rightPriceScale: { visible: false },
       leftPriceScale: { visible: false },

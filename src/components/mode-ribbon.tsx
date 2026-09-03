@@ -7,10 +7,10 @@ import { useTradingMode } from "./trading-mode";
  * (BRAND.md §5), the only one that survives greyscale, low vision, and a
  * screenshot. Removing it is a review-blocking change (SECURITY.md control 5).
  *
- * The ribbon itself carries the other two signals in miniature: it sits on
- * the mode's field colour, and shows its warp only while the cloth is still
- * on the loom (paper). In live preview the label says PREVIEW plainly —
- * never "real money" while no real trading exists (honesty over the spec'd
+ * The ribbon itself carries the other two signals in miniature (globals.css):
+ * glass with the practice grain in paper mode; the hero's dark, smooth
+ * material in live. In live preview the label says PREVIEW plainly — never
+ * "real money" while no real trading exists (honesty over the spec'd
  * final-state label).
  */
 export function ModeRibbon() {

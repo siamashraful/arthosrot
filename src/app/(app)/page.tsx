@@ -25,21 +25,26 @@ import { formatTime } from "@/lib/format";
 function StatTile({
   index,
   tone,
+  solid = false,
   icon,
   label,
   children,
 }: {
   index: number;
   tone: "coral" | "teal" | "amber" | "blue";
+  /** The tile IS the colour block (the reference's solid tiles); the number is on-pop ink. */
+  solid?: boolean;
   icon: ReactNode;
   label: string;
   children: ReactNode;
 }) {
   return (
     <motion.div
-      className={`stat-tile stat-tile--${tone}`}
-      initial={{ opacity: 0.4, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
+      className={`stat-tile stat-tile--${tone}${solid ? " stat-tile--solid" : ""}`}
+      // transform only: an opacity ramp blends label text and trips the axe
+      // contrast gate mid-entrance (and would read as a fade-in on data)
+      initial={{ y: 10 }}
+      animate={{ y: 0 }}
       transition={{ delay: index * 0.06, duration: 0.28, ease: "easeOut" }}
     >
       <span className="stat-tile-icon" aria-hidden>
@@ -105,7 +110,23 @@ export default function DashboardPage() {
       </header>
 
       {isPending || !portfolio ? (
-        <div className="skeleton" style={{ height: 72 }} />
+        // Placeholder shaped like the content it stands in for (hero card +
+        // stat tiles) so the page does not jump when the numbers arrive.
+        <div aria-busy="true" aria-label="Loading account summary" role="status">
+          <div
+            className="skeleton"
+            style={{
+              height: 340,
+              borderRadius: "var(--radius-panel)",
+              marginBottom: "var(--space-5)",
+            }}
+          />
+          <div className="tile-row">
+            <div className="skeleton" style={{ height: 116, borderRadius: "var(--radius-lg)" }} />
+            <div className="skeleton" style={{ height: 116, borderRadius: "var(--radius-lg)" }} />
+            <div className="skeleton" style={{ height: 116, borderRadius: "var(--radius-lg)" }} />
+          </div>
+        </div>
       ) : (
         <>
           <section aria-label="Account summary" className="hero-card tabular">
@@ -124,10 +145,10 @@ export default function DashboardPage() {
           </section>
 
           <div className="tile-row">
-            <StatTile index={0} tone="blue" icon={<Wallet size={18} />} label="Cash">
+            <StatTile index={0} tone="blue" solid icon={<Wallet size={18} />} label="Cash">
               <Money value={portfolio.summary.cash} />
             </StatTile>
-            <StatTile index={1} tone="teal" icon={<Zap size={18} />} label="Buying power">
+            <StatTile index={1} tone="teal" solid icon={<Zap size={18} />} label="Buying power">
               <Money value={portfolio.summary.buyingPower} />
             </StatTile>
             <StatTile index={2} tone="amber" icon={<TrendingUp size={18} />} label="Realized P&L">

@@ -168,7 +168,9 @@ dialog.sheet {
    which rides --mode-texture-opacity — [data-mode="live"] zeroes it — so
    texture, depth, and label switch together. Product rule: never removed. */
 .mode-ribbon {
-  position: relative;
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -184,9 +186,6 @@ dialog.sheet {
   border-right: none;
   border-top: none;
   border-radius: 0;
-  position: sticky;
-  top: 0;
-  z-index: var(--z-sticky);
 }
 .mode-ribbon::before {
   content: "";
@@ -264,8 +263,8 @@ dialog.sheet {
   transform: scale(0.97);
 }
 .nav-link[aria-current="page"] {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--bg);
+  background: var(--ink);
   font-weight: 600;
 }
 .nav-link svg {
@@ -492,8 +491,8 @@ dialog.sheet {
 }
 .segmented button[aria-pressed="true"],
 .segmented button[aria-selected="true"] {
-  background: var(--surface);
-  color: var(--ink);
+  background: var(--ink);
+  color: var(--bg);
   font-weight: 600;
   box-shadow: var(--shadow-1);
 }
@@ -612,21 +611,19 @@ dialog.sheet {
 }
 @keyframes rise-in {
   from {
-    opacity: 0.4;
     transform: translateY(8px);
   }
   to {
-    opacity: 1;
     transform: translateY(0);
   }
 }
+/* transform only — an opacity ramp blends text mid-animation and trips the
+   axe contrast gate (and reads as a fade, which sheets shouldn't do) */
 @keyframes sheet-up {
   from {
-    opacity: 0.6;
     transform: translateY(16px) scale(0.98);
   }
   to {
-    opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
@@ -673,11 +670,27 @@ dialog.sheet {
   background: var(--hero);
   color: var(--on-hero);
   border-radius: var(--radius-panel);
+  /* a hairline of light keeps the card's edge on a dark-theme canvas */
+  border: 1px solid oklch(1 0 0 / 0.07);
   padding: var(--space-6);
   overflow: hidden;
   box-shadow: var(--shadow-hero);
   /* the page focus ring vanishes on the dark card — focus is chalk here */
   --focus-ring: var(--on-hero);
+}
+/* the reference's colour shapes peeking at the card's corners: solid discs
+   of the quartet, clipped by the card, kept away from the figure and label */
+.hero-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: var(--hero-blob-opacity);
+  background:
+    radial-gradient(circle at 100% 0%, var(--pop-blue) 0 150px, transparent 152px),
+    radial-gradient(circle at 92% 100%, var(--pop-amber) 0 70px, transparent 72px),
+    radial-gradient(circle at -3% 106%, var(--pop-coral) 0 64px, transparent 66px);
+  pointer-events: none;
 }
 .hero-card::after {
   content: "";
@@ -762,6 +775,19 @@ dialog.sheet {
   border-color: var(--hero-line);
   box-shadow: none;
 }
+/* a loading chart on the dark card must not flash a light-grey slab */
+.hero-card .skeleton {
+  background: var(--hero-line);
+}
+.hero-card .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0 30%,
+    var(--hero-muted) 50%,
+    transparent 70% 100%
+  );
+  opacity: 0.35;
+}
 
 /* ---------------------------------------------------------- stat tiles */
 
@@ -804,6 +830,20 @@ dialog.sheet {
   --tile-pop: var(--pop-blue);
   --tile-pop-soft: var(--pop-blue-soft);
   --on-tile-pop: var(--on-pop-blue);
+}
+/* the solid block: the tile IS the colour (a surface, not a coloured number) */
+.stat-tile--solid {
+  background: var(--tile-pop);
+  border-color: transparent;
+  color: var(--on-tile-pop);
+}
+.stat-tile--solid .stat-tile-icon {
+  background: oklch(1 0 0 / 0.22);
+  color: var(--on-tile-pop);
+}
+.stat-tile--solid .stat-tile-label,
+.stat-tile--solid .stat-tile-value {
+  color: var(--on-tile-pop);
 }
 .stat-tile-icon {
   display: inline-flex;
@@ -851,7 +891,7 @@ dialog.sheet {
   height: 100%;
   width: var(--fill-pct, 0%);
   border-radius: inherit;
-  background: var(--accent);
+  background: var(--pop-amber);
   transition: width var(--dur-base) var(--ease-out);
 }
 .hero-card .fill-progress {
@@ -877,13 +917,17 @@ dialog.sheet {
 .list-row + .list-row {
   border-top: 1px solid var(--border);
 }
-.list-row:hover {
+/* only interactive rows light up — a static activity row is not a target */
+a.list-row:hover,
+button.list-row:hover {
   background: var(--accent-soft);
   text-decoration: none;
 }
 
 /* ticket review inset: a quieter surface inside the card, not a nested card */
 .review-summary {
+  display: grid;
+  gap: var(--space-3);
   padding: var(--space-4);
   border-radius: var(--radius-md);
   background: var(--surface-2);
@@ -960,16 +1004,6 @@ dialog.sheet {
   gap: var(--space-4);
   margin-block: var(--space-5);
 }
-.auth-note,
-.auth-help {
-  font-size: var(--text-sm);
-  color: var(--ink-muted);
-  font-weight: 400;
-}
-.auth-error {
-  color: var(--loss);
-  font-size: var(--text-base);
-}
 
 /* ---------------------------------------------------------------- sheet */
 
@@ -984,6 +1018,20 @@ dialog.sheet {
   padding: var(--space-5);
   width: min(440px, calc(100vw - 2rem));
   border-radius: var(--radius-panel);
+  /* a sheet is page-coloured chrome even when opened from inside a hero card */
+  --focus-ring: var(--accent);
+}
+dialog.sheet .btn-primary {
+  background: var(--ink);
+  color: var(--bg);
+}
+dialog.sheet .btn-ghost {
+  color: var(--ink);
+  border-color: var(--border-strong);
+}
+dialog.sheet .muted,
+dialog.sheet .field-label {
+  color: var(--ink-muted);
 }
 dialog.sheet::backdrop {
   background: oklch(0.1 0.01 265 / 0.4);
