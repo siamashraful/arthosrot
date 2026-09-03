@@ -27,38 +27,49 @@ export default function SignInPage() {
 
   return (
     <main className="auth-card">
-      <h1>Sign in</h1>
-      <form onSubmit={onSubmit}>
-        <label>
-          Email
+      <h1 style={{ fontSize: "var(--text-xl)" }}>Sign in</h1>
+      <form
+        onSubmit={onSubmit}
+        style={{ display: "grid", gap: "var(--space-4)", marginBlock: "var(--space-5)" }}
+      >
+        <div className="field">
+          <label className="field-label" htmlFor="email">
+            Email
+          </label>
           <input
+            id="email"
+            className="input"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
           />
-        </label>
-        <label>
-          Password
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="password">
+            Password
+          </label>
           <input
+            id="password"
+            className="input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             required
           />
-        </label>
+        </div>
         {error ? (
-          <p role="alert" className="auth-error">
+          <p role="alert" className="field-error" style={{ margin: 0 }}>
             {error}
           </p>
         ) : null}
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
           {busy ? "Signing in…" : "Sign in"}
         </button>
       </form>
-      <p>
+      <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
         New here? <a href="/signup">Create an account</a>
       </p>
     </main>

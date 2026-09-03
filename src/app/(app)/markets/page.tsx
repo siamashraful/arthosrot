@@ -52,15 +52,19 @@ export default function MarketsPage() {
       ) : (data?.instruments ?? []).length === 0 ? (
         <div className="empty-state">No matches for “{query.trim()}”.</div>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+        <ul
+          style={{
+            listStyle: "none",
+            margin: 0,
+            padding: 0,
+            display: "grid",
+            gap: "var(--space-2)",
+          }}
+        >
           {data!.instruments.map((i) => (
-            <li key={i.symbol} style={{ borderBottom: "1px solid var(--border)" }}>
-              <Link
-                href={`/i/${i.symbol}`}
-                className="nav-link"
-                style={{ justifyContent: "space-between" }}
-              >
-                <span>
+            <li key={i.symbol}>
+              <Link href={`/i/${i.symbol}`} className="list-row">
+                <span style={{ flex: 1, minWidth: 0 }}>
                   <strong>{i.symbol}</strong>{" "}
                   <span className="muted" style={{ fontWeight: 400 }}>
                     {i.name}

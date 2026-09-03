@@ -38,7 +38,11 @@ export function FundingSheet({ kind }: { kind: "deposit" | "withdraw" }) {
           }}
         >
           <h2 style={{ margin: 0, fontSize: "var(--text-md)" }}>{title}</h2>
-          <button type="button" className="btn btn-ghost" onClick={() => dialogRef.current?.close()}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => dialogRef.current?.close()}
+          >
             Close
           </button>
         </div>

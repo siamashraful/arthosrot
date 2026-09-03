@@ -18,9 +18,9 @@ export function LiveDashboard() {
         <h1 style={{ fontSize: "var(--text-xl)" }}>Dashboard</h1>
       </header>
 
-      <section aria-label="Live account summary" className="field-panel tabular">
+      <section aria-label="Live account summary" className="hero-card tabular">
         <div className="field-label">Live portfolio value</div>
-        <div style={{ fontSize: "var(--text-hero)", fontWeight: 600 }}>
+        <div className="hero-value">
           <Money value="0.00" />
         </div>
         <div

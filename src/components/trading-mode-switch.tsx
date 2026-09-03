@@ -50,7 +50,11 @@ export function TradingModeSwitch() {
           at any time.
         </p>
         <div style={{ display: "flex", gap: "var(--space-2)", justifyContent: "flex-end" }}>
-          <button type="button" className="btn btn-ghost" onClick={() => dialogRef.current?.close()}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => dialogRef.current?.close()}
+          >
             Cancel
           </button>
           <button

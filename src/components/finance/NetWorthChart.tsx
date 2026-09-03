@@ -48,12 +48,12 @@ export function NetWorthChart() {
     const el = containerRef.current;
     if (!el || !data || data.points.length < 2) return;
     const t = chartTokens(el, {
-      line: "--chart-line-on-field",
-      fill: "--chart-fill-on-field",
-      grid: "--chart-grid-on-field",
-      text: "--field-muted",
+      line: "--chart-line-on-hero",
+      fill: "--chart-fill-on-hero",
+      grid: "--chart-grid-on-hero",
+      text: "--hero-muted",
     });
-    const depositsColor = t.text; // field-muted: quiet beside the chalk line
+    const depositsColor = t.text; // hero-muted: quiet beside the chalk line
     // Second-resolution render points: floor to whole seconds (the keys must
     // round-trip exactly through the crosshair callback), then collapse
     // same-second neighbours to the LATEST value — lightweight-charts

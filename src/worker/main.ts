@@ -47,15 +47,18 @@ async function startIngestion(): Promise<void> {
   );
   console.log(JSON.stringify({ msg: "subscribing to broker stream", sinceUlid: cursor }));
 
-  subscription = c.broker.subscribe(cursor ? { lastExternalEventId: cursor } : null, async (event) => {
-    await c.executionService.onBrokerEvent(event);
-    lastEventAt = new Date();
-    if (event.externalEventId) {
-      await pgTransactionRunner.run((tx) =>
-        streamCursorsRepository.set(tx, "ALPACA_PAPER", STREAM, event.externalEventId!),
-      );
-    }
-  });
+  subscription = c.broker.subscribe(
+    cursor ? { lastExternalEventId: cursor } : null,
+    async (event) => {
+      await c.executionService.onBrokerEvent(event);
+      lastEventAt = new Date();
+      if (event.externalEventId) {
+        await pgTransactionRunner.run((tx) =>
+          streamCursorsRepository.set(tx, "ALPACA_PAPER", STREAM, event.externalEventId!),
+        );
+      }
+    },
+  );
 }
 
 async function runReconciliation(): Promise<unknown> {

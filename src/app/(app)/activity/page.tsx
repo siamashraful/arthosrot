@@ -49,29 +49,24 @@ export default function ActivityPage() {
       ) : data.entries.length === 0 ? (
         <div className="empty-state">No activity yet.</div>
       ) : (
-        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-          {data.entries.map((e) => (
-            <li
-              key={e.id}
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                gap: "var(--space-4)",
-                padding: "var(--space-3) 0",
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
-              <div>
-                <div>{e.description}</div>
-                <div className="muted" style={{ fontSize: "var(--text-xs)" }}>
-                  {TYPE_LABEL[e.type] ?? e.type} · {formatDateTime(e.createdAt)}
-                  {e.archived ? <span className="badge"> archived account</span> : null}
+        <div className="card">
+          <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid" }}>
+            {data.entries.map((e) => (
+              <li key={e.id} className="list-row">
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div>{e.description}</div>
+                  <div className="muted" style={{ fontSize: "var(--text-xs)" }}>
+                    {TYPE_LABEL[e.type] ?? e.type} · {formatDateTime(e.createdAt)}
+                    {e.archived ? <span className="badge"> archived account</span> : null}
+                  </div>
                 </div>
-              </div>
-              <PriceChange amount={e.amount} />
-            </li>
-          ))}
-        </ul>
+                <span className="tabular">
+                  <PriceChange amount={e.amount} />
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

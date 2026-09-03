@@ -32,10 +32,10 @@ export function chartTokens(
 }
 
 /**
- * Bumps whenever the effective theme changes (data-theme toggle or the OS
- * scheme under the "system" setting) so chart effects can re-read tokens —
- * charts read computed colors once per render and would otherwise keep the
- * old theme's paint.
+ * Bumps whenever the effective theme OR trading mode changes (data-theme
+ * toggle, the OS scheme under the "system" setting, data-mode flip) so chart
+ * effects can re-read tokens — charts read computed colors once per render
+ * and would otherwise keep the old paint (the hero card differs per mode).
  */
 export function useThemeVersion(): number {
   const [version, setVersion] = useState(0);
@@ -44,7 +44,7 @@ export function useThemeVersion(): number {
     const observer = new MutationObserver(bump);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ["data-theme"],
+      attributeFilter: ["data-theme", "data-mode"],
     });
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     media.addEventListener("change", bump);

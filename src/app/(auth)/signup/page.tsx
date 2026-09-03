@@ -28,34 +28,49 @@ export default function SignUpPage() {
 
   return (
     <main className="auth-card">
-      <h1>Create account</h1>
-      <p className="auth-note">
+      <h1 style={{ fontSize: "var(--text-xl)" }}>Create account</h1>
+      <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
         Arthosrot is a paper-trading platform. Accounts hold <strong>simulated money only</strong> —
         nothing here is real trading or investment advice.
       </p>
-      <form onSubmit={onSubmit}>
-        <label>
-          Name
+      <form
+        onSubmit={onSubmit}
+        style={{ display: "grid", gap: "var(--space-4)", marginBlock: "var(--space-5)" }}
+      >
+        <div className="field">
+          <label className="field-label" htmlFor="name">
+            Name
+          </label>
           <input
+            id="name"
+            className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoComplete="name"
             required
           />
-        </label>
-        <label>
-          Email
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="email">
+            Email
+          </label>
           <input
+            id="email"
+            className="input"
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             required
           />
-        </label>
-        <label>
-          Password
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor="password">
+            Password
+          </label>
           <input
+            id="password"
+            className="input"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -64,20 +79,20 @@ export default function SignUpPage() {
             required
             aria-describedby="password-help"
           />
-          <span id="password-help" className="auth-help">
+          <span id="password-help" className="muted" style={{ fontSize: "var(--text-xs)" }}>
             At least 10 characters, mixing letters with numbers or symbols.
           </span>
-        </label>
+        </div>
         {error ? (
-          <p role="alert" className="auth-error">
+          <p role="alert" className="field-error" style={{ margin: 0 }}>
             {error}
           </p>
         ) : null}
-        <button type="submit" disabled={busy}>
+        <button type="submit" className="btn btn-primary" disabled={busy}>
           {busy ? "Creating account…" : "Create account"}
         </button>
       </form>
-      <p>
+      <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
         Already have an account? <a href="/signin">Sign in</a>
       </p>
     </main>

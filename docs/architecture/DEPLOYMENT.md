@@ -44,12 +44,12 @@
 
 ## Operational endpoints
 
-| Endpoint                    | Where  | Semantics                                                                     |
-| --------------------------- | ------ | ----------------------------------------------------------------------------- |
-| `GET /api/health/live`      | web    | Process responds; no dependency checks                                        |
-| `GET /api/health/ready`     | web    | DB reachable                                                                  |
-| `GET /healthz`              | worker | DB reachable (503 otherwise); stale event/reconcile activity degrades status  |
-| `POST /reconcile`           | worker | CRON_SECRET-guarded reconciliation trigger                                    |
+| Endpoint                    | Where  | Semantics                                                                                                                                                                                                                                                                                                            |
+| --------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/health/live`      | web    | Process responds; no dependency checks                                                                                                                                                                                                                                                                               |
+| `GET /api/health/ready`     | web    | DB reachable                                                                                                                                                                                                                                                                                                         |
+| `GET /healthz`              | worker | DB reachable (503 otherwise); stale event/reconcile activity degrades status                                                                                                                                                                                                                                         |
+| `POST /reconcile`           | worker | CRON_SECRET-guarded reconciliation trigger                                                                                                                                                                                                                                                                           |
 | `GET /api/v1/system/status` | web    | Cached pipeline/provider health for the UI banner — never spends vendor calls. Pipeline health derives from the worker's reconcile-heartbeat row (`stream_cursors`, stream `reconcile-heartbeat`): fresh within 30 min while the market is OPEN ⇒ LIVE; a stale beat off-hours is normal (the cron sleeps by design) |
 
 A market-data or broker outage must never mark the web process itself unhealthy — external status is observed separately (system/status), and monitoring must not consume scarce market-data calls.

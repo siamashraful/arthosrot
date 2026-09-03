@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { api, ApiError } from "@/lib/api";
 
 /**
@@ -36,7 +37,7 @@ export function OnboardingPanel({
 
   if (status === "PROVISIONING") {
     return (
-      <section aria-label="Account setup" className="field-panel onboarding-card" role="status">
+      <section aria-label="Account setup" className="hero-card onboarding-card" role="status">
         <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-2)" }}>
           Setting up your account
         </h2>
@@ -50,7 +51,7 @@ export function OnboardingPanel({
   }
 
   return (
-    <section aria-label="Open your practice account" className="field-panel onboarding-card">
+    <section aria-label="Open your practice account" className="hero-card onboarding-card">
       <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-2)" }}>
         Open your practice account
       </h2>
@@ -70,9 +71,7 @@ export function OnboardingPanel({
           <label className="field-label" htmlFor="starting-cash">
             Starting cash
           </label>
-          <div className="tabular" style={{ fontSize: "var(--text-hero)", fontWeight: 600 }}>
-            {dollars(amount)}
-          </div>
+          <div className="hero-value tabular">{dollars(amount)}</div>
         </div>
         <input
           id="starting-cash"
@@ -86,7 +85,7 @@ export function OnboardingPanel({
           disabled={provision.isPending}
           style={
             {
-              // laid-weft fill for the custom webkit track (see globals.css)
+              // filled-track length for the custom range track (see globals.css)
               "--fill-pct": `${
                 bounds.maxStartingCash > bounds.minStartingCash
                   ? ((amount - bounds.minStartingCash) /
@@ -105,14 +104,15 @@ export function OnboardingPanel({
           <span>{dollars(bounds.maxStartingCash)}</span>
         </div>
         <div>
-          <button
+          <motion.button
             type="button"
             className="btn btn-primary"
+            whileTap={{ scale: 0.97 }}
             onClick={() => provision.mutate()}
             disabled={provision.isPending}
           >
             {provision.isPending ? "Opening…" : "Open practice account"}
-          </button>
+          </motion.button>
         </div>
         {provision.isError ? (
           <p role="alert" className="loss" style={{ margin: 0 }}>

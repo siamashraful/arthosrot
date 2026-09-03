@@ -30,9 +30,7 @@ function buildAuth() {
       secret: BETTER_AUTH_SECRET,
       // Pin the origin when configured — origin checks must not trust the
       // request's own Host header in a deployed environment (SECURITY.md).
-      ...(BETTER_AUTH_URL
-        ? { baseURL: BETTER_AUTH_URL, trustedOrigins: [BETTER_AUTH_URL] }
-        : {}),
+      ...(BETTER_AUTH_URL ? { baseURL: BETTER_AUTH_URL, trustedOrigins: [BETTER_AUTH_URL] } : {}),
       database: drizzleAdapter(getDb(), {
         provider: "pg",
         schema: {

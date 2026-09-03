@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { use } from "react";
 import { Explainer } from "@/components/Explainer";
 import { OrderStatusBadge } from "@/components/finance/OrderStatusBadge";
-import { WeaveFill } from "@/components/finance/WeaveFill";
+import { FillProgress } from "@/components/finance/FillProgress";
 import { Money } from "@/components/finance/Money";
 import { api } from "@/lib/api";
 import { formatDateTime, formatPrice, formatPrice4 } from "@/lib/format";
@@ -52,7 +52,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </dd>
         <dt className="muted">Filled</dt>
         <dd style={{ margin: 0, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <WeaveFill filledQty={order.filledQty} qty={order.qty} />
+          <FillProgress filledQty={order.filledQty} qty={order.qty} />
           {order.filledQty} of {order.qty}
         </dd>
         <dt className="muted">Placed</dt>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api, type OrderDto } from "@/lib/api";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "./OrderStatusBadge";
-import { WeaveFill } from "./WeaveFill";
+import { FillProgress } from "./FillProgress";
 
 const OPEN = new Set([
   "PENDING_SUBMISSION",
@@ -88,7 +88,7 @@ function OrderRow({ order, onCancel }: { order: OrderDto; onCancel: (id: string)
       </td>
       <td className="num tabular" data-cell="secondary">
         <span style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <WeaveFill filledQty={order.filledQty} qty={order.qty} />
+          <FillProgress filledQty={order.filledQty} qty={order.qty} />
           {order.filledQty}/{order.qty}
         </span>
       </td>

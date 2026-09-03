@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Layers, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Money } from "@/components/finance/Money";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
@@ -44,30 +45,42 @@ export default function PortfolioPage() {
         </p>
       </header>
 
-      <section
-        aria-label="Summary"
-        className="field-panel tabular"
-        style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-5) var(--space-7)" }}
-      >
-        <div>
-          <div className="field-label">Equity</div>
-          <div style={{ fontSize: "var(--text-hero)", fontWeight: 600 }}>
-            <Money value={data.summary.equity} />
-          </div>
-        </div>
-        <div>
-          <div className="field-label">Cash</div>
-          <Money value={data.summary.cash} />
-        </div>
-        <div>
-          <div className="field-label">Positions value</div>
-          <Money value={data.summary.positionsValue} />
-        </div>
-        <div>
-          <div className="field-label">Realized P&L</div>
-          <PriceChange amount={data.summary.realizedPnl} />
+      <section aria-label="Summary" className="hero-card tabular">
+        <div className="field-label">Equity</div>
+        <div className="hero-value">
+          <Money value={data.summary.equity} />
         </div>
       </section>
+
+      <div className="tile-row tabular">
+        <div className="stat-tile stat-tile--blue">
+          <span className="stat-tile-icon" aria-hidden>
+            <Wallet size={18} />
+          </span>
+          <div className="stat-tile-label">Cash</div>
+          <div className="stat-tile-value">
+            <Money value={data.summary.cash} />
+          </div>
+        </div>
+        <div className="stat-tile stat-tile--teal">
+          <span className="stat-tile-icon" aria-hidden>
+            <Layers size={18} />
+          </span>
+          <div className="stat-tile-label">Positions value</div>
+          <div className="stat-tile-value">
+            <Money value={data.summary.positionsValue} />
+          </div>
+        </div>
+        <div className="stat-tile stat-tile--amber">
+          <span className="stat-tile-icon" aria-hidden>
+            <TrendingUp size={18} />
+          </span>
+          <div className="stat-tile-label">Realized P&L</div>
+          <div className="stat-tile-value">
+            <PriceChange amount={data.summary.realizedPnl} />
+          </div>
+        </div>
+      </div>
 
       {data.positions.length === 0 ? (
         <div className="empty-state">

@@ -1,7 +1,10 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { TrendingUp, Wallet, Zap } from "lucide-react";
+import { motion } from "motion/react";
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { NetWorthChart } from "@/components/finance/NetWorthChart";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { OnboardingPanel } from "@/components/onboarding";
@@ -12,6 +15,41 @@ import { LiveDashboard } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
 import { formatTime } from "@/lib/format";
+
+/**
+ * A colour-block stat tile. The chip colour is categorical (which stat), never
+ * a verdict — the value is always ink/tabular; gain/loss inside <PriceChange>
+ * is a financial fact and stays. Entrance is mount-only (keyed by name, not
+ * data) and never starts from opacity 0.
+ */
+function StatTile({
+  index,
+  tone,
+  icon,
+  label,
+  children,
+}: {
+  index: number;
+  tone: "coral" | "teal" | "amber" | "blue";
+  icon: ReactNode;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <motion.div
+      className={`stat-tile stat-tile--${tone}`}
+      initial={{ opacity: 0.4, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.06, duration: 0.28, ease: "easeOut" }}
+    >
+      <span className="stat-tile-icon" aria-hidden>
+        {icon}
+      </span>
+      <div className="stat-tile-label">{label}</div>
+      <div className="stat-tile-value tabular">{children}</div>
+    </motion.div>
+  );
+}
 
 export default function DashboardPage() {
   // Live preview never shows paper data (ADR-011): gate BEFORE any paper
@@ -69,50 +107,34 @@ export default function DashboardPage() {
       {isPending || !portfolio ? (
         <div className="skeleton" style={{ height: 72 }} />
       ) : (
-        <section aria-label="Account summary" className="field-panel tabular">
-          <div className="field-label">Portfolio value</div>
-          <div style={{ fontSize: "var(--text-hero)", fontWeight: 600 }}>
-            <Money value={portfolio.summary.equity} />
-          </div>
-          <div
-            className="muted"
-            style={{ fontSize: "var(--text-xs)", marginBottom: "var(--space-3)" }}
-          >
-            as of {formatTime(portfolio.summary.asOf)} · market {portfolio.market.status}
-          </div>
+        <>
+          <section aria-label="Account summary" className="hero-card tabular">
+            <div className="field-label">Portfolio value</div>
+            <div className="hero-value">
+              <Money value={portfolio.summary.equity} />
+            </div>
+            <div
+              className="muted"
+              style={{ fontSize: "var(--text-xs)", marginBottom: "var(--space-3)" }}
+            >
+              as of {formatTime(portfolio.summary.asOf)} · market {portfolio.market.status}
+            </div>
 
-          <NetWorthChart />
+            <NetWorthChart />
+          </section>
 
-          <div
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: "var(--space-3) var(--space-7)",
-              marginTop: "var(--space-4)",
-              paddingTop: "var(--space-4)",
-              borderTop: "1px solid var(--field-thread)",
-            }}
-          >
-            <div>
-              <div className="field-label">Cash</div>
-              <div style={{ fontSize: "var(--text-md)" }}>
-                <Money value={portfolio.summary.cash} />
-              </div>
-            </div>
-            <div>
-              <div className="field-label">Buying power</div>
-              <div style={{ fontSize: "var(--text-md)" }}>
-                <Money value={portfolio.summary.buyingPower} />
-              </div>
-            </div>
-            <div>
-              <div className="field-label">Realized P&L</div>
-              <div style={{ fontSize: "var(--text-md)" }}>
-                <PriceChange amount={portfolio.summary.realizedPnl} />
-              </div>
-            </div>
+          <div className="tile-row">
+            <StatTile index={0} tone="blue" icon={<Wallet size={18} />} label="Cash">
+              <Money value={portfolio.summary.cash} />
+            </StatTile>
+            <StatTile index={1} tone="teal" icon={<Zap size={18} />} label="Buying power">
+              <Money value={portfolio.summary.buyingPower} />
+            </StatTile>
+            <StatTile index={2} tone="amber" icon={<TrendingUp size={18} />} label="Realized P&L">
+              <PriceChange amount={portfolio.summary.realizedPnl} />
+            </StatTile>
           </div>
-        </section>
+        </>
       )}
 
       {portfolio && portfolio.positions.length === 0 ? (

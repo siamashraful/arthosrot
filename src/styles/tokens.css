@@ -1,65 +1,57 @@
 /*
  * ARTHOSROT — design tokens (docs/design/brand/BRAND.md is the rationale)
  *
- * THESIS: An order is not a status, it is a row being laid in thread by thread
- *   against capital held under tension. This surface owns the partially-laid
- *   row and refuses both category defaults: the navy/neon terminal and the
- *   rounded consumer-fintech card app.
- * OWN-WORLD: The Dhakai jamdani loom. One dyed field (indigo-teal) carries the
- *   surface at page scale; an opaque chalk thread is the only "accent"; warp
- *   hairlines at a fixed pitch are a real drawn layer, not a border style.
- *   Panels take a radius, rows and threads take none. Recognizable with all
- *   content removed: dyed field + hairline warp + one notched float.
- * STORY: A Bengali-speaking trader sees that every number is woven from
- *   immutable facts, believes the platform is not faking fills, and reads an
- *   order's true asynchronous life at a glance.
- * FIRST VIEWPORT: the dyed field panel holds portfolio value in tabular Anek
- *   at hero scale; warp hairlines run beneath it; open orders sit below as
- *   rows whose fill is drawn as a float across warp intervals.
- * FORM: jamdani loom / taut warp — candidate 7 of 7 grounded directions,
- *   seed key 4e05a29d (scope: direction, mode: operate).
- * FINISH: unreviewed and undocumented is unfinished; this build ends with the
- *   finish review, the verdict, and DESIGN.md.
+ * THESIS: A bright ledger. Money is shown the way a modern wallet shows it —
+ *   one dark card carrying the headline number over a light, energetic
+ *   canvas; categorical energy in colour blocks; chrome made of glass so the
+ *   content always shows through. Energy lives in STRUCTURE and MOTION,
+ *   never in verdicts on the user's money.
+ * FIRST VIEWPORT: the wallet-card hero holds portfolio value in bold tabular
+ *   Anek with the net-worth curve drawn beneath it; stat tiles in the
+ *   colour-block quartet sit below; glass chrome frames the page.
  *
- * Semantic names are mandatory; every load-bearing pair is verified by
- * scripts/check-contrast.ts in CI (32 base + on-field pairs).
+ * TEXTUAL CONTRACT: scripts/check-contrast.ts parses this file as RAW TEXT
+ *   by searching for the theme/mode selectors. Block order is load-bearing:
+ *   the light root block, then the dark-theme attribute block, then the
+ *   prefers-color-scheme duplicate, then the live-mode overlays. Never write
+ *   those selector strings inside a comment (the parser would slice on the
+ *   comment), and colour tokens must be bare oklch literals — no color-mix,
+ *   no hex, no var indirection. 50 pairs are verified.
  *
  * COLOR LAW (non-negotiable, testable):
- *   1. --accent never appears on a number. Numbers are ink; gain/loss carry
- *      their own meaning. The thread marks structure and attention only.
+ *   1. --accent and the --pop-* quartet never appear on a number. Numbers
+ *      are ink; gain/loss carry their own meaning. Pop marks structure and
+ *      category only.
  *   2. --gain / --loss never appear on a control. They are financial facts,
  *      never affordances. BUY is not green, SELL is not red.
- *   3. --field is a field, not an accent: it owns whole regions or nothing.
+ *   3. --hero is a surface, not an accent: it owns the account's primary
+ *      region or is absent. Glass is chrome, never a data surface.
  */
 
 :root {
-  /* type scale (product register: fixed rem, ~1.2 ratio) — unchanged */
+  /* type scale (product register: fixed rem, ~1.2 ratio) */
   --text-xs: 0.75rem; /* 12 labels */
   --text-sm: 0.8125rem; /* 13 dense tables */
   --text-base: 0.875rem; /* 14 body */
   --text-md: 1rem; /* 16 emphasized */
   --text-lg: 1.25rem; /* 20 section */
   --text-xl: 1.5rem; /* 24 page title */
-  --text-hero: 2rem; /* 32 portfolio figure */
+  --text-hero: 2.5rem; /* 40 the wallet-card figure */
+  --text-hero-wght: 700;
 
-  /* reading register — lessons, explainers, glossary. A dense Operate scale
-     cannot carry long-form teaching; this is the second register the
-     enablement mission requires. */
-  --text-read: 1.0625rem; /* 17 long-form body */
-  --text-read-lg: 1.375rem; /* 22 lesson heading */
+  /* reading register — lessons, explainers, glossary */
+  --text-read: 1.0625rem;
+  --text-read-lg: 1.375rem;
   --leading-read: 1.65;
-  --leading-read-bn: 1.8; /* Bengali needs more air than Latin at a size */
-  --measure: 68ch; /* hard cap on line length */
+  --leading-read-bn: 1.8;
+  --measure: 68ch;
 
   /* type families — one superfamily across scripts (Ek Type, Anek) */
   --font-ui: "Anek Latin", "Anek Bangla", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-bn: "Anek Bangla", "Noto Sans Bengali", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, monospace;
-  /* the wordmark's width axis — Anek is variable (wdth 75–125) */
-  --wordmark-wdth: 87.5;
-  --wordmark-wght: 600;
 
-  /* spacing: 4px base — unchanged */
+  /* spacing: 4px base */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -68,29 +60,33 @@
   --space-6: 2rem;
   --space-7: 3rem;
 
-  /* the warp: a real pitch, not decoration. Hairlines land on this grid.
-     --warp-opacity is ALSO the account-mode signal: cloth still on the loom
-     (paper) shows its warp; finished cloth (live) does not. See BRAND.md §5. */
-  --warp-pitch: 2rem;
-  --warp-width: 1px;
-  --warp-opacity: 1;
+  /* the account-mode texture signal (BRAND.md §5 signal 1): practice
+     surfaces carry a fine grain; [data-mode="live"] zeroes this ONE variable
+     and the grain disappears everywhere it is drawn. */
+  --mode-texture-opacity: 1;
 
   /* the mode ribbon's height — the shell subtracts it, so they must agree */
   --ribbon-h: 30px;
 
-  /* radii — the woven panel is soft, the rows and threads are not */
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
-  --radius-panel: 14px; /* the dyed field only */
-  --radius-row: 0px; /* rows, cells, threads: square, always */
+  /* radii — soft everywhere; the hero card is the softest thing on screen */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-panel: 24px;
+  --radius-pill: 999px;
 
-  /* motion — the reed's beat: snap and settle, never glide */
+  /* motion — quick, springy, never celebratory */
   --dur-fast: 120ms;
   --dur-base: 180ms;
+  --dur-slow: 320ms;
   --ease-out: cubic-bezier(0.2, 0.9, 0.25, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.44, 1);
 
-  /* z-scale — unchanged */
+  /* liquid glass recipe knobs (chrome + overlays only) */
+  --glass-blur: 14px;
+  --glass-saturate: 1.6;
+
+  /* z-scale */
   --z-dropdown: 10;
   --z-sticky: 20;
   --z-backdrop: 30;
@@ -98,113 +94,176 @@
   --z-toast: 50;
   --z-tooltip: 60;
 
-  /* ---- light theme (মলমল — muslin under daylight) ---- */
-  --bg: oklch(0.983 0.004 225);
-  --surface: oklch(0.963 0.005 225);
-  --surface-2: oklch(0.936 0.007 225);
-  --border: oklch(0.886 0.008 225);
-  --border-strong: oklch(0.775 0.011 225);
-  --ink: oklch(0.205 0.021 225);
-  --ink-muted: oklch(0.452 0.018 225);
-  --accent: oklch(0.44 0.098 228);
-  --accent-hover: oklch(0.37 0.098 228);
-  --accent-soft: oklch(0.44 0.098 228 / 0.11);
-  --on-accent: oklch(0.99 0.004 225);
+  /* ---- light theme — the bright ledger ---- */
+  --bg: oklch(0.975 0.003 250);
+  --surface: oklch(0.995 0.001 250);
+  --surface-2: oklch(0.955 0.004 250);
+  --border: oklch(0.9 0.005 250);
+  --border-strong: oklch(0.78 0.007 250);
+  --ink: oklch(0.185 0.012 265);
+  --ink-muted: oklch(0.45 0.015 265);
 
-  /* the dyed field — carries whole regions (Committed color strategy) */
-  --field: oklch(0.24 0.052 228);
-  --on-field: oklch(0.965 0.008 225);
-  --field-muted: oklch(0.74 0.02 225);
-  --field-thread: oklch(0.4 0.04 228);
-  /* the field is a DARK surface inside a light page — financial colors on it
-     need the dark-ground pair, or they fail contrast (verified, not assumed) */
-  --gain-on-field: oklch(0.775 0.145 160);
-  --loss-on-field: oklch(0.705 0.185 27);
-  /* the net-worth curve on the dyed cloth: chalk line, faint chalk fill */
-  --chart-line-on-field: oklch(0.93 0.01 225);
-  --chart-fill-on-field: oklch(0.93 0.01 225 / 0.14);
-  --chart-grid-on-field: oklch(0.45 0.04 228);
+  /* interactive accent: links, selection, focus, the active nav pill */
+  --accent: oklch(0.5 0.16 255);
+  --accent-hover: oklch(0.43 0.16 255);
+  --accent-soft: oklch(0.5 0.16 255 / 0.12);
+  --on-accent: oklch(0.985 0.002 255);
+
+  /* the colour-block quartet — categorical energy, never a financial fact */
+  --pop-coral: oklch(0.56 0.185 30);
+  --pop-coral-soft: oklch(0.56 0.185 30 / 0.14);
+  --on-pop-coral: oklch(0.985 0.005 30);
+  --pop-teal: oklch(0.5 0.1 175);
+  --pop-teal-soft: oklch(0.5 0.1 175 / 0.14);
+  --on-pop-teal: oklch(0.985 0.005 175);
+  --pop-amber: oklch(0.72 0.14 80);
+  --pop-amber-soft: oklch(0.72 0.14 80 / 0.16);
+  --on-pop-amber: oklch(0.2 0.02 80);
+  --pop-blue: oklch(0.5 0.16 255);
+  --pop-blue-soft: oklch(0.5 0.16 255 / 0.12);
+  --on-pop-blue: oklch(0.985 0.002 255);
+
+  /* the wallet-card hero — dark in BOTH themes, owns the account's primary region */
+  --hero: oklch(0.21 0.018 265);
+  --on-hero: oklch(0.975 0.004 265);
+  --hero-muted: oklch(0.72 0.012 265);
+  --hero-line: oklch(0.34 0.016 265);
+  --gain-on-hero: oklch(0.78 0.145 160);
+  --loss-on-hero: oklch(0.71 0.185 27);
+  --chart-line-on-hero: oklch(0.93 0.008 265);
+  --chart-fill-on-hero: oklch(0.93 0.008 265 / 0.14);
+  --chart-grid-on-hero: oklch(0.38 0.014 265);
 
   --gain: oklch(0.495 0.135 158);
   --loss: oklch(0.515 0.198 27);
   --warning: oklch(0.6 0.128 80);
   --warning-soft: oklch(0.6 0.128 80 / 0.14);
-  --focus-ring: oklch(0.44 0.098 228);
-  --chart-line: oklch(0.44 0.098 228);
-  --chart-fill: oklch(0.44 0.098 228 / 0.08);
-  --chart-grid: oklch(0.916 0.006 225);
-  --shadow-1: 0 1px 2px oklch(0.205 0.021 225 / 0.07);
-  --shadow-2: 0 4px 16px oklch(0.205 0.021 225 / 0.13);
+  --focus-ring: oklch(0.5 0.16 255);
+  --chart-line: oklch(0.5 0.16 255);
+  --chart-fill: oklch(0.5 0.16 255 / 0.08);
+  --chart-grid: oklch(0.916 0.004 250);
+
+  /* liquid glass — the chrome. --glass-bg-solid is the no-filter fallback
+     AND the worst case the contrast gate verifies text against. */
+  --glass-bg: oklch(0.985 0.002 250 / 0.66);
+  --glass-bg-solid: oklch(0.975 0.003 250);
+  --glass-border: oklch(0.25 0.01 265 / 0.12);
+  --glass-highlight: oklch(1 0 0 / 0.6);
+  --glass-shadow: 0 8px 32px oklch(0.2 0.02 265 / 0.12);
+
+  --shadow-1: 0 1px 2px oklch(0.2 0.015 265 / 0.06);
+  --shadow-2: 0 8px 24px oklch(0.2 0.015 265 / 0.1);
+  --shadow-hero: 0 16px 40px oklch(0.21 0.018 265 / 0.25);
 }
 
 [data-theme="dark"] {
-  /* ---- dark theme (নীল — the dyed field at night) ---- */
-  --bg: oklch(0.165 0.028 228);
-  --surface: oklch(0.205 0.032 228);
-  --surface-2: oklch(0.248 0.034 228);
-  --border: oklch(0.315 0.03 228);
-  --border-strong: oklch(0.435 0.03 228);
-  --ink: oklch(0.955 0.008 225);
-  --ink-muted: oklch(0.735 0.014 225);
-  --accent: oklch(0.8 0.1 212);
-  --accent-hover: oklch(0.86 0.09 212);
-  --accent-soft: oklch(0.8 0.1 212 / 0.16);
-  --on-accent: oklch(0.16 0.03 228);
+  /* ---- dark theme — the ledger after hours ---- */
+  --bg: oklch(0.17 0.008 265);
+  --surface: oklch(0.215 0.01 265);
+  --surface-2: oklch(0.26 0.012 265);
+  --border: oklch(0.32 0.012 265);
+  --border-strong: oklch(0.44 0.012 265);
+  --ink: oklch(0.955 0.005 265);
+  --ink-muted: oklch(0.73 0.01 265);
 
-  --field: oklch(0.265 0.055 228);
-  --on-field: oklch(0.965 0.008 225);
-  --field-muted: oklch(0.76 0.018 225);
-  --field-thread: oklch(0.42 0.04 228);
-  --gain-on-field: oklch(0.775 0.145 160);
-  --loss-on-field: oklch(0.705 0.185 27);
-  --chart-line-on-field: oklch(0.93 0.01 225);
-  --chart-fill-on-field: oklch(0.93 0.01 225 / 0.14);
-  --chart-grid-on-field: oklch(0.47 0.04 228);
+  --accent: oklch(0.72 0.13 250);
+  --accent-hover: oklch(0.79 0.12 250);
+  --accent-soft: oklch(0.72 0.13 250 / 0.16);
+  --on-accent: oklch(0.16 0.02 255);
+
+  --pop-coral: oklch(0.7 0.17 30);
+  --pop-coral-soft: oklch(0.7 0.17 30 / 0.18);
+  --on-pop-coral: oklch(0.17 0.03 30);
+  --pop-teal: oklch(0.72 0.11 175);
+  --pop-teal-soft: oklch(0.72 0.11 175 / 0.18);
+  --on-pop-teal: oklch(0.17 0.03 175);
+  --pop-amber: oklch(0.8 0.14 82);
+  --pop-amber-soft: oklch(0.8 0.14 82 / 0.18);
+  --on-pop-amber: oklch(0.2 0.03 82);
+  --pop-blue: oklch(0.72 0.13 250);
+  --pop-blue-soft: oklch(0.72 0.13 250 / 0.16);
+  --on-pop-blue: oklch(0.16 0.02 255);
+
+  --hero: oklch(0.145 0.014 265);
+  --on-hero: oklch(0.965 0.005 265);
+  --hero-muted: oklch(0.71 0.012 265);
+  --hero-line: oklch(0.3 0.014 265);
+  --gain-on-hero: oklch(0.78 0.145 160);
+  --loss-on-hero: oklch(0.71 0.185 27);
+  --chart-line-on-hero: oklch(0.93 0.008 265);
+  --chart-fill-on-hero: oklch(0.93 0.008 265 / 0.14);
+  --chart-grid-on-hero: oklch(0.38 0.014 265);
 
   --gain: oklch(0.775 0.145 160);
   --loss: oklch(0.705 0.185 27);
   --warning: oklch(0.815 0.14 82);
   --warning-soft: oklch(0.815 0.14 82 / 0.16);
-  --focus-ring: oklch(0.8 0.1 212);
-  --chart-line: oklch(0.8 0.1 212);
-  --chart-fill: oklch(0.8 0.1 212 / 0.12);
-  --chart-grid: oklch(0.268 0.03 228);
+  --focus-ring: oklch(0.72 0.13 250);
+  --chart-line: oklch(0.72 0.13 250);
+  --chart-fill: oklch(0.72 0.13 250 / 0.12);
+  --chart-grid: oklch(0.27 0.01 265);
+
+  --glass-bg: oklch(0.21 0.012 265 / 0.62);
+  --glass-bg-solid: oklch(0.215 0.01 265);
+  --glass-border: oklch(1 0 0 / 0.08);
+  --glass-highlight: oklch(1 0 0 / 0.09);
+  --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.45);
+
   --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
-  --shadow-2: 0 4px 16px oklch(0 0 0 / 0.5);
+  --shadow-2: 0 8px 24px oklch(0 0 0 / 0.5);
+  --shadow-hero: 0 16px 40px oklch(0 0 0 / 0.5);
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
-    --bg: oklch(0.165 0.028 228);
-    --surface: oklch(0.205 0.032 228);
-    --surface-2: oklch(0.248 0.034 228);
-    --border: oklch(0.315 0.03 228);
-    --border-strong: oklch(0.435 0.03 228);
-    --ink: oklch(0.955 0.008 225);
-    --ink-muted: oklch(0.735 0.014 225);
-    --accent: oklch(0.8 0.1 212);
-    --accent-hover: oklch(0.86 0.09 212);
-    --accent-soft: oklch(0.8 0.1 212 / 0.16);
-    --on-accent: oklch(0.16 0.03 228);
-    --field: oklch(0.265 0.055 228);
-    --on-field: oklch(0.965 0.008 225);
-    --field-muted: oklch(0.76 0.018 225);
-    --field-thread: oklch(0.42 0.04 228);
-    --gain-on-field: oklch(0.775 0.145 160);
-    --loss-on-field: oklch(0.705 0.185 27);
-    --chart-line-on-field: oklch(0.93 0.01 225);
-    --chart-fill-on-field: oklch(0.93 0.01 225 / 0.14);
-    --chart-grid-on-field: oklch(0.47 0.04 228);
+    --bg: oklch(0.17 0.008 265);
+    --surface: oklch(0.215 0.01 265);
+    --surface-2: oklch(0.26 0.012 265);
+    --border: oklch(0.32 0.012 265);
+    --border-strong: oklch(0.44 0.012 265);
+    --ink: oklch(0.955 0.005 265);
+    --ink-muted: oklch(0.73 0.01 265);
+    --accent: oklch(0.72 0.13 250);
+    --accent-hover: oklch(0.79 0.12 250);
+    --accent-soft: oklch(0.72 0.13 250 / 0.16);
+    --on-accent: oklch(0.16 0.02 255);
+    --pop-coral: oklch(0.7 0.17 30);
+    --pop-coral-soft: oklch(0.7 0.17 30 / 0.18);
+    --on-pop-coral: oklch(0.17 0.03 30);
+    --pop-teal: oklch(0.72 0.11 175);
+    --pop-teal-soft: oklch(0.72 0.11 175 / 0.18);
+    --on-pop-teal: oklch(0.17 0.03 175);
+    --pop-amber: oklch(0.8 0.14 82);
+    --pop-amber-soft: oklch(0.8 0.14 82 / 0.18);
+    --on-pop-amber: oklch(0.2 0.03 82);
+    --pop-blue: oklch(0.72 0.13 250);
+    --pop-blue-soft: oklch(0.72 0.13 250 / 0.16);
+    --on-pop-blue: oklch(0.16 0.02 255);
+    --hero: oklch(0.145 0.014 265);
+    --on-hero: oklch(0.965 0.005 265);
+    --hero-muted: oklch(0.71 0.012 265);
+    --hero-line: oklch(0.3 0.014 265);
+    --gain-on-hero: oklch(0.78 0.145 160);
+    --loss-on-hero: oklch(0.71 0.185 27);
+    --chart-line-on-hero: oklch(0.93 0.008 265);
+    --chart-fill-on-hero: oklch(0.93 0.008 265 / 0.14);
+    --chart-grid-on-hero: oklch(0.38 0.014 265);
     --gain: oklch(0.775 0.145 160);
     --loss: oklch(0.705 0.185 27);
     --warning: oklch(0.815 0.14 82);
     --warning-soft: oklch(0.815 0.14 82 / 0.16);
-    --focus-ring: oklch(0.8 0.1 212);
-    --chart-line: oklch(0.8 0.1 212);
-    --chart-fill: oklch(0.8 0.1 212 / 0.12);
-    --chart-grid: oklch(0.268 0.03 228);
+    --focus-ring: oklch(0.72 0.13 250);
+    --chart-line: oklch(0.72 0.13 250);
+    --chart-fill: oklch(0.72 0.13 250 / 0.12);
+    --chart-grid: oklch(0.27 0.01 265);
+    --glass-bg: oklch(0.21 0.012 265 / 0.62);
+    --glass-bg-solid: oklch(0.215 0.01 265);
+    --glass-border: oklch(1 0 0 / 0.08);
+    --glass-highlight: oklch(1 0 0 / 0.09);
+    --glass-shadow: 0 8px 32px oklch(0 0 0 / 0.45);
     --shadow-1: 0 1px 2px oklch(0 0 0 / 0.4);
-    --shadow-2: 0 4px 16px oklch(0 0 0 / 0.5);
+    --shadow-2: 0 8px 24px oklch(0 0 0 / 0.5);
+    --shadow-hero: 0 16px 40px oklch(0 0 0 / 0.5);
   }
 }
 
@@ -216,24 +275,26 @@
  * own empty states; paper data must never render under this attribute.
  *
  * Mode is signalled THREE redundant ways, never by colour alone:
- *   1. texture — paper shows its warp (still on the loom); live does not
- *      (finished cloth), via --warp-opacity
- *   2. depth   — the live field is dyed markedly deeper
+ *   1. texture — practice surfaces show a fine grain; live is smooth,
+ *      via --mode-texture-opacity
+ *   2. depth   — the live hero is deeper AND chroma-zero (ΔEok ≥ 0.06
+ *      against the practice hero; pure luminance steps were rejected as
+ *      too weak to be a safety signal)
  *   3. a persistent text label, which is the only signal that survives
  *      greyscale, low vision, and a screenshot
  * Removing any one of the three is a review-blocking change.
+ * (Known parity limit: system-dark without data-theme + live keeps the
+ * light live overlay — the depth step still holds.)
  */
 [data-mode="live"] {
-  --warp-opacity: 0;
-  /* Undyed. The practice cloth is dyed and textured; the real one is plain.
-     A pure luminance step measured only 1.21:1 — too weak to be a safety
-     signal — so the live field drops chroma as well: ΔEok 0.095 against the
-     paper field, ~5x the just-noticeable difference. */
-  --field: oklch(0.155 0.01 228);
-  --field-thread: oklch(0.3 0.012 228);
+  --mode-texture-opacity: 0;
+  --hero: oklch(0.13 0 0);
+  --hero-line: oklch(0.27 0 0);
+  --chart-grid-on-hero: oklch(0.32 0 0);
 }
 
 [data-theme="dark"][data-mode="live"] {
-  --field: oklch(0.145 0.008 228);
-  --field-thread: oklch(0.3 0.012 228);
+  --hero: oklch(0.1 0 0);
+  --hero-line: oklch(0.26 0 0);
+  --chart-grid-on-hero: oklch(0.3 0 0);
 }

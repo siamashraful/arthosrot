@@ -1,12 +1,13 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { useId, useMemo, useState } from "react";
 import { api, ApiError, type QuoteDto } from "@/lib/api";
 import { formatMoney, formatPrice } from "@/lib/format";
 import { Explainer } from "../Explainer";
 import { OrderStatusBadge } from "./OrderStatusBadge";
-import { WeaveFill } from "./WeaveFill";
+import { FillProgress } from "./FillProgress";
 
 /**
  * The trading ticket (docs/design/UX_PATTERNS.md): labeled Buy/Sell segmented
@@ -186,19 +187,17 @@ export function TradingTicket({
         ) : null}
 
         {!reviewing ? (
-          <button
+          <motion.button
             type="button"
             className="btn btn-primary"
+            whileTap={{ scale: 0.97 }}
             disabled={!validQty || !validLimit || place.isPending}
             onClick={() => setReviewing(true)}
           >
             Review order
-          </button>
+          </motion.button>
         ) : (
-          <div
-            className="card"
-            style={{ background: "var(--surface-2)", display: "grid", gap: "var(--space-3)" }}
-          >
+          <div className="review-summary">
             <p style={{ margin: 0, fontWeight: 500 }}>
               {side === "BUY" ? "Buy" : "Sell"} {qtyNum} {symbol} ·{" "}
               {type === "MARKET" ? "Market" : `Limit ${formatPrice(limitPrice)}`} · est.{" "}
@@ -208,14 +207,15 @@ export function TradingTicket({
               Paper account — simulated money. Execution price may differ from the displayed quote.
             </p>
             <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <button
+              <motion.button
                 type="button"
                 className="btn btn-primary"
+                whileTap={{ scale: 0.97 }}
                 disabled={place.isPending}
                 onClick={() => place.mutate()}
               >
                 {place.isPending ? "Placing…" : "Confirm order"}
-              </button>
+              </motion.button>
               <button type="button" className="btn btn-ghost" onClick={() => setReviewing(false)}>
                 Back
               </button>
@@ -254,7 +254,7 @@ function PlacedOrderChip({ orderId }: { orderId: string }) {
         style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}
       >
         <OrderStatusBadge state={order.state} display={order.stateDisplay} />
-        <WeaveFill filledQty={order.filledQty} qty={order.qty} />
+        <FillProgress filledQty={order.filledQty} qty={order.qty} />
         <span className="tabular" style={{ fontSize: "var(--text-sm)" }}>
           {order.side === "BUY" ? "Buy" : "Sell"} {order.filledQty}/{order.qty} {order.symbol}
         </span>

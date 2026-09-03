@@ -95,5 +95,4 @@ export const ledgerRepository = {
       accountArchived: row.accountStatus === "ARCHIVED",
     }));
   },
-
 } satisfies LedgerRepository & Record<string, unknown>;
