@@ -1,7 +1,7 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { Activity, PieChart, TrendingDown, TrendingUp, Wallet, Zap } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Activity, PieChart, TrendingDown, TrendingUp, Wallet, X, Zap } from "lucide-react";
 import Link from "next/link";
 import { NetWorthChart } from "@/components/finance/NetWorthChart";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
@@ -30,6 +30,7 @@ export default function DashboardPage() {
   // Live preview never shows paper data (ADR-011): gate BEFORE any paper
   // markup — the queries below stay disabled while in live mode.
   const mode = useTradingMode();
+  const queryClient = useQueryClient();
 
   // Account gate: no account yet (or still provisioning) renders onboarding.
   // While PROVISIONING the me-poll doubles as the activation check — the
@@ -62,6 +63,11 @@ export default function DashboardPage() {
     queryFn: () => api.portfolioHistory("1D"),
     refetchInterval: 30_000,
     enabled: mode === "paper" && accountActive,
+  });
+
+  const removeWatch = useMutation({
+    mutationFn: (itemId: string) => api.removeFromWatchlist(itemId),
+    onSuccess: (fresh) => queryClient.setQueryData(["watchlist"], fresh),
   });
 
   if (mode === "live") return <LiveDashboard />;
@@ -299,10 +305,12 @@ export default function DashboardPage() {
                   <SymbolLogo symbol={item.symbol} size={40} />
                   <span className="ar-row__main">
                     <span className="ar-row__title">
-                      {item.name}
-                      <span className="ar-ticker">{item.symbol}</span>
+                      {item.name === item.symbol ? item.symbol : item.name}
+                      {item.name === item.symbol ? null : (
+                        <span className="ar-ticker">{item.symbol}</span>
+                      )}
                     </span>
-                    <span className="ar-row__sub">Last</span>
+                    <span className="ar-row__sub">Last price</span>
                   </span>
                   <span className="ar-row__end">
                     <span className="ar-row__value">
@@ -310,10 +318,24 @@ export default function DashboardPage() {
                     </span>
                   </span>
                 </Link>
+                <button
+                  type="button"
+                  className="ar-btn ar-btn--icon ar-btn--plain"
+                  aria-label={`Remove ${item.symbol} from watchlist`}
+                  disabled={removeWatch.isPending}
+                  onClick={() => removeWatch.mutate(item.id)}
+                >
+                  <X size={18} aria-hidden />
+                </button>
               </li>
             ))}
           </ul>
         )}
+        {removeWatch.isError ? (
+          <p role="alert" className="field-error" style={{ margin: "8px 0 0" }}>
+            That symbol could not be removed — try again.
+          </p>
+        ) : null}
       </section>
 
       <section aria-label="Open orders">

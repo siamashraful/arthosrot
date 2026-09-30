@@ -8,6 +8,8 @@ import { Explainer } from "@/components/Explainer";
 import { OrderStatusBadge } from "@/components/finance/OrderStatusBadge";
 import { FillProgress } from "@/components/finance/FillProgress";
 import { Money } from "@/components/finance/Money";
+import { isCancellable } from "@/components/finance/OrdersTable";
+import { useCancelOrder } from "@/components/finance/useCancelOrder";
 import { api } from "@/lib/api";
 import { formatDateTime, formatPrice, formatPrice4 } from "@/lib/format";
 
@@ -31,6 +33,7 @@ function humanize(code: string): string {
 
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const cancel = useCancelOrder();
   const { data, isPending, isError } = useQuery({
     queryKey: ["order", id],
     queryFn: () => api.orderDetail(id),
@@ -59,6 +62,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const { order, events, fills } = data;
+  const canCancel = isCancellable(order.state);
 
   return (
     <div style={{ display: "grid", gap: 16, maxWidth: "44rem" }}>
@@ -110,6 +114,29 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           </div>
         ) : null}
       </div>
+
+      {canCancel ? (
+        <div style={{ display: "grid", gap: 8 }}>
+          <div>
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={cancel.pendingId === order.id}
+              onClick={() => cancel.cancel(order.id)}
+            >
+              {cancel.pendingId === order.id ? "Cancelling…" : "Cancel order"}
+            </button>
+          </div>
+          <p className="ar-caption ar-tertiary" style={{ margin: 0 }}>
+            Cancelling asks the venue to stop the order. Shares that already filled stay filled.
+          </p>
+          {cancel.failedId === order.id && cancel.errorMessage ? (
+            <p role="alert" className="field-error" style={{ margin: 0 }}>
+              {cancel.errorMessage}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
 
       <section aria-label="Fills">
         <div className="ar-section">

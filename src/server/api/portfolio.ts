@@ -121,15 +121,23 @@ export async function getPortfolio(session: SessionInfo): Promise<unknown> {
   return { ...view, market: { status: market.status, asOf: market.asOf.toISOString() } };
 }
 
+const LEDGER_PAGE = 50;
+const ledgerQuerySchema = z.object({ before: z.string().uuid().optional() });
+
 export async function getLedger(request: Request, session: SessionInfo): Promise<unknown> {
   const url = new URL(request.url);
-  const before = url.searchParams.get("before") ?? undefined;
+  const { before } = ledgerQuerySchema.parse({
+    before: url.searchParams.get("before") ?? undefined,
+  });
   // Full history across ALL of the user's accounts — resets archive accounts
   // but their ledger stays visible here (invariant 14; Settings promises it).
-  const entries = await pgTransactionRunner.run((tx) =>
-    ledgerRepository.listForUser(tx, session.userId, 50, before),
+  // One extra row answers "is there another page?" without a count query.
+  const rows = await pgTransactionRunner.run((tx) =>
+    ledgerRepository.listForUser(tx, session.userId, LEDGER_PAGE + 1, before),
   );
+  const entries = rows.slice(0, LEDGER_PAGE);
   return {
+    nextCursor: rows.length > LEDGER_PAGE ? (entries.at(-1)?.id ?? null) : null,
     entries: entries.map((e) => ({
       id: e.id,
       type: e.entryType,
@@ -221,6 +229,10 @@ export async function addWatchlistItem(request: Request, session: SessionInfo): 
 }
 
 export async function removeWatchlistItem(itemId: string, session: SessionInfo): Promise<unknown> {
+  // A malformed id is a missing item, not a database error (uuid column).
+  if (!z.string().uuid().safeParse(itemId).success) {
+    throw new AppError("NOT_FOUND", "Watchlist item not found");
+  }
   await pgTransactionRunner.run(async (tx) => {
     const watchlistId = await watchlistsRepository.getOrCreateForUser(tx, session.userId);
     await watchlistsRepository.remove(tx, watchlistId, itemId);

@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { TradingModeSwitch } from "@/components/trading-mode-switch";
 import { useTradingMode } from "@/components/trading-mode";
 import { Money } from "@/components/finance/Money";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { authClient } from "@/lib/auth-client";
 
 export default function SettingsPage() {
@@ -14,6 +14,7 @@ export default function SettingsPage() {
   const mode = useTradingMode();
   const { data: me } = useQuery({ queryKey: ["me"], queryFn: api.me });
   const [confirmText, setConfirmText] = useState("");
+  const [signingOut, setSigningOut] = useState(false);
 
   const reset = useMutation({
     mutationFn: api.resetAccount,
@@ -72,13 +73,18 @@ export default function SettingsPage() {
               <button
                 type="button"
                 className="ar-btn ar-btn--secondary ar-btn--compact"
-                onClick={() =>
-                  void authClient.signOut().then(() => {
+                disabled={signingOut}
+                onClick={() => {
+                  setSigningOut(true);
+                  // Leave for /signin even if the call fails: a dead session
+                  // lands there anyway, and a live one is re-checked on arrival.
+                  void authClient.signOut().finally(() => {
+                    queryClient.clear();
                     window.location.href = "/signin";
-                  })
-                }
+                  });
+                }}
               >
-                Sign out
+                {signingOut ? "Signing out…" : "Sign out"}
               </button>
             </div>
           </div>
@@ -132,7 +138,16 @@ export default function SettingsPage() {
         </div>
         {reset.isSuccess ? (
           <p role="status" style={{ margin: 0 }}>
-            Account reset — fresh balance ready.
+            {reset.data.account.status === "ACTIVE"
+              ? "Account reset — fresh balance ready."
+              : "Account reset — your fresh balance is being funded and appears on the dashboard in a few minutes."}
+          </p>
+        ) : null}
+        {reset.isError ? (
+          <p role="alert" className="field-error" style={{ margin: 0 }}>
+            {reset.error instanceof ApiError
+              ? reset.error.message
+              : "The account could not be reset — try again."}
           </p>
         ) : null}
       </section>

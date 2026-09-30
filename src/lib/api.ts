@@ -170,7 +170,10 @@ export const api = {
     }),
   cancelOrder: (id: string) =>
     request<{ order: OrderDto }>(`/api/v1/orders/${id}/cancel`, { method: "POST" }),
-  ledger: () => request<{ entries: LedgerEntryDto[] }>("/api/v1/ledger"),
+  ledger: (before?: string) =>
+    request<{ entries: LedgerEntryDto[]; nextCursor: string | null }>(
+      before ? `/api/v1/ledger?before=${encodeURIComponent(before)}` : "/api/v1/ledger",
+    ),
   watchlist: () => request<{ items: WatchlistItemDto[] }>("/api/v1/watchlist"),
   addToWatchlist: (symbol: string) =>
     request<{ items: WatchlistItemDto[] }>("/api/v1/watchlist", {
@@ -180,7 +183,7 @@ export const api = {
   removeFromWatchlist: (id: string) =>
     request<{ items: WatchlistItemDto[] }>(`/api/v1/watchlist/items/${id}`, { method: "DELETE" }),
   resetAccount: () =>
-    request<{ account: { id: string; cash: string } }>("/api/v1/account/reset", {
+    request<{ account: { id: string; status: string; cash: string } }>("/api/v1/account/reset", {
       method: "POST",
       body: JSON.stringify({ confirm: "RESET" }),
     }),

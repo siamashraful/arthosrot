@@ -1,12 +1,13 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Check, Clock, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
 import { api, type OrderDto } from "@/lib/api";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { FillProgress } from "./FillProgress";
+import { useCancelOrder } from "./useCancelOrder";
 
 const OPEN = new Set([
   "PENDING_SUBMISSION",
@@ -31,7 +32,6 @@ function stateChip(state: string): { cls: string; Icon: typeof Check } {
  * as the system's activity rows on a list card.
  */
 export function OrdersTable({ status, limit }: { status: "open" | "all"; limit?: number }) {
-  const queryClient = useQueryClient();
   const { data, isPending, isError } = useQuery({
     queryKey: ["orders", status],
     queryFn: () => api.orders(status),
@@ -41,13 +41,7 @@ export function OrdersTable({ status, limit }: { status: "open" | "all"; limit?:
     },
   });
 
-  const cancel = useMutation({
-    mutationFn: (id: string) => api.cancelOrder(id),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["orders"] });
-      void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-    },
-  });
+  const cancel = useCancelOrder();
 
   if (isPending) {
     return (
@@ -93,14 +87,35 @@ export function OrdersTable({ status, limit }: { status: "open" | "all"; limit?:
       aria-label={status === "open" ? "Open orders" : "Order history"}
     >
       {orders.map((order) => (
-        <OrderRow key={order.id} order={order} onCancel={(id) => cancel.mutate(id)} />
+        <OrderRow
+          key={order.id}
+          order={order}
+          onCancel={cancel.cancel}
+          cancelling={cancel.pendingId === order.id}
+          cancelError={cancel.failedId === order.id ? cancel.errorMessage : null}
+        />
       ))}
     </ul>
   );
 }
 
-function OrderRow({ order, onCancel }: { order: OrderDto; onCancel: (id: string) => void }) {
-  const cancellable = OPEN.has(order.state) && order.state !== "PENDING_SUBMISSION";
+/** Orders the venue will still accept a cancel for (already-pending cancels excluded). */
+export function isCancellable(state: string): boolean {
+  return OPEN.has(state) && state !== "PENDING_SUBMISSION" && state !== "CANCEL_PENDING";
+}
+
+function OrderRow({
+  order,
+  onCancel,
+  cancelling,
+  cancelError,
+}: {
+  order: OrderDto;
+  onCancel: (id: string) => void;
+  cancelling: boolean;
+  cancelError: string | null;
+}) {
+  const cancellable = isCancellable(order.state);
   const { cls, Icon } = stateChip(order.state);
   return (
     <li className="ar-row">
@@ -120,6 +135,11 @@ function OrderRow({ order, onCancel }: { order: OrderDto; onCancel: (id: string)
         <span>
           <OrderStatusBadge state={order.state} display={order.stateDisplay} />
         </span>
+        {cancelError ? (
+          <span role="alert" className="field-error">
+            {cancelError}
+          </span>
+        ) : null}
       </div>
       <div className="ar-row__end">
         <span className="ar-row__value">
@@ -130,8 +150,10 @@ function OrderRow({ order, onCancel }: { order: OrderDto; onCancel: (id: string)
             type="button"
             className="btn btn-danger ar-btn--compact"
             onClick={() => onCancel(order.id)}
+            disabled={cancelling}
+            aria-label={`Cancel ${order.side === "BUY" ? "buy" : "sell"} ${order.qty} ${order.symbol}`}
           >
-            Cancel
+            {cancelling ? "Cancelling…" : "Cancel"}
           </button>
         ) : null}
       </div>

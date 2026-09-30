@@ -58,6 +58,24 @@ export function TradingTicket({
     return ref === null ? null : (ref * qtyNum).toFixed(2);
   }, [validQty, qtyNum, type, validLimit, limitPrice, side, quote]);
 
+  // Pre-checks for orders that are certain to be rejected, so the user learns
+  // before review rather than after submit. Advisory display comparisons on
+  // the client's own estimate — the server re-derives every reservation in
+  // decimal under the placement lock and stays the authority (market buys
+  // also reserve a price buffer, which only the server applies).
+  const sellableNum = Number.parseInt(sellable, 10) || 0;
+  const precheck: string | null = !validQty
+    ? null
+    : side === "SELL"
+      ? sellableNum === 0
+        ? `You don't hold any ${symbol} to sell.`
+        : qtyNum > sellableNum
+          ? `You can sell up to ${sellableNum} ${sellableNum === 1 ? "share" : "shares"}.`
+          : null
+      : estimate !== null && Number(estimate) > Number(buyingPower)
+        ? `Estimated cost is more than your buying power (${formatMoney(buyingPower)}).`
+        : null;
+
   const place = useMutation({
     mutationFn: () =>
       api.placeOrder({
@@ -198,6 +216,11 @@ export function TradingTicket({
           </div>
         ) : null}
 
+        {precheck && !error ? (
+          <p role="alert" className="field-error" style={{ margin: 0 }}>
+            {precheck}
+          </p>
+        ) : null}
         {error ? (
           <p role="alert" className="field-error" style={{ margin: 0 }}>
             {error}
@@ -208,7 +231,7 @@ export function TradingTicket({
           <button
             type="button"
             className="ar-btn ar-btn--primary ar-btn--block"
-            disabled={!validQty || !validLimit || place.isPending}
+            disabled={!validQty || !validLimit || precheck !== null || place.isPending}
             onClick={() => setReviewing(true)}
           >
             Review order
@@ -281,8 +304,12 @@ function PlacedOrderChip({ orderId }: { orderId: string }) {
     refetchInterval: (query) => {
       const state = query.state.data?.order.state;
       if (state && TERMINAL.has(state)) {
+        // A terminal order may have moved cash and shares: refresh every
+        // view derived from them, including the net-worth series.
         void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+        void queryClient.invalidateQueries({ queryKey: ["portfolio-history"] });
         void queryClient.invalidateQueries({ queryKey: ["ledger"] });
+        void queryClient.invalidateQueries({ queryKey: ["orders"] });
         return false;
       }
       return 1_500;

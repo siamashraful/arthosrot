@@ -750,6 +750,42 @@ dialog.sheet .card {
   min-width: 0;
 }
 
+/* A loaded stock logo fills its chip footprint (SymbolLogo) */
+.symbol-logo {
+  display: block;
+  flex: none;
+  object-fit: cover;
+  background: var(--surface);
+  box-shadow: 0 0 0 1px var(--divider);
+}
+
+/* The system's row is a tap target by default; only rows that ARE links or
+   buttons may look like one. Static rows (settings facts, ledger entries,
+   order rows whose controls live inside) keep the default cursor. */
+div.ar-row,
+li.ar-row {
+  cursor: auto;
+}
+
+/* Rows wrapped in list items (<li><a class="ar-row">): the hairline belongs
+   to the item — the link is always its li's last child, so the system's
+   .ar-row:last-child rule would otherwise erase every divider. The item is a
+   flex row so a trailing control (e.g. remove) can sit beside the link. */
+.ar-list > li:not(.ar-row) {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  border-bottom: 1px solid var(--divider);
+}
+.ar-list > li:not(.ar-row):last-child {
+  border-bottom: 0;
+}
+.ar-list > li:not(.ar-row) > .ar-row {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+
 /* ================================================== legacy class aliases */
 
 /* App class names that tests or untouched components still use, mapped onto

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { ArrowDownLeft, ArrowUpRight, Receipt, SlidersHorizontal, TrendingUp } from "lucide-react";
 import { LiveEmptyState } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
@@ -41,11 +41,17 @@ function entryChip(type: string, sign: -1 | 0 | 1): { cls: string; Icon: typeof 
 
 export default function ActivityPage() {
   const mode = useTradingMode();
-  const { data, isPending, isError } = useQuery({
+  // The ledger pages newest-first, 50 entries at a time, on a server keyset
+  // cursor — history of any length stays reachable.
+  const ledger = useInfiniteQuery({
     queryKey: ["ledger"],
-    queryFn: api.ledger,
+    queryFn: ({ pageParam }) => api.ledger(pageParam),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: mode === "paper",
   });
+  const { isPending, isError } = ledger;
+  const data = ledger.data ? { entries: ledger.data.pages.flatMap((p) => p.entries) } : undefined;
 
   // The paper ledger must never read as live history (ADR-011).
   if (mode === "live") {
@@ -130,6 +136,23 @@ export default function ActivityPage() {
           })}
         </ul>
       )}
+      {ledger.hasNextPage ? (
+        <div>
+          <button
+            type="button"
+            className="ar-btn ar-btn--secondary"
+            disabled={ledger.isFetchingNextPage}
+            onClick={() => void ledger.fetchNextPage()}
+          >
+            {ledger.isFetchingNextPage ? "Loading…" : "Show older activity"}
+          </button>
+        </div>
+      ) : null}
+      {ledger.isFetchNextPageError ? (
+        <p role="alert" className="field-error" style={{ margin: 0 }}>
+          Older activity could not be loaded — try again.
+        </p>
+      ) : null}
     </div>
   );
 }

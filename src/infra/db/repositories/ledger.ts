@@ -1,4 +1,4 @@
-import { desc, eq, lt, sql, and } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { LedgerEntry, LedgerRepository, NewLedgerEntry } from "@/core/ledger";
 import { Money } from "@/core/money";
 import { invariant, type TxHandle } from "@/core/shared";
@@ -77,18 +77,25 @@ export const ledgerRepository = {
     const db = asDb(tx);
     const conditions = [eq(schema.accounts.userId, userId)];
     if (beforeId) {
+      // Keyset cursor on (created_at, id): entries posted in one transaction
+      // (a fill's TRADE and FEE) share created_at exactly, so a timestamp-only
+      // cursor would skip the sibling that fell on the far side of a page.
       const [pivot] = await db
-        .select({ createdAt: schema.ledgerEntries.createdAt })
+        .select({ createdAt: schema.ledgerEntries.createdAt, id: schema.ledgerEntries.id })
         .from(schema.ledgerEntries)
-        .where(eq(schema.ledgerEntries.id, beforeId));
-      if (pivot) conditions.push(lt(schema.ledgerEntries.createdAt, pivot.createdAt));
+        .innerJoin(schema.accounts, eq(schema.ledgerEntries.accountId, schema.accounts.id))
+        .where(and(eq(schema.ledgerEntries.id, beforeId), eq(schema.accounts.userId, userId)));
+      if (!pivot) return []; // unknown or foreign cursor: nothing further to show
+      conditions.push(
+        sql`(${schema.ledgerEntries.createdAt}, ${schema.ledgerEntries.id}) < (${pivot.createdAt}, ${pivot.id})`,
+      );
     }
     const rows = await db
       .select({ entry: schema.ledgerEntries, accountStatus: schema.accounts.status })
       .from(schema.ledgerEntries)
       .innerJoin(schema.accounts, eq(schema.ledgerEntries.accountId, schema.accounts.id))
       .where(and(...conditions))
-      .orderBy(desc(schema.ledgerEntries.createdAt))
+      .orderBy(desc(schema.ledgerEntries.createdAt), desc(schema.ledgerEntries.id))
       .limit(limit);
     return rows.map((row) => ({
       ...toEntry(row.entry),

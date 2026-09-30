@@ -58,9 +58,17 @@ logos"}`), so at $0 the upstream is a keyless public CDN configured as a URL
 template (`LOGO_UPSTREAM`, `{SYMBOL}` placeholder; production uses Parqet's
 logo endpoint). Our server proxies and caches the bytes (`market_data_cache`,
 7-day TTL) — the browser never talks to the third party. Misses and an unset
-template fall back to the designed monogram tile, so dev/CI run hermetically
-and the product degrades gracefully if the CDN disappears. Replacement path:
-change one env var.
+template fall back to the designed monogram tile, so CI runs hermetically
+and the product degrades gracefully if the CDN disappears (local dev enables
+the template in `.env.local` to see real logos). Replacement path: change one
+env var.
+
+CDN quirks handled: class-share tickers are dotted at the venue (`BRK.B`) but
+hyphenated at the CDN (`BRK-B`) — the proxy maps `.` → `-`. Some marks are a
+light glyph on transparency (drawn for dark grounds); `SymbolLogo` samples the
+loaded image once on a 16px canvas and sets an ink backdrop for those, and
+falls back to the monogram for an effectively empty image. SVG is never
+proxied: served same-origin it could run script.
 
 ## Alpaca Market Data — free IEX feed (display data)
 

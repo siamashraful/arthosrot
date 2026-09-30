@@ -23,9 +23,10 @@ export async function getLogo(symbolRaw: string): Promise<Response> {
   const cached = await getCachedLogo(symbol);
   if (cached) return logoResponse(cached);
 
-  const upstream = await fetch(LOGO_UPSTREAM.replace("{SYMBOL}", encodeURIComponent(symbol)), {
-    signal: AbortSignal.timeout(5_000),
-  }).catch(() => null);
+  const upstream = await fetch(
+    LOGO_UPSTREAM.replace("{SYMBOL}", encodeURIComponent(upstreamSymbol(symbol))),
+    { signal: AbortSignal.timeout(5_000) },
+  ).catch(() => null);
   if (!upstream || !upstream.ok || !upstream.headers.get("content-type")?.startsWith("image/")) {
     return new Response(null, { status: 404 });
   }
@@ -37,6 +38,14 @@ export async function getLogo(symbolRaw: string): Promise<Response> {
   };
   await putCachedLogo(symbol, logo);
   return logoResponse(logo);
+}
+
+/**
+ * Class-share tickers are dotted at the venue (BRK.B) but hyphenated at the
+ * logo CDN (BRK-B) — the common convention for share classes in symbol URLs.
+ */
+export function upstreamSymbol(symbol: string): string {
+  return symbol.replace(/\./g, "-");
 }
 
 function logoResponse(logo: CachedLogo): Response {
