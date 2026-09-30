@@ -1,6 +1,7 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
@@ -27,53 +28,65 @@ export default function MarketsPage() {
   });
 
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)", maxWidth: "40rem" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>Markets</h1>
-      </header>
+    <div style={{ display: "grid", gap: 16, maxWidth: "40rem" }}>
+      <div className="ar-appbar">
+        <h1 className="ar-appbar__title">Markets</h1>
+      </div>
 
-      <div className="field">
-        <label className="field-label" htmlFor="market-search">
+      <div className="ar-field">
+        <label className="ar-field__label" htmlFor="market-search">
           Search US equities
         </label>
-        <input
-          id="market-search"
-          className="input"
-          placeholder="Symbol or company name — e.g. AAPL"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
-        />
+        <div className="ar-input ar-input--search">
+          <Search className="ar-icon" size={20} aria-hidden />
+          <input
+            id="market-search"
+            placeholder="Symbol or company name — e.g. AAPL"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
+          />
+        </div>
       </div>
 
       {query.trim().length === 0 ? (
-        <div className="empty-state">Type a symbol or company name to find an instrument.</div>
+        <div className="ar-card">
+          <div className="ar-empty">
+            <span className="ar-empty__text">
+              Type a symbol or company name to find an instrument.
+            </span>
+          </div>
+        </div>
       ) : isFetching && !data ? (
-        <div className="skeleton" style={{ height: 96 }} />
+        <div className="ar-card ar-card--list" aria-busy="true">
+          {[0, 1].map((i) => (
+            <div key={i} className="ar-skel-row">
+              <span className="ar-skel ar-skel--chip" />
+              <div className="ar-skel-row__main">
+                <span className="ar-skel ar-skel--text" style={{ width: "30%" }} />
+                <span className="ar-skel ar-skel--text" style={{ width: "55%" }} />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (data?.instruments ?? []).length === 0 ? (
-        <div className="empty-state">No matches for “{query.trim()}”.</div>
+        <div className="ar-card">
+          <div className="ar-empty">
+            <span className="ar-empty__text">No matches for “{query.trim()}”.</span>
+          </div>
+        </div>
       ) : (
-        <ul
-          style={{
-            listStyle: "none",
-            margin: 0,
-            padding: 0,
-            display: "grid",
-            gap: "var(--space-2)",
-          }}
-        >
-          {data!.instruments.map((i) => (
+        <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
+          {(data?.instruments ?? []).map((i) => (
             <li key={i.symbol}>
-              <Link href={`/i/${i.symbol}`} className="list-row">
-                <SymbolLogo symbol={i.symbol} size={28} />
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <strong>{i.symbol}</strong>{" "}
-                  <span className="muted" style={{ fontWeight: 400 }}>
-                    {i.name}
-                  </span>
+              <Link href={`/i/${i.symbol}`} className="ar-row">
+                <SymbolLogo symbol={i.symbol} size={40} />
+                <span className="ar-row__main">
+                  <span className="ar-row__title">{i.symbol}</span>
+                  <span className="ar-row__sub">{i.name}</span>
                 </span>
-                <span className="muted" style={{ fontSize: "var(--text-xs)" }}>
-                  {i.exchange}
+                <span className="ar-row__end">
+                  <span className="ar-tag ar-tag--sky">{i.exchange}</span>
                 </span>
               </Link>
             </li>

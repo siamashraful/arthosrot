@@ -1,10 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { TrendingUp, Wallet, Zap } from "lucide-react";
-import { motion } from "motion/react";
+import { Activity, PieChart, TrendingDown, TrendingUp, Wallet, Zap } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { NetWorthChart } from "@/components/finance/NetWorthChart";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { OnboardingPanel } from "@/components/onboarding";
@@ -14,46 +12,18 @@ import { PriceChange } from "@/components/finance/PriceChange";
 import { LiveDashboard } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
-import { formatTime } from "@/lib/format";
+import { formatPrice, formatTime, signOf } from "@/lib/format";
 
 /**
- * A colour-block stat tile. The chip colour is categorical (which stat), never
- * a verdict — the value is always ink/tabular; gain/loss inside <PriceChange>
- * is a financial fact and stays. Entrance is mount-only (keyed by name, not
- * data) and never starts from opacity 0.
+ * Display-only share of the account (0–100) for a tile's bar. A rendering-
+ * boundary ratio like FillProgress's percentage: no money arithmetic, the
+ * number never feeds back into a financial value.
  */
-function StatTile({
-  index,
-  tone,
-  solid = false,
-  icon,
-  label,
-  children,
-}: {
-  index: number;
-  tone: "coral" | "teal" | "amber" | "blue";
-  /** The tile IS the colour block (the reference's solid tiles); the number is on-pop ink. */
-  solid?: boolean;
-  icon: ReactNode;
-  label: string;
-  children: ReactNode;
-}) {
-  return (
-    <motion.div
-      className={`stat-tile stat-tile--${tone}${solid ? " stat-tile--solid" : ""}`}
-      // transform only: an opacity ramp blends label text and trips the axe
-      // contrast gate mid-entrance (and would read as a fade-in on data)
-      initial={{ y: 10 }}
-      animate={{ y: 0 }}
-      transition={{ delay: index * 0.06, duration: 0.28, ease: "easeOut" }}
-    >
-      <span className="stat-tile-icon" aria-hidden>
-        {icon}
-      </span>
-      <div className="stat-tile-label">{label}</div>
-      <div className="stat-tile-value tabular">{children}</div>
-    </motion.div>
-  );
+function sharePercent(part: string, whole: string): number {
+  const p = Number(part);
+  const w = Number(whole);
+  if (!Number.isFinite(p) || !Number.isFinite(w) || w <= 0 || p <= 0) return 0;
+  return Math.round(Math.min(100, (p / w) * 100));
 }
 
 export default function DashboardPage() {
@@ -85,6 +55,14 @@ export default function DashboardPage() {
     refetchInterval: 15_000,
     enabled: mode === "paper" && accountActive,
   });
+  // Today's change for the hero delta chip — the same server-side decimal
+  // delta the chart uses, at the 1D range.
+  const { data: today } = useQuery({
+    queryKey: ["portfolio-history", "1D"],
+    queryFn: () => api.portfolioHistory("1D"),
+    refetchInterval: 30_000,
+    enabled: mode === "paper" && accountActive,
+  });
 
   if (mode === "live") return <LiveDashboard />;
 
@@ -94,175 +72,254 @@ export default function DashboardPage() {
         ? ("NONE" as const)
         : (me.account.status as "PROVISIONING" | "PROVISIONING_FAILED");
     return (
-      <div style={{ display: "grid", gap: "var(--space-5)" }}>
-        <header>
-          <h1 style={{ fontSize: "var(--text-xl)" }}>Dashboard</h1>
-        </header>
+      <div style={{ display: "grid", gap: 16 }}>
+        <div className="ar-appbar">
+          <h1 className="ar-appbar__title">Dashboard</h1>
+        </div>
         <OnboardingPanel status={status} bounds={me.onboarding} />
       </div>
     );
   }
 
+  const realized = portfolio ? signOf(portfolio.summary.realizedPnl) : 0;
+  const todayChange = today && signOf(today.change.absolute) !== 0 ? today.change : null;
+
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>Dashboard</h1>
-      </header>
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="ar-appbar">
+        <h1 className="ar-appbar__title">Dashboard</h1>
+      </div>
 
       {isPending || !portfolio ? (
         // Placeholder shaped like the content it stands in for (hero card +
-        // stat tiles) so the page does not jump when the numbers arrive.
-        <div aria-busy="true" aria-label="Loading account summary" role="status">
-          <div
-            className="skeleton"
-            style={{
-              height: 340,
-              borderRadius: "var(--radius-panel)",
-              marginBottom: "var(--space-5)",
-            }}
-          />
-          <div className="tile-row">
-            <div className="skeleton" style={{ height: 116, borderRadius: "var(--radius-lg)" }} />
-            <div className="skeleton" style={{ height: 116, borderRadius: "var(--radius-lg)" }} />
-            <div className="skeleton" style={{ height: 116, borderRadius: "var(--radius-lg)" }} />
+        // tiles) so the page does not jump when the numbers arrive.
+        <div
+          aria-busy="true"
+          aria-label="Loading account summary"
+          role="status"
+          style={{ display: "grid", gap: 16 }}
+        >
+          <div className="ar-skel" style={{ height: 196, borderRadius: "var(--radius-hero)" }} />
+          <div className="ar-tile-grid">
+            <div className="ar-skel" style={{ height: 132, borderRadius: "var(--radius-card)" }} />
+            <div className="ar-skel" style={{ height: 132, borderRadius: "var(--radius-card)" }} />
           </div>
         </div>
       ) : (
         <>
-          <section aria-label="Account summary" className="hero-card tabular">
-            <div className="field-label">Portfolio value</div>
-            <div className="hero-value">
+          <section aria-label="Account summary" className="ar-hero">
+            <span className="ar-hero__label">Portfolio value</span>
+            <span className="ar-hero__value">
               <Money value={portfolio.summary.equity} />
-            </div>
-            <div
-              className="muted"
-              style={{ fontSize: "var(--text-xs)", marginBottom: "var(--space-3)" }}
-            >
+            </span>
+            {todayChange ? (
+              <span className="ar-hero__delta">
+                <PriceChange
+                  chip
+                  amount={todayChange.absolute}
+                  percent={todayChange.percent !== null ? Number(todayChange.percent) : undefined}
+                />
+                <span>today</span>
+              </span>
+            ) : null}
+            <span className="ar-hero__delta ar-caption">
               as of {formatTime(portfolio.summary.asOf)} · market {portfolio.market.status}
+            </span>
+            <div className="ar-hero__actions">
+              <Link href="/markets" className="ar-hero__pill">
+                <TrendingUp size={18} aria-hidden />
+                Trade
+              </Link>
+              <Link href="/portfolio" className="ar-hero__pill">
+                <PieChart size={18} aria-hidden />
+                Portfolio
+              </Link>
+              <Link href="/activity" className="ar-hero__pill">
+                <Activity size={18} aria-hidden />
+                Activity
+              </Link>
             </div>
-
-            <NetWorthChart />
           </section>
 
-          <div className="tile-row">
-            <StatTile index={0} tone="blue" solid icon={<Wallet size={18} />} label="Cash">
-              <Money value={portfolio.summary.cash} />
-            </StatTile>
-            <StatTile index={1} tone="teal" solid icon={<Zap size={18} />} label="Buying power">
-              <Money value={portfolio.summary.buyingPower} />
-            </StatTile>
-            <StatTile index={2} tone="amber" icon={<TrendingUp size={18} />} label="Realized P&L">
-              <PriceChange amount={portfolio.summary.realizedPnl} />
-            </StatTile>
+          <div className="ar-section">
+            <h2 className="ar-heading">Accounts</h2>
+          </div>
+          <div className="ar-tile-grid">
+            <Link href="/portfolio" className="ar-tile ar-tile--cobalt">
+              <div className="ar-tile__head">
+                <span className="ar-tile__name">Stocks</span>
+                <TrendingUp size={20} aria-hidden />
+              </div>
+              <div>
+                <span className="ar-tile__value">
+                  <Money value={portfolio.summary.positionsValue} />
+                </span>
+                <span className="ar-tile__return">Invested</span>
+                <div className="ar-tile__bar" aria-hidden>
+                  <span
+                    style={{
+                      width: `${sharePercent(
+                        portfolio.summary.positionsValue,
+                        portfolio.summary.equity,
+                      )}%`,
+                    }}
+                  />
+                </div>
+              </div>
+            </Link>
+            <div className="ar-ptile">
+              <div className="ar-ptile__head">
+                <span className="ar-chipicon ar-chipicon--cash ar-chipicon--sm" aria-hidden>
+                  <Wallet size={18} />
+                </span>
+                <span className="ar-ptile__name">Cash</span>
+              </div>
+              <span className="ar-ptile__value">
+                <Money value={portfolio.summary.cash} />
+              </span>
+              <div className="ar-ptile__foot">
+                <span className="ar-tertiary">Available to trade</span>
+                <span className="tabular">
+                  <Money value={portfolio.summary.buyingPower} />
+                </span>
+              </div>
+              <div className="ar-ptile__bar" aria-hidden>
+                <span
+                  style={{
+                    width: `${sharePercent(portfolio.summary.cash, portfolio.summary.equity)}%`,
+                    background: "var(--mustard)",
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="ar-card">
+            <NetWorthChart />
+          </div>
+
+          <div className="ar-insight-row">
+            <div className="ar-insight">
+              <span className="ar-insight__head">
+                <span className="ar-chipicon ar-chipicon--stocks ar-chipicon--xs" aria-hidden>
+                  <Zap size={14} strokeWidth={2} />
+                </span>
+                Buying power
+              </span>
+              <span className="ar-insight__value">
+                <Money value={portfolio.summary.buyingPower} />
+              </span>
+            </div>
+            <div className="ar-insight">
+              <span className="ar-insight__head">
+                <span
+                  className={`ar-chipicon ar-chipicon--xs ${
+                    realized < 0 ? "ar-chipicon--loss" : "ar-chipicon--gain"
+                  }`}
+                  aria-hidden
+                >
+                  {realized < 0 ? (
+                    <TrendingDown size={14} strokeWidth={2} />
+                  ) : (
+                    <TrendingUp size={14} strokeWidth={2} />
+                  )}
+                </span>
+                Realized P&L
+              </span>
+              <span className="ar-insight__value">
+                <PriceChange amount={portfolio.summary.realizedPnl} />
+              </span>
+            </div>
           </div>
         </>
       )}
 
       {portfolio && portfolio.positions.length === 0 ? (
-        <div className="empty-state">
-          <p style={{ marginTop: 0 }}>No positions yet.</p>
-          <p style={{ marginBottom: 0 }}>
-            <Link href="/markets">Search a symbol</Link> to place your first paper trade.
-          </p>
+        <div className="ar-card">
+          <div className="ar-empty">
+            <span className="ar-empty__title">No positions yet</span>
+            <span className="ar-empty__text">Search a symbol to place your first paper trade.</span>
+            <Link href="/markets" className="ar-btn ar-btn--primary">
+              Search markets
+            </Link>
+          </div>
         </div>
       ) : null}
 
       {portfolio && portfolio.positions.length > 0 ? (
         <section aria-label="Top positions">
-          <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Positions</h2>
-          <table className="data-table collapsible">
-            <thead>
-              <tr>
-                <th scope="col">Symbol</th>
-                <th scope="col" className="num">
-                  Qty
-                </th>
-                <th scope="col" className="num">
-                  Market value
-                </th>
-                <th scope="col" className="num">
-                  Unrealized P&L
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {portfolio.positions.slice(0, 5).map((p) => (
-                <tr key={p.symbol}>
-                  <td>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "var(--space-2)",
-                      }}
-                    >
-                      <SymbolLogo symbol={p.symbol} />
-                      <Link href={`/i/${p.symbol}`}>{p.symbol}</Link>
+          <div className="ar-section">
+            <h2 className="ar-heading">Positions</h2>
+            <Link href="/portfolio" className="ar-link">
+              Full portfolio
+            </Link>
+          </div>
+          <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
+            {portfolio.positions.slice(0, 5).map((p) => (
+              <li key={p.symbol}>
+                <Link href={`/i/${p.symbol}`} className="ar-row">
+                  <SymbolLogo symbol={p.symbol} size={40} />
+                  <span className="ar-row__main">
+                    <span className="ar-row__title">{p.symbol}</span>
+                    <span className="ar-row__sub">
+                      {p.qty} {p.qty === "1" ? "share" : "shares"}
+                      {p.lastPrice ? ` · ${formatPrice(p.lastPrice)}` : ""}
                     </span>
-                  </td>
-                  <td className="num tabular" data-cell="secondary">
-                    {p.qty}
-                  </td>
-                  <td className="num">
-                    <Money value={p.marketValue} />
-                  </td>
-                  <td className="num">
+                  </span>
+                  <span className="ar-row__end">
+                    <span className="ar-row__value">
+                      <Money value={p.marketValue} />
+                    </span>
                     <PriceChange amount={p.unrealizedPnl} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p style={{ marginBottom: 0 }}>
-            <Link href="/portfolio">Full portfolio →</Link>
-          </p>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
 
       <section aria-label="Watchlist">
-        <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Watchlist</h2>
+        <div className="ar-section">
+          <h2 className="ar-heading">Watchlist</h2>
+        </div>
         {!watchlist || watchlist.items.length === 0 ? (
-          <div className="empty-state">
-            Add symbols from an <Link href="/markets">instrument page</Link> to track them here.
+          <div className="ar-card">
+            <div className="ar-empty">
+              <span className="ar-empty__text">
+                Add symbols from an <Link href="/markets">instrument page</Link> to track them here.
+              </span>
+            </div>
           </div>
         ) : (
-          <table className="data-table collapsible">
-            <thead>
-              <tr>
-                <th scope="col">Symbol</th>
-                <th scope="col" className="num">
-                  Last
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {watchlist.items.map((item) => (
-                <tr key={item.id}>
-                  <td>
-                    <span
-                      style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: "var(--space-2)",
-                      }}
-                    >
-                      <SymbolLogo symbol={item.symbol} />
-                      <Link href={`/i/${item.symbol}`}>{item.symbol}</Link>
-                      <span className="muted" data-cell="secondary">
-                        {item.name}
-                      </span>
+          <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
+            {watchlist.items.map((item) => (
+              <li key={item.id}>
+                <Link href={`/i/${item.symbol}`} className="ar-row">
+                  <SymbolLogo symbol={item.symbol} size={40} />
+                  <span className="ar-row__main">
+                    <span className="ar-row__title">
+                      {item.name}
+                      <span className="ar-ticker">{item.symbol}</span>
                     </span>
-                  </td>
-                  <td className="num tabular">{item.quote ? `$${item.quote.last}` : "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    <span className="ar-row__sub">Last</span>
+                  </span>
+                  <span className="ar-row__end">
+                    <span className="ar-row__value">
+                      {item.quote ? formatPrice(item.quote.last) : "—"}
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
 
       <section aria-label="Open orders">
-        <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Open orders</h2>
+        <div className="ar-section">
+          <h2 className="ar-heading">Open orders</h2>
+        </div>
         <OrdersTable status="open" limit={5} />
       </section>
     </div>

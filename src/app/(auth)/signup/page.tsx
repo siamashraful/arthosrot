@@ -28,55 +28,58 @@ export default function SignUpPage() {
 
   return (
     <main className="auth-card">
-      <h1 style={{ fontSize: "var(--text-xl)" }}>Create account</h1>
-      <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
+      <h1 className="ar-title">Create account</h1>
+      <p className="ar-body ar-secondary">
         Arthosrot is a paper-trading platform. Accounts hold <strong>simulated money only</strong> —
         nothing here is real trading or investment advice.
       </p>
       <form onSubmit={onSubmit}>
-        <div className="field">
-          <label className="field-label" htmlFor="name">
+        <div className="ar-field">
+          <label className="ar-field__label" htmlFor="name">
             Name
           </label>
-          <input
-            id="name"
-            className="input"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="name"
-            required
-          />
+          <div className="ar-input">
+            <input
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoComplete="name"
+              required
+            />
+          </div>
         </div>
-        <div className="field">
-          <label className="field-label" htmlFor="email">
+        <div className="ar-field">
+          <label className="ar-field__label" htmlFor="email">
             Email
           </label>
-          <input
-            id="email"
-            className="input"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
+          <div className="ar-input">
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
         </div>
-        <div className="field">
-          <label className="field-label" htmlFor="password">
+        <div className="ar-field">
+          <label className="ar-field__label" htmlFor="password">
             Password
           </label>
-          <input
-            id="password"
-            className="input"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete="new-password"
-            minLength={10}
-            required
-            aria-describedby="password-help"
-          />
-          <span id="password-help" className="muted" style={{ fontSize: "var(--text-xs)" }}>
+          <div className="ar-input">
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+              minLength={10}
+              required
+              aria-describedby="password-help"
+            />
+          </div>
+          <span id="password-help" className="ar-field__help">
             At least 10 characters, mixing letters with numbers or symbols.
           </span>
         </div>
@@ -85,11 +88,11 @@ export default function SignUpPage() {
             {error}
           </p>
         ) : null}
-        <button type="submit" className="btn btn-primary" disabled={busy}>
+        <button type="submit" className="ar-btn ar-btn--primary ar-btn--block" disabled={busy}>
           {busy ? "Creating account…" : "Create account"}
         </button>
       </form>
-      <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
+      <p className="ar-body ar-secondary">
         Already have an account? <a href="/signin">Sign in</a>
       </p>
     </main>

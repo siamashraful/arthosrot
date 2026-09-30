@@ -53,7 +53,12 @@ export function ThemeToggle() {
   const Icon = resolved === "dark" ? Moon : Sun;
 
   return (
-    <button type="button" className="btn btn-ghost" onClick={toggle} aria-label="Toggle theme">
+    <button
+      type="button"
+      className="ar-btn ar-btn--secondary ar-btn--compact"
+      onClick={toggle}
+      aria-label="Toggle theme"
+    >
       <Icon size={16} aria-hidden />
       Theme
     </button>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { motion } from "motion/react";
 import { useId, useMemo, useState } from "react";
 import { api, ApiError, type QuoteDto } from "@/lib/api";
 import { formatMoney, formatPrice } from "@/lib/format";
@@ -11,10 +10,11 @@ import { FillProgress } from "./FillProgress";
 
 /**
  * The trading ticket (docs/design/UX_PATTERNS.md): labeled Buy/Sell segmented
- * control (brand-neutral — never green/red), explicit review step, single
- * accent confirm, and a live order chip after submission — never optimistic
- * FILLED. Estimates use ask for buys / bid for sells. Estimation only —
- * display math on numbers; all real arithmetic is server-side decimal.
+ * control (brand-neutral — never green/red), explicit review step showing the
+ * order rows the system requires before submission, a single primary
+ * confirm, and a live order chip after submission — never optimistic FILLED.
+ * Estimates use ask for buys / bid for sells. Estimation only — display math
+ * on numbers; all real arithmetic is server-side decimal.
  */
 
 const TERMINAL = new Set(["FILLED", "CANCELLED", "REJECTED", "EXPIRED", "SUBMIT_FAILED"]);
@@ -92,16 +92,25 @@ export function TradingTicket({
     };
   }
 
-  return (
-    <section className="card" aria-label={`Trade ${symbol}`}>
-      <h2 style={{ fontSize: "var(--text-md)", marginBottom: "var(--space-4)" }}>Trade {symbol}</h2>
+  const sideWord = side === "BUY" ? "Buy" : "Sell";
+  const typeWord = type === "MARKET" ? "Market" : `Limit ${formatPrice(limitPrice)}`;
+  const refPrice = quote
+    ? formatPrice((side === "BUY" ? quote.ask : quote.bid) ?? quote.last)
+    : "—";
 
-      <div style={{ display: "grid", gap: "var(--space-4)" }}>
-        <div className="segmented" role="group" aria-label="Order side">
+  return (
+    <section className="ar-card" aria-label={`Trade ${symbol}`}>
+      <h2 className="ar-heading" style={{ marginBottom: 16 }}>
+        Trade {symbol}
+      </h2>
+
+      <div style={{ display: "grid", gap: 16 }}>
+        <div className="ar-seg ar-seg--block" role="group" aria-label="Order side">
           {(["BUY", "SELL"] as const).map((s) => (
             <button
               key={s}
               type="button"
+              className={`ar-seg__item${side === s ? " is-selected" : ""}`}
               aria-pressed={side === s}
               onClick={() => onEdit(setSide)(s)}
             >
@@ -110,8 +119,8 @@ export function TradingTicket({
           ))}
         </div>
 
-        <div className="field">
-          <label className="field-label" htmlFor={`${uid}-type`}>
+        <div className="ar-field">
+          <label className="ar-field__label" htmlFor={`${uid}-type`}>
             Order type
           </label>
           <select
@@ -127,20 +136,22 @@ export function TradingTicket({
           </select>
         </div>
 
-        <div className="field">
-          <label className="field-label" htmlFor={`${uid}-qty`}>
+        <div className="ar-field">
+          <label className="ar-field__label" htmlFor={`${uid}-qty`}>
             Quantity (whole shares)
           </label>
-          <input
-            id={`${uid}-qty`}
-            className="input tabular"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={qty}
-            onChange={(e) => onEdit(setQty)(e.target.value.replace(/[^0-9]/g, ""))}
-            aria-describedby={`${uid}-available`}
-          />
-          <span id={`${uid}-available`} className="field-label">
+          <div className="ar-input">
+            <input
+              id={`${uid}-qty`}
+              className="tabular"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={qty}
+              onChange={(e) => onEdit(setQty)(e.target.value.replace(/[^0-9]/g, ""))}
+              aria-describedby={`${uid}-available`}
+            />
+          </div>
+          <span id={`${uid}-available`} className="ar-field__help tabular">
             {side === "BUY"
               ? `Buying power ${formatMoney(buyingPower)}`
               : `Sellable ${sellable} shares`}
@@ -149,80 +160,107 @@ export function TradingTicket({
         </div>
 
         {type === "LIMIT" ? (
-          <div className="field">
-            <label className="field-label" htmlFor={`${uid}-limit`}>
+          <div className="ar-field">
+            <label className="ar-field__label" htmlFor={`${uid}-limit`}>
               Limit price
             </label>
-            <input
-              id={`${uid}-limit`}
-              className="input tabular"
-              inputMode="decimal"
-              value={limitPrice}
-              onChange={(e) => onEdit(setLimitPrice)(e.target.value.replace(/[^0-9.]/g, ""))}
-            />
+            <div className="ar-input">
+              <input
+                id={`${uid}-limit`}
+                className="tabular"
+                inputMode="decimal"
+                value={limitPrice}
+                onChange={(e) => onEdit(setLimitPrice)(e.target.value.replace(/[^0-9.]/g, ""))}
+              />
+            </div>
+            {quote ? (
+              <span className="ar-field__help tabular">Last {formatPrice(quote.last)}</span>
+            ) : null}
           </div>
         ) : null}
 
-        <dl
-          className="tabular"
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr auto",
-            gap: "var(--space-1) var(--space-3)",
-            margin: 0,
-            fontSize: "var(--text-sm)",
-          }}
-        >
-          <dt className="muted">{side === "BUY" ? "Ask" : "Bid"}</dt>
-          <dd style={{ margin: 0, textAlign: "right" }}>
-            {quote ? formatPrice((side === "BUY" ? quote.ask : quote.bid) ?? quote.last) : "—"}
-          </dd>
-          <dt className="muted">Estimated {side === "BUY" ? "cost" : "proceeds"}</dt>
-          <dd style={{ margin: 0, textAlign: "right" }}>
-            {estimate ? formatMoney(estimate) : "—"}
-          </dd>
-          <dt className="muted">Estimated fees</dt>
-          <dd style={{ margin: 0, textAlign: "right" }}>$0.00</dd>
-        </dl>
+        {!reviewing ? (
+          <div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">{side === "BUY" ? "Ask" : "Bid"}</span>
+              <span className="ar-ticket-row__value">{refPrice}</span>
+            </div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">
+                Estimated {side === "BUY" ? "cost" : "proceeds"}
+              </span>
+              <span className="ar-ticket-row__value">{estimate ? formatMoney(estimate) : "—"}</span>
+            </div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">Estimated fees</span>
+              <span className="ar-ticket-row__value">$0.00</span>
+            </div>
+          </div>
+        ) : null}
 
         {error ? (
-          <p role="alert" className="field-error">
+          <p role="alert" className="field-error" style={{ margin: 0 }}>
             {error}
           </p>
         ) : null}
 
         {!reviewing ? (
-          <motion.button
+          <button
             type="button"
-            className="btn btn-primary"
-            whileTap={{ scale: 0.97 }}
+            className="ar-btn ar-btn--primary ar-btn--block"
             disabled={!validQty || !validLimit || place.isPending}
             onClick={() => setReviewing(true)}
           >
             Review order
-          </motion.button>
+          </button>
         ) : (
           <div className="review-summary">
-            <p style={{ margin: 0, fontWeight: 500 }}>
-              {side === "BUY" ? "Buy" : "Sell"} {qtyNum} {symbol} ·{" "}
-              {type === "MARKET" ? "Market" : `Limit ${formatPrice(limitPrice)}`} · est.{" "}
+            <p className="ar-body-strong" style={{ margin: "0 0 4px" }}>
+              {sideWord} {qtyNum} {symbol} · {typeWord} · est.{" "}
               {estimate ? formatMoney(estimate) : "—"}
             </p>
-            <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">Order type</span>
+              <span className="ar-ticket-row__value">{typeWord} · day</span>
+            </div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">Quantity</span>
+              <span className="ar-ticket-row__value">
+                {qtyNum} {qtyNum === 1 ? "share" : "shares"}
+              </span>
+            </div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">{side === "BUY" ? "Ask" : "Bid"}</span>
+              <span className="ar-ticket-row__value">{refPrice}</span>
+            </div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">
+                Estimated {side === "BUY" ? "cost" : "proceeds"}
+              </span>
+              <span className="ar-ticket-row__value">{estimate ? formatMoney(estimate) : "—"}</span>
+            </div>
+            <div className="ar-ticket-row">
+              <span className="ar-ticket-row__label">Estimated fees</span>
+              <span className="ar-ticket-row__value">$0.00</span>
+            </div>
+            <p className="ar-caption ar-secondary" style={{ margin: "12px 0 0" }}>
               Paper account — simulated money. Execution price may differ from the displayed quote.
             </p>
-            <div style={{ display: "flex", gap: "var(--space-2)" }}>
-              <motion.button
+            <div className="ar-btn-row" style={{ marginTop: 16 }}>
+              <button
                 type="button"
-                className="btn btn-primary"
-                whileTap={{ scale: 0.97 }}
+                className="ar-btn ar-btn--secondary"
+                onClick={() => setReviewing(false)}
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                className="ar-btn ar-btn--primary"
                 disabled={place.isPending}
                 onClick={() => place.mutate()}
               >
                 {place.isPending ? "Placing…" : "Confirm order"}
-              </motion.button>
-              <button type="button" className="btn btn-ghost" onClick={() => setReviewing(false)}>
-                Back
               </button>
             </div>
           </div>
@@ -250,23 +288,21 @@ function PlacedOrderChip({ orderId }: { orderId: string }) {
       return 1_500;
     },
   });
-  if (!data) return <div className="skeleton" style={{ height: 24 }} />;
+  if (!data) return <div className="ar-skel ar-skel--text" style={{ height: 24 }} />;
   const { order } = data;
   return (
-    <div style={{ display: "grid", gap: "var(--space-2)" }}>
+    <div style={{ display: "grid", gap: 8 }}>
       <div
         aria-live="polite"
-        style={{ display: "flex", alignItems: "center", gap: "var(--space-2)" }}
+        style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
       >
         <OrderStatusBadge state={order.state} display={order.stateDisplay} />
         <FillProgress filledQty={order.filledQty} qty={order.qty} />
-        <span className="tabular" style={{ fontSize: "var(--text-sm)" }}>
+        <span className="ar-label tabular">
           {order.side === "BUY" ? "Buy" : "Sell"} {order.filledQty}/{order.qty} {order.symbol}
         </span>
         {order.rejectReason ? (
-          <span className="muted" style={{ fontSize: "var(--text-sm)" }}>
-            {order.rejectReason}
-          </span>
+          <span className="ar-caption ar-secondary">{order.rejectReason}</span>
         ) : null}
       </div>
       {order.state === "PARTIALLY_FILLED" ? <Explainer topic="partial-fill" /> : null}

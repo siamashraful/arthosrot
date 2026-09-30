@@ -1,6 +1,6 @@
 # ADR-012 — Motion library: `motion` in the client/UI layer
 
-**Status:** accepted (2026-09)
+**Status:** superseded by ADR-013 (2026-09) — the `motion` dependency was removed when the app adopted the Arthosrot Design System, which forbids page-load choreography and needs only CSS transitions. Kept for the record; the rule that motion never encodes financial meaning survives in ADR-013 and DESIGN.md.
 
 **Context:** The bright-ledger visual pivot (BRAND.md §3, §8) calls for springs on sheets, tap feedback on pills and primary buttons, and mount-only staggered entrances on stat tiles and list rows. The previous system was CSS-keyframe only, which cannot produce interruptible springs — a sheet dismissed mid-open snaps or replays rather than reversing. CLAUDE.md requires an ADR note for any new dependency, and the brand carries a standing law that motion must never comment on financial outcomes.
 

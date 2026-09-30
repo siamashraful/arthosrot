@@ -1,24 +1,44 @@
 "use client";
 
-import { Activity, Home, LineChart, ListOrdered, PieChart, Search, Settings } from "lucide-react";
+import { Activity, Home, ListOrdered, PieChart, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+/**
+ * The five primary destinations in tab-bar order: Markets is the centre,
+ * emphasised item (the system's TabBar puts the trade entry point on a disc
+ * in the middle of the bar).
+ */
 const LINKS = [
-  { href: "/", label: "Dashboard", icon: Home },
-  { href: "/markets", label: "Markets", icon: LineChart },
-  { href: "/portfolio", label: "Portfolio", icon: PieChart },
-  { href: "/orders", label: "Orders", icon: ListOrdered },
-  { href: "/activity", label: "Activity", icon: Activity },
+  { href: "/", label: "Dashboard", icon: Home, centre: false },
+  { href: "/portfolio", label: "Portfolio", icon: PieChart, centre: false },
+  { href: "/markets", label: "Markets", icon: Search, centre: true },
+  { href: "/orders", label: "Orders", icon: ListOrdered, centre: false },
+  { href: "/activity", label: "Activity", icon: Activity, centre: false },
 ] as const;
 
-function links(pathname: string) {
-  return LINKS.map(({ href, label, icon: Icon }) => {
-    const current =
-      href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+function isCurrent(pathname: string, href: string) {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function links(pathname: string, emphasiseCentre: boolean) {
+  return LINKS.map(({ href, label, icon: Icon, centre }) => {
+    const current = isCurrent(pathname, href);
+    const emphasised = emphasiseCentre && centre;
     return (
-      <Link key={href} href={href} className="nav-link" aria-current={current ? "page" : undefined}>
-        <Icon aria-hidden />
+      <Link
+        key={href}
+        href={href}
+        className={emphasised ? "nav-link nav-link--centre" : "nav-link"}
+        aria-current={current ? "page" : undefined}
+      >
+        {emphasised ? (
+          <span className="nav-disc">
+            <Icon aria-hidden />
+          </span>
+        ) : (
+          <Icon aria-hidden />
+        )}
         {label}
       </Link>
     );
@@ -32,7 +52,7 @@ export function SidebarNav() {
       <Link href="/" className="shell-brand" aria-label="Arthosrot — dashboard">
         <span className="brand-lockup" aria-hidden />
       </Link>
-      {links(pathname)}
+      {links(pathname, false)}
       <Link
         href="/settings"
         className="nav-link"
@@ -53,7 +73,7 @@ export function BottomNav() {
   const pathname = usePathname();
   return (
     <nav className="bottom-nav" aria-label="Primary">
-      {links(pathname)}
+      {links(pathname, true)}
     </nav>
   );
 }
@@ -72,7 +92,7 @@ export function MobileTopBar() {
       >
         <span className="brand-lockup" style={{ height: 26 }} aria-hidden />
       </Link>
-      <div style={{ display: "flex", gap: "var(--space-1)" }}>
+      <div style={{ display: "flex", gap: 8 }}>
         <Link
           href="/markets"
           className="nav-link"

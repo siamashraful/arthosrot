@@ -1,6 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { Check, ChevronLeft, Clock, TriangleAlert, X } from "lucide-react";
+import Link from "next/link";
 import { use } from "react";
 import { Explainer } from "@/components/Explainer";
 import { OrderStatusBadge } from "@/components/finance/OrderStatusBadge";
@@ -11,6 +13,22 @@ import { formatDateTime, formatPrice, formatPrice4 } from "@/lib/format";
 
 const TERMINAL = new Set(["FILLED", "CANCELLED", "REJECTED", "EXPIRED", "SUBMIT_FAILED"]);
 
+/** Semantic chip for a lifecycle event, by what the event did. */
+function eventChip(type: string): { cls: string; Icon: typeof Check } {
+  if (type.includes("FILL")) return { cls: "ar-chipicon--gain", Icon: Check };
+  if (type.includes("REJECT") || type.includes("FAIL"))
+    return { cls: "ar-chipicon--loss", Icon: TriangleAlert };
+  if (type.includes("CANCEL") || type.includes("EXPIRE"))
+    return { cls: "ar-chipicon--neutral", Icon: X };
+  return { cls: "ar-chipicon--info", Icon: Clock };
+}
+
+/** "PARTIALLY_FILLED" → "Partially filled": event names read as words, not codes. */
+function humanize(code: string): string {
+  const words = code.toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export default function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { data, isPending, isError } = useQuery({
@@ -20,110 +38,139 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
       query.state.data && TERMINAL.has(query.state.data.order.state) ? false : 2_000,
   });
 
-  if (isPending) return <div className="skeleton" style={{ height: 240 }} />;
-  if (isError || !data) return <div className="empty-state">Order not found.</div>;
+  if (isPending) {
+    return (
+      <div aria-busy="true" role="status" aria-label="Loading order">
+        <div className="ar-skel" style={{ height: 240, borderRadius: "var(--radius-card)" }} />
+      </div>
+    );
+  }
+  if (isError || !data) {
+    return (
+      <div className="ar-card">
+        <div className="ar-empty">
+          <span className="ar-empty__title">Order not found</span>
+          <Link href="/orders" className="ar-btn ar-btn--primary">
+            Back to orders
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const { order, events, fills } = data;
 
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)", maxWidth: "44rem" }}>
-      <header style={{ display: "flex", gap: "var(--space-3)", alignItems: "center" }}>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>
+    <div style={{ display: "grid", gap: 16, maxWidth: "44rem" }}>
+      <div className="ar-appbar">
+        <Link
+          href="/orders"
+          className="ar-btn ar-btn--icon ar-btn--plain"
+          aria-label="Back to orders"
+        >
+          <ChevronLeft aria-hidden />
+        </Link>
+        <h1 className="ar-appbar__title">
           {order.side === "BUY" ? "Buy" : "Sell"} {order.qty} {order.symbol}
         </h1>
         <OrderStatusBadge state={order.state} display={order.stateDisplay} />
-      </header>
+      </div>
 
       <Explainer topic="lifecycle" />
 
-      <dl
-        className="tabular card"
-        style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr",
-          gap: "var(--space-2) var(--space-5)",
-          margin: 0,
-        }}
-      >
-        <dt className="muted">Type</dt>
-        <dd style={{ margin: 0 }}>
-          {order.type === "MARKET" ? "Market" : `Limit ${formatPrice(order.limitPrice ?? "")}`} ·
-          DAY
-        </dd>
-        <dt className="muted">Filled</dt>
-        <dd style={{ margin: 0, display: "flex", alignItems: "center", gap: "var(--space-2)" }}>
-          <FillProgress filledQty={order.filledQty} qty={order.qty} />
-          {order.filledQty} of {order.qty}
-        </dd>
-        <dt className="muted">Placed</dt>
-        <dd style={{ margin: 0 }}>{formatDateTime(order.createdAt)}</dd>
-        <dt className="muted">Order id</dt>
-        <dd style={{ margin: 0 }} className="mono">
-          {order.id}
-        </dd>
+      <div className="ar-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
+        <div className="ar-ticket-row">
+          <span className="ar-ticket-row__label">Order type</span>
+          <span className="ar-ticket-row__value">
+            {order.type === "MARKET" ? "Market" : `Limit ${formatPrice(order.limitPrice ?? "")}`} ·
+            day
+          </span>
+        </div>
+        <div className="ar-ticket-row">
+          <span className="ar-ticket-row__label">Filled</span>
+          <span className="ar-ticket-row__value">
+            <FillProgress filledQty={order.filledQty} qty={order.qty} />
+            {order.filledQty} of {order.qty}
+          </span>
+        </div>
+        <div className="ar-ticket-row">
+          <span className="ar-ticket-row__label">Placed</span>
+          <span className="ar-ticket-row__value">{formatDateTime(order.createdAt)}</span>
+        </div>
+        <div className="ar-ticket-row">
+          <span className="ar-ticket-row__label">Order id</span>
+          <span className="ar-ticket-row__value ar-caption" style={{ wordBreak: "break-all" }}>
+            {order.id}
+          </span>
+        </div>
         {order.rejectReason ? (
-          <>
-            <dt className="muted">Venue reason</dt>
-            <dd style={{ margin: 0 }}>{order.rejectReason}</dd>
-          </>
+          <div className="ar-ticket-row">
+            <span className="ar-ticket-row__label">Venue reason</span>
+            <span className="ar-ticket-row__value">{order.rejectReason}</span>
+          </div>
         ) : null}
-      </dl>
+      </div>
 
       <section aria-label="Fills">
-        <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Fills</h2>
+        <div className="ar-section">
+          <h2 className="ar-heading">Fills</h2>
+        </div>
         {fills.length === 0 ? (
-          <div className="empty-state">No executions yet.</div>
+          <div className="ar-card">
+            <div className="ar-empty">
+              <span className="ar-empty__text">No executions yet.</span>
+            </div>
+          </div>
         ) : (
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th scope="col" className="num">
-                  Qty
-                </th>
-                <th scope="col" className="num">
-                  Price
-                </th>
-                <th scope="col" className="num">
-                  Notional
-                </th>
-                <th scope="col">Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {fills.map((f, i) => (
-                <tr key={i}>
-                  <td className="num tabular">{f.qty}</td>
-                  <td className="num tabular" title={formatPrice4(f.price)}>
-                    {formatPrice(f.price)}
-                  </td>
-                  <td className="num">
+          <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
+            {fills.map((f, i) => (
+              <li key={i} className="ar-row">
+                <span className="ar-chipicon ar-chipicon--gain" aria-hidden>
+                  <Check size={22} />
+                </span>
+                <div className="ar-row__main">
+                  <span className="ar-row__title">
+                    {f.qty} {f.qty === "1" ? "share" : "shares"} at{" "}
+                    <span title={formatPrice4(f.price)}>{formatPrice(f.price)}</span>
+                  </span>
+                  <span className="ar-row__sub">{formatDateTime(f.occurredAt)}</span>
+                </div>
+                <div className="ar-row__end">
+                  <span className="ar-row__value">
                     <Money value={f.notional} />
-                  </td>
-                  <td>{formatDateTime(f.occurredAt)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
         )}
-        <p className="muted" style={{ fontSize: "var(--text-xs)" }}>
+        <p className="ar-caption ar-tertiary" style={{ margin: "8px 0 0" }}>
           Execution prices come from the paper venue and may differ from displayed quotes — that is
           expected, not an error.
         </p>
       </section>
 
       <section aria-label="Event timeline">
-        <h2 style={{ fontSize: "var(--text-lg)", marginBottom: "var(--space-3)" }}>Timeline</h2>
-        <ol style={{ margin: 0, paddingLeft: "1.25rem" }}>
-          {events.map((e, i) => (
-            <li key={i} style={{ padding: "var(--space-1) 0" }}>
-              <span className="mono" style={{ fontSize: "var(--text-xs)" }}>
-                {e.type}
-              </span>{" "}
-              <span className="muted" style={{ fontSize: "var(--text-xs)" }}>
-                · {e.source} · {formatDateTime(e.occurredAt)}
-              </span>
-            </li>
-          ))}
+        <div className="ar-section">
+          <h2 className="ar-heading">Timeline</h2>
+        </div>
+        <ol className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
+          {events.map((e, i) => {
+            const { cls, Icon } = eventChip(e.type);
+            return (
+              <li key={i} className="ar-row">
+                <span className={`ar-chipicon ar-chipicon--sm ${cls}`} aria-hidden>
+                  <Icon size={18} />
+                </span>
+                <div className="ar-row__main">
+                  <span className="ar-row__title">{humanize(e.type)}</span>
+                  <span className="ar-row__sub">
+                    {e.source} · {formatDateTime(e.occurredAt)}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
         </ol>
       </section>
     </div>

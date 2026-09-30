@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { AreaSeries, createChart, LineSeries, LineStyle } from "lightweight-charts";
+import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { formatDateTime, formatMoney, formatTime } from "@/lib/format";
@@ -20,13 +21,14 @@ const RANGE_LABEL: Record<HistoryRange, string> = {
 };
 
 /**
- * Net-worth curve on the wallet-card hero (BRAND.md: the hero owns the
- * account's primary region). Delta line, smooth chalk area, range
- * tabs — on this platform's terms: the series is derived from the ledger
- * and fills (equity-series.ts owns the honesty rules), the delta is computed
+ * Net-worth curve — the system's LineChart on a content card (the hero never
+ * carries a chart): a chart-line line over an area filled with gain-tint or
+ * loss-tint by the period's direction, divider crosshair, period pills. On
+ * this platform's terms: the series is derived from the ledger and fills
+ * (equity-series.ts owns the honesty rules), the delta is computed
  * server-side in decimal, and gain/loss colour never means anything alone
- * (sign + sr-text always accompany it). Chart numbers are the sanctioned
- * float conversion at the rendering boundary — display only.
+ * (sign + arrow + sr-text always accompany it). Chart numbers are the
+ * sanctioned float conversion at the rendering boundary — display only.
  */
 export function NetWorthChart() {
   const [range, setRange] = useState<HistoryRange>("1M");
@@ -48,12 +50,15 @@ export function NetWorthChart() {
     const el = containerRef.current;
     if (!el || !data || data.points.length < 2) return;
     const t = chartTokens(el, {
-      line: "--chart-line-on-hero",
-      fill: "--chart-fill-on-hero",
-      grid: "--chart-grid-on-hero",
-      text: "--hero-muted",
+      line: "--chart-line",
+      gainFill: "--gain-tint",
+      lossFill: "--loss-tint",
+      grid: "--divider",
+      text: "--text-tertiary",
     });
-    const depositsColor = t.text; // hero-muted: quiet beside the chalk line
+    // area fill by period direction — the line itself never changes colour
+    const fill = data.change.absolute.startsWith("-") ? t.lossFill : t.gainFill;
+    const depositsColor = t.text; // quiet beside the ink line
     // Second-resolution render points: floor to whole seconds (the keys must
     // round-trip exactly through the crosshair callback), then collapse
     // same-second neighbours to the LATEST value — lightweight-charts
@@ -74,7 +79,7 @@ export function NetWorthChart() {
         textColor: t.text,
         attributionLogo: false,
       },
-      // the hero card's grain is the only texture; the chart itself stays bare
+      // no gridlines on the compact card chart — the tint area is the ground
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       rightPriceScale: { visible: false },
       leftPriceScale: { visible: false },
@@ -90,10 +95,8 @@ export function NetWorthChart() {
     chart.priceScale("right").applyOptions({ scaleMargins: { top: 0.22, bottom: 0.18 } });
     const series = chart.addSeries(AreaSeries, {
       lineColor: t.line,
-      topColor: t.fill,
-      // fade, never vanish: an anchored gradient keeps a flat line from
-      // reading as a floating fragment
-      bottomColor: t.fill.replace(/[0-9.]+\)$/, "0.02)"),
+      topColor: fill,
+      bottomColor: fill,
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
@@ -171,67 +174,83 @@ export function NetWorthChart() {
 
   const negative = data?.change.absolute.startsWith("-");
   const flat = data?.change.absolute === "0.00";
+  const Arrow = negative ? ArrowDownRight : ArrowUpRight;
 
   return (
     <div>
+      <span className="ar-caption ar-tertiary">Net worth</span>
       <p
         ref={readoutRef}
-        className="muted tabular"
-        style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)" }}
+        className="ar-caption ar-secondary tabular"
+        style={{ margin: "2px 0 8px" }}
         aria-live="off"
       />
       {data ? (
         <p
           ref={deltaRef}
-          className={flat ? "muted" : negative ? "loss" : "gain"}
-          style={{ margin: "0 0 var(--space-2)", fontSize: "var(--text-sm)" }}
+          // no inline display here: the hover readout toggles the `hidden`
+          // attribute, which an inline display would override
+          className="ar-label ar-secondary"
+          style={{ margin: "2px 0 8px" }}
           aria-live="off"
         >
-          <span className="sr-only">{negative ? "Down" : flat ? "Unchanged" : "Up"} </span>
-          <span className="tabular">
-            {negative ? "−" : flat ? "" : "+"}
-            {formatMoney(data.change.absolute.replace("-", ""))}
-            {data.change.percent !== null
-              ? ` (${negative ? "−" : ""}${data.change.percent.replace("-", "")}%)`
-              : ""}
-          </span>{" "}
+          {flat ? (
+            <span className="tabular">
+              <span className="sr-only">Unchanged </span>
+              {formatMoney(data.change.absolute)}
+            </span>
+          ) : (
+            <span className={`ar-delta ${negative ? "ar-delta--loss" : "ar-delta--gain"}`}>
+              <Arrow className="ar-icon" size={14} strokeWidth={2.25} aria-hidden />
+              <span className="sr-only">{negative ? "Down" : "Up"} </span>
+              <span className="tabular">
+                {negative ? "−" : "+"}
+                {formatMoney(data.change.absolute.replace("-", ""))}
+                {data.change.percent !== null
+                  ? ` (${negative ? "−" : "+"}${data.change.percent.replace("-", "")}%)`
+                  : ""}
+              </span>
+            </span>
+          )}{" "}
           {RANGE_LABEL[range]}
         </p>
       ) : null}
 
       {isError ? (
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+        <p className="ar-caption ar-secondary" style={{ margin: 0 }}>
           Net-worth history is unavailable right now — live values above are unaffected.
         </p>
       ) : isPending ? (
-        <div className="skeleton" style={{ height: 160 }} />
+        <div className="ar-skel" style={{ height: 160 }} />
       ) : data.points.length < 2 ? (
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+        <p className="ar-caption ar-secondary" style={{ margin: 0 }}>
           Your net-worth line starts drawing after your first market day.
         </p>
       ) : (
         <div ref={containerRef} style={{ height: 160 }} aria-hidden />
       )}
 
-      <div
-        role="tablist"
-        aria-label="Net worth range"
-        className="segmented"
-        style={{ maxWidth: "20rem", marginTop: "var(--space-3)" }}
-      >
+      <div role="tablist" aria-label="Net worth range" className="ar-seg ar-seg--pills ar-periods">
         {RANGES.map((r) => (
-          <button key={r} role="tab" aria-selected={range === r} onClick={() => setRange(r)}>
+          <button
+            key={r}
+            type="button"
+            role="tab"
+            aria-selected={range === r}
+            className={`ar-seg__item${range === r ? " is-selected" : ""}`}
+            onClick={() => setRange(r)}
+          >
             {r}
           </button>
         ))}
       </div>
 
       {data && data.points.length >= 2 ? (
-        <details style={{ marginTop: "var(--space-2)" }}>
-          <summary className="muted" style={{ fontSize: "var(--text-xs)" }}>
+        <details style={{ marginTop: 12 }}>
+          <summary className="ar-caption ar-secondary" style={{ cursor: "pointer" }}>
             View as data
           </summary>
-          <table className="data-table tabular" style={{ marginTop: "var(--space-2)" }}>
+          <table className="data-table tabular" style={{ marginTop: 8 }}>
             <caption className="sr-only">Net worth over time</caption>
             <thead>
               <tr>

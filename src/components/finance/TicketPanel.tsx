@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useRef } from "react";
 import { useTradingMode } from "@/components/trading-mode";
 import type { QuoteDto } from "@/lib/api";
@@ -7,8 +8,8 @@ import { TradingTicket } from "./TradingTicket";
 
 /**
  * Responsive ticket container (docs/design/RESPONSIVE_BEHAVIOR.md): docked
- * panel >= lg; below lg a "Trade" button opens the ticket as a bottom sheet
- * (native <dialog> styled via .sheet — focus trapping and Esc for free).
+ * panel >= lg; below lg a pinned "Trade" bar opens the ticket as a bottom
+ * sheet (native <dialog> styled via .sheet — focus trapping and Esc for free).
  */
 export function TicketPanel(props: {
   symbol: string;
@@ -23,8 +24,8 @@ export function TicketPanel(props: {
   // paper account's buying power as if it were real money (ADR-011).
   if (mode === "live") {
     return (
-      <div className="card">
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+      <div className="ar-card">
+        <p className="ar-body ar-secondary" style={{ margin: 0 }}>
           Live orders aren&apos;t available yet — switch back to Practice in Settings to trade.
         </p>
       </div>
@@ -39,20 +40,20 @@ export function TicketPanel(props: {
       <div className="ticket-mobile">
         <button
           type="button"
-          className="btn btn-primary"
-          style={{ width: "100%" }}
+          className="ar-btn ar-btn--primary ar-btn--hero ar-btn--block"
           onClick={() => dialogRef.current?.showModal()}
         >
           Trade {props.symbol}
         </button>
         <dialog ref={dialogRef} className="sheet" aria-label={`Trade ${props.symbol}`}>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
             <button
               type="button"
-              className="btn btn-ghost"
+              className="ar-btn ar-btn--icon"
+              aria-label="Close"
               onClick={() => dialogRef.current?.close()}
             >
-              Close
+              <X size={20} aria-hidden />
             </button>
           </div>
           <TradingTicket {...props} />

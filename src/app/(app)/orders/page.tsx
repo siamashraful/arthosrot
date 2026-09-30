@@ -20,20 +20,30 @@ export default function OrdersPage() {
   }
 
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>Orders</h1>
-      </header>
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="ar-appbar">
+        <h1 className="ar-appbar__title">Orders</h1>
+      </div>
       <div
-        className="segmented"
+        className="ar-seg"
         role="group"
         aria-label="Order filter"
-        style={{ maxWidth: "16rem" }}
+        style={{ justifySelf: "start" }}
       >
-        <button aria-pressed={tab === "open"} onClick={() => setTab("open")}>
+        <button
+          type="button"
+          className={`ar-seg__item${tab === "open" ? " is-selected" : ""}`}
+          aria-pressed={tab === "open"}
+          onClick={() => setTab("open")}
+        >
           Open
         </button>
-        <button aria-pressed={tab === "all"} onClick={() => setTab("all")}>
+        <button
+          type="button"
+          className={`ar-seg__item${tab === "all" ? " is-selected" : ""}`}
+          aria-pressed={tab === "all"}
+          onClick={() => setTab("all")}
+        >
           History
         </button>
       </div>

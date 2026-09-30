@@ -1,13 +1,15 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { TriangleAlert } from "lucide-react";
 import { api } from "@/lib/api";
 import { relativeAge } from "@/lib/format";
 
 /**
  * Global pipeline-health banner (docs/design/UX_PATTERNS.md): shown only when
  * something is degraded — never fakes "live" state. Driven by the cached
- * system-status endpoint (no vendor calls spent on monitoring).
+ * system-status endpoint (no vendor calls spent on monitoring). The system's
+ * warning Banner: tint, icon plus text, full width.
  */
 export function StatusBanner() {
   const { data, isError } = useQuery({
@@ -20,7 +22,8 @@ export function StatusBanner() {
   if (isError) {
     return (
       <div className="status-banner" role="status">
-        System status unavailable — data on this page may be delayed.
+        <TriangleAlert className="ar-icon" size={20} aria-hidden />
+        <span>System status unavailable — data on this page may be delayed.</span>
       </div>
     );
   }
@@ -31,9 +34,12 @@ export function StatusBanner() {
 
   return (
     <div className="status-banner" role="status">
-      Order updates may be delayed
-      {data.broker.lastSyncAt ? <> — last sync {relativeAge(data.broker.lastSyncAt)}</> : null}.
-      Recent orders will catch up automatically.
+      <TriangleAlert className="ar-icon" size={20} aria-hidden />
+      <span>
+        Order updates may be delayed
+        {data.broker.lastSyncAt ? <> — last sync {relativeAge(data.broker.lastSyncAt)}</> : null}.
+        Recent orders will catch up automatically.
+      </span>
     </div>
   );
 }

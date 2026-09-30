@@ -24,84 +24,101 @@ export default function SettingsPage() {
   });
 
   return (
-    <div style={{ display: "grid", gap: "var(--space-6)", maxWidth: "36rem" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>Settings</h1>
-      </header>
+    <div style={{ display: "grid", gap: 16, maxWidth: "36rem" }}>
+      <div className="ar-appbar">
+        <h1 className="ar-appbar__title">Settings</h1>
+      </div>
 
       <section
         aria-label="Account"
-        className="card"
-        style={{ display: "grid", gap: "var(--space-3)" }}
+        className="ar-card"
+        style={{ paddingTop: 16, paddingBottom: 8 }}
       >
-        <h2 style={{ fontSize: "var(--text-md)" }}>Account</h2>
-        <div>
-          <div className="field-label">Signed in as</div>
-          <div>
-            {me?.user.name} · {me?.user.email}
+        <h2 className="ar-heading">Account</h2>
+        <div className="ar-list">
+          <div className="ar-row ar-row--setting">
+            <div className="ar-row__main">
+              <span className="ar-row__title">Signed in as</span>
+              <span className="ar-row__sub">
+                {me?.user.name} · {me?.user.email}
+              </span>
+            </div>
           </div>
-        </div>
-        <div>
-          <div className="field-label">Paper cash</div>
-          <div className="tabular">{me?.account ? <Money value={me.account.cash} /> : "—"}</div>
-        </div>
-        <div>
-          <ThemeToggle />
-        </div>
-        <div>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            onClick={() =>
-              void authClient.signOut().then(() => {
-                window.location.href = "/signin";
-              })
-            }
-          >
-            Sign out
-          </button>
+          <div className="ar-row ar-row--setting">
+            <div className="ar-row__main">
+              <span className="ar-row__title">Paper cash</span>
+              <span className="ar-row__sub">Simulated balance</span>
+            </div>
+            <div className="ar-row__end">
+              <span className="ar-row__value">
+                {me?.account ? <Money value={me.account.cash} /> : "—"}
+              </span>
+            </div>
+          </div>
+          <div className="ar-row ar-row--setting">
+            <div className="ar-row__main">
+              <span className="ar-row__title">Appearance</span>
+              <span className="ar-row__sub">Light or dark</span>
+            </div>
+            <div className="ar-row__end">
+              <ThemeToggle />
+            </div>
+          </div>
+          <div className="ar-row ar-row--setting">
+            <div className="ar-row__main">
+              <span className="ar-row__title">Session</span>
+            </div>
+            <div className="ar-row__end">
+              <button
+                type="button"
+                className="ar-btn ar-btn--secondary ar-btn--compact"
+                onClick={() =>
+                  void authClient.signOut().then(() => {
+                    window.location.href = "/signin";
+                  })
+                }
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
-      <section
-        aria-label="Trading mode"
-        className="card"
-        style={{ display: "grid", gap: "var(--space-3)" }}
-      >
-        <h2 style={{ fontSize: "var(--text-md)" }}>Trading mode</h2>
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+      <section aria-label="Trading mode" className="ar-card" style={{ display: "grid", gap: 12 }}>
+        <h2 className="ar-heading">Trading mode</h2>
+        <p className="ar-body ar-secondary" style={{ margin: 0 }}>
           Practice trades simulated money on real market prices. Live is where real money will be
           traded — it isn&apos;t enabled yet, and switching shows a preview of the live experience.
           The two are always kept visually distinct so a practice result can never be mistaken for a
           real one.
         </p>
-        <TradingModeSwitch />
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-xs)" }}>
+        <div>
+          <TradingModeSwitch />
+        </div>
+        <p className="ar-caption ar-tertiary" style={{ margin: 0 }}>
           Currently in {mode === "live" ? "live preview" : "practice"} mode.
         </p>
       </section>
 
-      <section
-        aria-label="Reset account"
-        className="card"
-        style={{ display: "grid", gap: "var(--space-3)" }}
-      >
-        <h2 style={{ fontSize: "var(--text-md)" }}>Reset paper account</h2>
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
+      <section aria-label="Reset account" className="ar-card" style={{ display: "grid", gap: 12 }}>
+        <h2 className="ar-heading">Reset paper account</h2>
+        <p className="ar-body ar-secondary" style={{ margin: 0 }}>
           Cancels open orders, archives the current account (history is preserved and stays visible
           in Activity), and starts a fresh account at the original balance. This cannot be undone.
         </p>
-        <div className="field">
-          <label className="field-label" htmlFor="reset-confirm">
+        <div className="ar-field">
+          <label className="ar-field__label" htmlFor="reset-confirm">
             Type RESET to confirm
           </label>
-          <input
-            id="reset-confirm"
-            className="input"
-            value={confirmText}
-            onChange={(e) => setConfirmText(e.target.value)}
-            autoComplete="off"
-          />
+          <div className="ar-input">
+            <input
+              id="reset-confirm"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
         </div>
         <div>
           <button
@@ -120,13 +137,16 @@ export default function SettingsPage() {
         ) : null}
       </section>
 
-      <section id="data" aria-label="Data limitations" className="card">
-        <h2 style={{ fontSize: "var(--text-md)" }}>About this data</h2>
-        <p className="muted" style={{ fontSize: "var(--text-sm)" }}>
+      <section id="data" aria-label="Data limitations" className="ar-card">
+        <h2 className="ar-heading" style={{ marginBottom: 8 }}>
+          About this data
+        </h2>
+        <p className="ar-body ar-secondary" style={{ margin: 0 }}>
           Arthosrot is a paper-trading simulation. Displayed quotes come from a limited feed (IEX
           via Alpaca where configured) and may differ from consolidated market data and from
           simulated execution prices. There is no real market impact, queue position, or settlement.
-          Nothing here is investment advice. Full details in the repository's LIMITATIONS document.
+          Nothing here is investment advice. Full details in the repository&apos;s LIMITATIONS
+          document.
         </p>
       </section>
     </div>

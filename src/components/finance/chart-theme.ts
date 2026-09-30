@@ -21,21 +21,30 @@ export function normalizeColor(color: string): string {
   return `rgba(${r}, ${g}, ${b}, ${((a ?? 255) / 255).toFixed(3)})`;
 }
 
-/** Read chart tokens off an element, normalized for lightweight-charts. */
-export function chartTokens(
+/**
+ * Read chart tokens off an element, normalized for lightweight-charts. Takes
+ * any map of `{ name: "--css-var" }` and returns the same keys resolved —
+ * the LineChart pattern reads `--chart-line`, `--divider`, `--text-tertiary`
+ * and both `--gain-tint` / `--loss-tint` (the area fill follows the period's
+ * direction).
+ */
+export function chartTokens<K extends string>(
   el: HTMLElement,
-  vars: { line: string; fill: string; grid: string; text: string },
-) {
+  vars: Record<K, string>,
+): Record<K, string> {
   const styles = getComputedStyle(el);
-  const get = (name: string) => normalizeColor(styles.getPropertyValue(name).trim());
-  return { line: get(vars.line), fill: get(vars.fill), grid: get(vars.grid), text: get(vars.text) };
+  const out = {} as Record<K, string>;
+  for (const key of Object.keys(vars) as K[]) {
+    out[key] = normalizeColor(styles.getPropertyValue(vars[key]).trim());
+  }
+  return out;
 }
 
 /**
  * Bumps whenever the effective theme OR trading mode changes (data-theme
  * toggle, the OS scheme under the "system" setting, data-mode flip) so chart
  * effects can re-read tokens — charts read computed colors once per render
- * and would otherwise keep the old paint (the hero card differs per mode).
+ * and would otherwise keep the old paint.
  */
 export function useThemeVersion(): number {
   const [version, setVersion] = useState(0);

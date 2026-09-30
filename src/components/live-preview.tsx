@@ -13,34 +13,35 @@ import { Money } from "./finance/Money";
 
 export function LiveDashboard() {
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>Dashboard</h1>
-      </header>
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="ar-appbar">
+        <h1 className="ar-appbar__title">Dashboard</h1>
+      </div>
 
-      <section aria-label="Live account summary" className="hero-card tabular">
-        <div className="field-label">Live portfolio value</div>
-        <div className="hero-value">
+      <section aria-label="Live account summary" className="ar-hero">
+        <span className="ar-hero__label">Live portfolio value</span>
+        <span className="ar-hero__value">
           <Money value="0.00" />
-        </div>
-        <div
-          className="muted"
-          style={{ fontSize: "var(--text-xs)", marginBottom: "var(--space-4)" }}
-        >
+        </span>
+        <span className="ar-hero__delta">
           Live mode preview — real trading isn&apos;t enabled yet
-        </div>
-        <div style={{ display: "flex", gap: "var(--space-2)", flexWrap: "wrap" }}>
+        </span>
+        <div className="ar-hero__actions">
           <FundingSheet kind="deposit" />
           <FundingSheet kind="withdraw" />
         </div>
       </section>
 
-      <div className="empty-state">
-        <p style={{ marginTop: 0 }}>Your live portfolio starts after your first deposit.</p>
-        <p style={{ marginBottom: 0 }}>
-          Real trading is still being built. Your practice account is safe — switch back anytime in{" "}
-          <Link href="/settings">Settings</Link>.
-        </p>
+      <div className="ar-card">
+        <div className="ar-empty">
+          <span className="ar-empty__title">
+            Your live portfolio starts after your first deposit
+          </span>
+          <span className="ar-empty__text">
+            Real trading is still being built. Your practice account is safe — switch back anytime
+            in <Link href="/settings">Settings</Link>.
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -48,16 +49,19 @@ export function LiveDashboard() {
 
 export function LiveEmptyState({ heading, body }: { heading: string; body: string }) {
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>{heading}</h1>
-      </header>
-      <div className="empty-state">
-        <p style={{ marginTop: 0 }}>{body}</p>
-        <p style={{ marginBottom: 0 }}>
-          Switch back to Practice in <Link href="/settings">Settings</Link> to see your paper
-          account.
-        </p>
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="ar-appbar">
+        <h1 className="ar-appbar__title">{heading}</h1>
+      </div>
+      <div className="ar-card">
+        <div className="ar-empty">
+          <span className="ar-empty__title">Nothing live yet</span>
+          <span className="ar-empty__text">{body}</span>
+          <span className="ar-empty__text">
+            Switch back to Practice in <Link href="/settings">Settings</Link> to see your paper
+            account.
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 /**
- * In-place teaching (BRAND.md §9): an explainer lives next to the live thing
+ * In-place teaching (BRAND.md §3): an explainer lives next to the live thing
  * it explains — never a separate academy. Native <details>: keyboard and
  * screen-reader behavior for free, collapsed by default, zero JS.
  *

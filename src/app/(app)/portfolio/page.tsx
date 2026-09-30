@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Layers, TrendingUp, Wallet } from "lucide-react";
+import { Layers, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Money } from "@/components/finance/Money";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
@@ -9,7 +9,7 @@ import { PriceChange } from "@/components/finance/PriceChange";
 import { LiveEmptyState } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
-import { formatPrice, formatPrice4, formatTime } from "@/lib/format";
+import { formatPrice, formatPrice4, formatTime, signOf } from "@/lib/format";
 
 export default function PortfolioPage() {
   const mode = useTradingMode();
@@ -31,112 +31,161 @@ export default function PortfolioPage() {
     );
   }
 
-  if (isPending) return <div className="skeleton" style={{ height: 240 }} />;
+  if (isPending) {
+    return (
+      <div
+        aria-busy="true"
+        role="status"
+        aria-label="Loading portfolio"
+        style={{ display: "grid", gap: 16 }}
+      >
+        <div className="ar-skel" style={{ height: 140, borderRadius: "var(--radius-hero)" }} />
+        <div className="ar-skel" style={{ height: 200, borderRadius: "var(--radius-card)" }} />
+      </div>
+    );
+  }
   if (isError || !data) {
-    return <div className="empty-state">Portfolio could not be loaded. Retry shortly.</div>;
+    return (
+      <div className="ar-card">
+        <div className="ar-empty">
+          <span className="ar-empty__text">Portfolio could not be loaded. Retry shortly.</span>
+        </div>
+      </div>
+    );
   }
 
+  const realized = signOf(data.summary.realizedPnl);
+
   return (
-    <div style={{ display: "grid", gap: "var(--space-5)" }}>
-      <header>
-        <h1 style={{ fontSize: "var(--text-xl)" }}>Portfolio</h1>
-        <p className="muted" style={{ margin: 0, fontSize: "var(--text-sm)" }}>
-          Valuations as of {formatTime(data.summary.asOf)} · market {data.market.status}
-        </p>
-      </header>
-
-      <section aria-label="Summary" className="hero-card tabular">
-        <div className="field-label">Equity</div>
-        <div className="hero-value">
-          <Money value={data.summary.equity} />
-        </div>
-      </section>
-
-      <div className="tile-row tabular">
-        <div className="stat-tile stat-tile--blue stat-tile--solid">
-          <span className="stat-tile-icon" aria-hidden>
-            <Wallet size={18} />
-          </span>
-          <div className="stat-tile-label">Cash</div>
-          <div className="stat-tile-value">
-            <Money value={data.summary.cash} />
-          </div>
-        </div>
-        <div className="stat-tile stat-tile--teal stat-tile--solid">
-          <span className="stat-tile-icon" aria-hidden>
-            <Layers size={18} />
-          </span>
-          <div className="stat-tile-label">Positions value</div>
-          <div className="stat-tile-value">
-            <Money value={data.summary.positionsValue} />
-          </div>
-        </div>
-        <div className="stat-tile stat-tile--amber">
-          <span className="stat-tile-icon" aria-hidden>
-            <TrendingUp size={18} />
-          </span>
-          <div className="stat-tile-label">Realized P&L</div>
-          <div className="stat-tile-value">
-            <PriceChange amount={data.summary.realizedPnl} />
-          </div>
+    <div style={{ display: "grid", gap: 16 }}>
+      <div className="ar-appbar">
+        <div className="ar-appbar__title">
+          <h1 className="ar-title">Portfolio</h1>
+          <p className="ar-caption ar-tertiary" style={{ margin: 0 }}>
+            Valuations as of {formatTime(data.summary.asOf)} · market {data.market.status}
+          </p>
         </div>
       </div>
 
+      <section aria-label="Summary" className="ar-hero">
+        <span className="ar-hero__label">Equity</span>
+        <span className="ar-hero__value">
+          <Money value={data.summary.equity} />
+        </span>
+        <span className="ar-hero__delta">Cash and positions, valued at the last quote</span>
+      </section>
+
+      <div className="ar-insight-row">
+        <div className="ar-insight">
+          <span className="ar-insight__head">
+            <span className="ar-chipicon ar-chipicon--cash ar-chipicon--xs" aria-hidden>
+              <Wallet size={14} strokeWidth={2} />
+            </span>
+            Cash
+          </span>
+          <span className="ar-insight__value">
+            <Money value={data.summary.cash} />
+          </span>
+        </div>
+        <div className="ar-insight">
+          <span className="ar-insight__head">
+            <span className="ar-chipicon ar-chipicon--stocks ar-chipicon--xs" aria-hidden>
+              <Layers size={14} strokeWidth={2} />
+            </span>
+            Positions value
+          </span>
+          <span className="ar-insight__value">
+            <Money value={data.summary.positionsValue} />
+          </span>
+        </div>
+        <div className="ar-insight">
+          <span className="ar-insight__head">
+            <span
+              className={`ar-chipicon ar-chipicon--xs ${
+                realized < 0 ? "ar-chipicon--loss" : "ar-chipicon--gain"
+              }`}
+              aria-hidden
+            >
+              {realized < 0 ? (
+                <TrendingDown size={14} strokeWidth={2} />
+              ) : (
+                <TrendingUp size={14} strokeWidth={2} />
+              )}
+            </span>
+            Realized P&L
+          </span>
+          <span className="ar-insight__value">
+            <PriceChange amount={data.summary.realizedPnl} />
+          </span>
+        </div>
+      </div>
+
+      <div className="ar-section">
+        <h2 className="ar-heading">Holdings</h2>
+      </div>
       {data.positions.length === 0 ? (
-        <div className="empty-state">
-          No positions. <Link href="/markets">Find an instrument</Link> to get started.
+        <div className="ar-card">
+          <div className="ar-empty">
+            <span className="ar-empty__title">No positions</span>
+            <span className="ar-empty__text">Find an instrument to get started.</span>
+            <Link href="/markets" className="ar-btn ar-btn--primary">
+              Search markets
+            </Link>
+          </div>
         </div>
       ) : (
-        <table className="data-table collapsible">
-          <caption className="sr-only">Positions</caption>
-          <thead>
-            <tr>
-              <th scope="col">Symbol</th>
-              <th scope="col" className="num">
-                Qty
-              </th>
-              <th scope="col" className="num">
-                Avg cost
-              </th>
-              <th scope="col" className="num">
-                Last
-              </th>
-              <th scope="col" className="num">
-                Market value
-              </th>
-              <th scope="col" className="num">
-                Unrealized P&L
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.positions.map((p) => (
-              <tr key={p.symbol}>
-                <td>
-                  <span
-                    style={{ display: "inline-flex", alignItems: "center", gap: "var(--space-2)" }}
-                  >
-                    <SymbolLogo symbol={p.symbol} />
-                    <Link href={`/i/${p.symbol}`}>{p.symbol}</Link>
-                  </span>
-                </td>
-                <td className="num tabular" data-cell="secondary">
-                  {p.qty}
-                </td>
-                <td className="num tabular" data-cell="secondary" title={formatPrice4(p.avgCost)}>
-                  {formatPrice(p.avgCost)}
-                </td>
-                <td className="num tabular">{p.lastPrice ? formatPrice(p.lastPrice) : "—"}</td>
-                <td className="num">
-                  <Money value={p.marketValue} />
-                </td>
-                <td className="num">
-                  <PriceChange amount={p.unrealizedPnl} />
-                </td>
+        <div className="ar-card ar-card--list">
+          <table className="data-table collapsible">
+            <caption className="sr-only">Positions</caption>
+            <thead>
+              <tr>
+                <th scope="col">Symbol</th>
+                <th scope="col" className="num">
+                  Qty
+                </th>
+                <th scope="col" className="num">
+                  Avg cost
+                </th>
+                <th scope="col" className="num">
+                  Last
+                </th>
+                <th scope="col" className="num">
+                  Market value
+                </th>
+                <th scope="col" className="num">
+                  Unrealized P&L
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.positions.map((p) => (
+                <tr key={p.symbol}>
+                  <td>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <SymbolLogo symbol={p.symbol} size={24} />
+                      <Link href={`/i/${p.symbol}`} className="ar-body-strong">
+                        {p.symbol}
+                      </Link>
+                    </span>
+                  </td>
+                  <td className="num tabular" data-cell="secondary">
+                    {p.qty} {p.qty === "1" ? "share" : "shares"}
+                  </td>
+                  <td className="num tabular" data-cell="secondary" title={formatPrice4(p.avgCost)}>
+                    {formatPrice(p.avgCost)}
+                  </td>
+                  <td className="num tabular">{p.lastPrice ? formatPrice(p.lastPrice) : "—"}</td>
+                  <td className="num">
+                    <Money value={p.marketValue} />
+                  </td>
+                  <td className="num">
+                    <PriceChange amount={p.unrealizedPnl} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

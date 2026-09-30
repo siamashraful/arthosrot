@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 
 /** Auth chrome: the stacked lockup above the card — the one place the brand
  *  introduces itself at full size. The Bengali line is outlined vector
- *  inside the SVG (BRAND.md §7). */
+ *  inside the SVG (BRAND.md §4). */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="auth-shell">
