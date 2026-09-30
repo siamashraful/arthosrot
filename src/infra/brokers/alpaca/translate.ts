@@ -69,20 +69,48 @@ export interface AlpacaOrder {
   client_order_id: string;
   status: string;
   filled_qty: string;
+  submitted_at?: string;
 }
 
-/** FILL activity from GET /v1/accounts/{id}/activities/FILL — carries the
- *  SAME execution ids as the stream, which is what keeps reconciliation
- *  imports exactly-once against stream deliveries (invariant 10). */
+/**
+ * FILL activity from GET /v1/accounts/activities/FILL?account_id=… (Broker
+ * API; the account id is a QUERY parameter — `/v1/accounts/{id}/activities`
+ * does not exist and 404s). Verified against the sandbox 2026-09-30: the
+ * activity's `execution_id` is null and its `id` is `<timestamp>::<uuid>`,
+ * where the uuid IS the stream event's `execution_id`.
+ */
 export interface AlpacaFillActivity {
-  id: string; // activity id
-  execution_id?: string;
+  id: string; // "20260903093003612::968ad49b-0f3a-4efa-afc6-0bb57f2b6ff8"
+  execution_id?: string | null;
   order_id: string;
   transaction_time: string;
   price: string;
   qty: string;
   side: string;
   type: string; // "fill" | "partial_fill"
+}
+
+/**
+ * The execution id a fill activity describes, in the SAME form the trade
+ * stream reports it. Exactly-once across stream and reconciliation rests on
+ * this (fills are unique on (broker, execution_id)): keying a reconciled fill
+ * by the whole activity id would let one venue execution book twice if the
+ * stream also delivered it.
+ */
+export function activityExecutionId(fill: AlpacaFillActivity): string {
+  if (fill.execution_id) return fill.execution_id;
+  const sep = fill.id.lastIndexOf("::");
+  return sep >= 0 ? fill.id.slice(sep + 2) : fill.id;
+}
+
+/** Venue says the order has fills we cannot see — never report that as "in sync". */
+export class IncompleteFillsError extends Error {
+  constructor(orderId: string, venueFilled: string, visible: string) {
+    super(
+      `alpaca order ${orderId}: venue reports ${venueFilled} filled but only ${visible} visible in fill activities`,
+    );
+    this.name = "IncompleteFillsError";
+  }
 }
 
 /**
@@ -101,12 +129,22 @@ export function eventsFromSnapshot(
     .filter((f) => f.order_id === order.id)
     .sort((a, b) => a.transaction_time.localeCompare(b.transaction_time));
 
+  // A filled order's executions MUST be visible: a "filled" status alone
+  // carries no price/qty/execution id, so it can never be applied — and
+  // silently skipping it would leave the order looking open forever while
+  // reconciliation reports the account healthy. Fail loudly instead.
+  const visible = orderFills.reduce((sum, f) => sum.add(Qty.of(f.qty)), Qty.of(0));
+  const venueFilled = Qty.of(order.filled_qty || "0");
+  if (!visible.gte(venueFilled)) {
+    throw new IncompleteFillsError(order.id, venueFilled.toString(), visible.toString());
+  }
+
   for (let i = 0; i < orderFills.length; i++) {
     const fill = orderFills[i]!;
     const isLast = i === orderFills.length - 1;
     const type: CanonicalEventType =
       isLast && order.status === "filled" ? "ORDER_FILLED" : "ORDER_PARTIALLY_FILLED";
-    const executionId = fill.execution_id ?? fill.id;
+    const executionId = activityExecutionId(fill);
     events.push({
       type,
       broker: "ALPACA_PAPER",

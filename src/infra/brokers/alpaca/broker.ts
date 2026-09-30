@@ -191,7 +191,11 @@ export class AlpacaPaperBroker implements Broker {
       [404],
     );
     if (status === 404 || !body) return null;
-    const fills = await this.fillActivities(brokerAccountId);
+    // Only orders with executions need the activity lookup; scoping it to
+    // the order's submit time keeps an old order's fills inside one page.
+    const fills = Qty.of(body.filled_qty || "0").isPositive()
+      ? await this.fillActivities(brokerAccountId, body.submitted_at)
+      : [];
     return this.toSnapshot(brokerAccountId, body, fills);
   }
 
@@ -284,14 +288,38 @@ export class AlpacaPaperBroker implements Broker {
     };
   }
 
-  private async fillActivities(brokerAccountId: string): Promise<AlpacaFillActivity[]> {
-    const { body } = await this.request<AlpacaFillActivity[]>(
-      "GET",
-      `/v1/accounts/${brokerAccountId}/activities/FILL?page_size=100`,
-      undefined,
-      [404],
-    );
-    return body ?? [];
+  /**
+   * FILL activities for one account (Broker API: the account is a QUERY
+   * parameter). Any non-2xx THROWS — the previous path 404'd, and treating
+   * that as "no fills" made every filled order look open while reconciliation
+   * reported healthy. Oldest-first from `after` (an order's submit time, less
+   * a minute of clock slack), paged until the venue has nothing more.
+   */
+  private async fillActivities(
+    brokerAccountId: string,
+    after?: string,
+  ): Promise<AlpacaFillActivity[]> {
+    const all: AlpacaFillActivity[] = [];
+    const since = after ? new Date(Date.parse(after) - 60_000).toISOString() : undefined;
+    let pageToken: string | undefined;
+    for (let page = 0; page < 20; page++) {
+      const qs = new URLSearchParams({
+        account_id: brokerAccountId,
+        direction: "asc",
+        page_size: "100",
+        ...(since ? { after: since } : {}),
+        ...(pageToken ? { page_token: pageToken } : {}),
+      });
+      const { body } = await this.request<AlpacaFillActivity[]>(
+        "GET",
+        `/v1/accounts/activities/FILL?${qs.toString()}`,
+      );
+      const batch = body ?? [];
+      all.push(...batch);
+      if (batch.length < 100) break;
+      pageToken = batch.at(-1)!.id;
+    }
+    return all;
   }
 
   private toSnapshot(

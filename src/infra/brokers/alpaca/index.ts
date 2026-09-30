@@ -3,4 +3,9 @@
  * Vendor types never leave this directory (MODULE_BOUNDARIES.md rule 4).
  */
 export { AlpacaPaperBroker, SANDBOX_BASE, type FetchFn } from "./broker";
-export { translateTradeEvent, eventsFromSnapshot } from "./translate";
+export {
+  activityExecutionId,
+  eventsFromSnapshot,
+  IncompleteFillsError,
+  translateTradeEvent,
+} from "./translate";
