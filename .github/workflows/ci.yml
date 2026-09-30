@@ -110,5 +110,40 @@ jobs:
       - name: E2E (desktop + mobile, incl. axe scans)
         run: pnpm test:e2e
 
+  deploy-worker:
+    # The worker's release step (docs/architecture/DEPLOYMENT.md): Render has no
+    # GitHub connection to this repo, so it never hears about pushes — CI
+    # deploys it instead, and only a commit that passed every gate above ships.
+    # Pinned to github.sha so a later push can't slip untested code into this
+    # deploy; serialized so two pushes never race on the one service.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [quality, integration, e2e]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-worker
+      cancel-in-progress: false
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      SERVICE_ID: srv-da7qi13bc2fs73bs3iq0 # arthosrot-worker
+    steps:
+      - name: Deploy ${{ github.sha }} to Render and wait until live
+        run: |
+          set -euo pipefail
+          api=https://api.render.com/v1/services/$SERVICE_ID/deploys
+          auth="Authorization: Bearer $RENDER_API_KEY"
+          id=$(curl -fsS -X POST "$api" -H "$auth" -H 'Content-Type: application/json' \
+            -d "{\"clearCache\":\"do_not_clear\",\"commitId\":\"$GITHUB_SHA\"}" | jq -r .id)
+          echo "Render deploy $id"
+          for _ in $(seq 1 90); do # ≤15 min: free-plan builds are slow, not stuck
+            status=$(curl -fsS "$api/$id" -H "$auth" | jq -r .status)
+            echo "$(date -u +%T) $status"
+            case "$status" in
+              live) exit 0 ;;
+              *failed|canceled|deactivated) echo "::error::Render deploy $id ended $status"; exit 1 ;;
+            esac
+            sleep 10
+          done
+          echo "::error::Render deploy $id not live after 15 minutes"; exit 1
+
   # CI must never depend on live Alpaca — external tests live in tests/external
   # and run via external-smoke.yml only.

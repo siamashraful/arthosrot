@@ -9,6 +9,9 @@ services:
     name: arthosrot-worker
     runtime: node
     plan: free
+    # Deploys come from CI (.github/workflows/ci.yml `deploy-worker`), after
+    # every gate passes — never straight from a push.
+    autoDeploy: false
     buildCommand: pnpm install --frozen-lockfile
     startCommand: pnpm start:worker
     healthCheckPath: /healthz

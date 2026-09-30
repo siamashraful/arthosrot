@@ -13,12 +13,12 @@
 
 ## Live deployment (2026-08-27)
 
-| Piece      | Where                                                                                                                                    |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Web        | https://arthosrot.vercel.app (Vercel project `arthosrot`, CLI-deployed; Git integration optional later)                                  |
-| Worker     | https://arthosrot-worker.onrender.com (Render `arthosrot-worker`, virginia, auto-deploys `main`)                                         |
-| DB         | Neon project `arthosrot` (us-east-2), pooled URL at runtime, unpooled for migrations                                                     |
-| GH secrets | `CRON_SECRET`, `WORKER_URL`, `PRODUCTION_DATABASE_URL`, `ALPACA_BROKER_KEY/SECRET` set; `production` environment created for migrate.yml |
+| Piece      | Where                                                                                                                                                      |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web        | https://arthosrot.vercel.app (Vercel project `arthosrot`, CLI-deployed; Git integration optional later)                                                    |
+| Worker     | https://arthosrot-worker.onrender.com (Render `arthosrot-worker`, virginia, deployed by CI after `main` passes)                                            |
+| DB         | Neon project `arthosrot` (us-east-2), pooled URL at runtime, unpooled for migrations                                                                       |
+| GH secrets | `CRON_SECRET`, `WORKER_URL`, `PRODUCTION_DATABASE_URL`, `ALPACA_BROKER_KEY/SECRET`, `RENDER_API_KEY` set; `production` environment created for migrate.yml |
 
 ## One-time setup (production)
 
@@ -27,14 +27,14 @@
 3. **Alpaca:** create the free Broker Dashboard sandbox team (broker-app.alpaca.markets/sign-up) → sandbox key/secret. Separately create a free Trading API account → market-data key/secret (IEX feed).
 4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (the canonical https origin — pins auth origin checks), `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH_MIN=1000`, `STARTING_CASH_MAX=25000`, `STARTING_CASH_DEFAULT=10000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
 5. **Render:** create the worker from `render.yaml` (free plan); set the `sync: false` env vars (same values as Vercel where shared).
-6. **GitHub Actions secrets:** `WORKER_URL`, `CRON_SECRET` (for reconcile.yml); Alpaca sandbox creds for external-smoke.yml.
+6. **GitHub Actions secrets:** `WORKER_URL`, `CRON_SECRET` (for reconcile.yml); `RENDER_API_KEY` (for ci.yml's `deploy-worker`); Alpaca sandbox creds for external-smoke.yml.
 7. **Instrument catalog:** run `DATABASE_URL=<prod-unpooled> pnpm db:sync-instruments` (needs `ALPACA_BROKER_KEY/SECRET`). Search is DB-backed — the alpaca data provider has no name-search — so without this step the platform searches only the 30-symbol bootstrap seed. Re-run occasionally (listings change); the script refuses degraded venue responses rather than mass-delisting.
 8. Verify this document from scratch — if a step surprised you, fix the doc in the same PR.
 
 ## Release flow
 
 - **Web:** Vercel Git integration — preview per PR; production deploy on `main` after CI passes.
-- **Worker:** Render auto-deploy from `main` (render.yaml).
+- **Worker:** CI deploys it. On every push to `main`, ci.yml's `deploy-worker` job waits for `quality`, `integration` and `e2e`, then calls the Render API to deploy that exact commit (`commitId = github.sha`) and polls until the deploy is `live` — the job fails if Render reports a failed or cancelled deploy, or it isn't live within 15 minutes. Render's own auto-deploy is off (`autoDeploy: false` in render.yaml): the service is not connected to GitHub, so it never received push events, and the worker silently kept running stale code until someone deployed by hand. Manual redeploy: re-run the job, or `POST /v1/services/<id>/deploys` with the API key.
 - **Migrations:** explicit approval-gated workflow job against the prod DB **before** the deploy promotes — never automatic on cold start. Destructive migrations follow DATA_MODEL.md's sign-off rules.
 
 ## Scheduled operations
