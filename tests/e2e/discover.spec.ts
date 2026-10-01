@@ -71,19 +71,17 @@ test("browse: Top 100 and sectors, into a list, onto an instrument", async ({ pa
 test("key stats: market cap, P/E, 52-week range — and n/m for a loss", async ({ page }) => {
   await signUp(page);
   await page.goto("/i/AAPL");
-  const stats = page.getByRole("region", { name: "Key stats" });
+  const stats = page.getByRole("region", { name: "Stats" });
   await expect(stats.getByText("$2.92T")).toBeVisible({ timeout: 15_000 }); // 14.59B × $200
   await expect(stats.getByText("P/E ratio (TTM)")).toBeVisible();
   await expect(stats.getByText("25.3")).toBeVisible(); // $200 ÷ $7.90
-  await expect(stats.getByText("52-week high")).toBeVisible();
+  await expect(stats.getByText("52w high")).toBeVisible();
   await expect(stats.getByText(/^\$\d{3}\.\d\d$/).first()).toBeVisible();
   await expectNoSeriousA11yViolations(page);
 
   await page.goto("/i/TSLA"); // fixture EPS is negative
   await expect(
-    page
-      .getByRole("region", { name: "Key stats" })
-      .locator(".ar-ticket-row__value", { hasText: /^n\/m/ }),
+    page.getByRole("region", { name: "Stats" }).locator(".ar-stat__value", { hasText: /^n\/m/ }),
   ).toBeVisible({
     timeout: 15_000,
   });

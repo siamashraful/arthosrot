@@ -31,10 +31,10 @@ Real-money trading · options, margin, shorting, crypto, forex, futures · fract
 
 ## Open decisions
 
-| #   | Decision                                                                                | Status                                  |
-| --- | --------------------------------------------------------------------------------------- | --------------------------------------- |
-| 1   | Product/repo name ("Arthosrot" is a placeholder)                                        | Open                                    |
-| 2   | Password reset at MVP (needs email — Resend free tier) vs deferred                      | Open — decide before auth phase ends    |
-| 3   | Vercel Hobby non-commercial ToS comfort (Cloudflare exit documented)                    | Open                                    |
-| 4   | Public vs private repo (public recommended: free CI, portfolio value)                   | Open                                    |
-| 5   | Alpaca Broker Dashboard sandbox signup (user action: broker-app.alpaca.markets/sign-up) | Open — required before deployment phase |
+| #   | Decision                                                                                | Status                                                                                    |
+| --- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| 1   | Product/repo name                                                                       | Decided — **Arthosrot** (renamed from the placeholder; identity in design/brand/BRAND.md) |
+| 2   | Password reset at MVP (needs email — Resend free tier) vs deferred                      | Open — deferred; no email provider is wired (`src/infra/email` is a placeholder)          |
+| 3   | Vercel Hobby non-commercial ToS comfort (Cloudflare exit documented)                    | Open                                                                                      |
+| 4   | Public vs private repo (public recommended: free CI, portfolio value)                   | Open                                                                                      |
+| 5   | Alpaca Broker Dashboard sandbox signup (user action: broker-app.alpaca.markets/sign-up) | Done — sandbox keys in use in production since 2026-08-27                                 |

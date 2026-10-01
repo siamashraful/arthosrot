@@ -41,6 +41,10 @@ sandbox. Retest during market hours (09:30–16:00 ET); if it persists, contact
 support@alpaca.markets with the request id. Note: `provisionAccount` now signs
 the `margin_agreement` alongside the customer agreement (sandbox accounts are
 margin-type; Arthosrot still enforces cash-only semantics locally).
+Later evidence: a market BUY submitted after hours on 2026-09-02 was accepted
+and filled at the next open (5 AAPL @ 324.85 — the fill-activities incident
+above), so the 500s were not permanent; a full market-hours run of the order
+slices is still open (ROADMAP Phase 18).
 
 **Resolved — asynchronous provisioning.** Accounts now stay PROVISIONING
 until the venue reports the starting cash as settled
@@ -76,7 +80,8 @@ proxied: served same-origin it could run script.
 - **Why:** instrument search, bid/ask/last quotes, historical candles.
 - **Free tier:** IEX-only feed (~2–3% of US volume — prices may differ from the consolidated tape _and_ from the venue's execution reference); 200 req/min; requires a (free) Trading API account for keys; websocket available.
 - **Quotes = one snapshots call per batch** (`GET /v2/stocks/snapshots?symbols=…&feed=iex`, ≤ 200 symbols per request; replaced quotes/latest + trades/latest on 2026-09-30). Top-level keys are symbols (unknown symbols are absent); each carries `latestQuote`, `latestTrade`, `dailyBar`, `prevDailyBar`. `last`/`bid`/`ask`/`ts` are unchanged; **`previousClose`** feeds day change. **Reference-close rule:** the close of the session before the one the last trade belongs to — normally `prevDailyBar.c`, but pre-market on a new day (last trade's ET date later than `dailyBar`'s) it is `dailyBar.c`. Contract-tested both ways.
-- **Abstraction:** `MarketDataProvider` port; `CachedProvider` decorator (TTLs: quotes 10s in-hours, candles 1h intraday/24h daily, search 24h, market status 60s; DB-backed cache; provider failures serve cached values **flagged stale**).
+- **Abstraction:** `MarketDataProvider` port; `CachedMarketData` decorator (`src/infra/market-data/cached.ts` — TTLs: quotes 10s in-hours / 60s closed, candles 1h intraday (1D/1W) / 24h daily, market status 60s; search is not cached (instrument search is DB-backed); DB-backed cache shared by serverless instances + in-memory memo; provider failures serve cached values **flagged stale**).
+- **Candles:** `1D` is the most recent **session**, not the last 24 hours — the adapter fetches 5-minute bars over a 6-day lookback and keeps the latest session, so weekends and Monday pre-market still show a chart (contract-tested). The instrument page's 52-week range reads the `1Y` daily bars.
 - **Disclosure:** UI shows "Market data from IEX via Alpaca…" + freshness chips; execution price rendered separately from displayed quotes.
 - **Replacement:** Finnhub (quotes/search free; candles paid), Twelve Data (800 req/day), Polygon, paid Alpaca SIP — adapter swap only.
 - **Paid trigger:** need for consolidated/real-time tape or > 200 req/min.
@@ -114,12 +119,12 @@ No external service; runs in our app/DB. Replacement seam: `getSession()`. Never
 
 ## CI — GitHub Actions
 
-Free for public repos. Workflows: `ci.yml` (merge gate), `reconcile.yml` (market-hours reconciliation trigger — genuine work, not decorative keep-alive), `external-smoke.yml` (manual sandbox tests). Replacement: any CI running the same pnpm scripts.
+Free for public repos. Workflows: `ci.yml` (merge gate; its `deploy-worker` job deploys the worker to Render after every gate passes on `main`), `migrate.yml` (approval-gated production migration), `reconcile.yml` (market-hours reconciliation trigger — genuine work, not decorative keep-alive), `jobs.yml` (hourly scheduled-jobs tick), `external-smoke.yml` (manual sandbox tests). Replacement: any CI running the same pnpm scripts.
 
 ## Email — deferred (Resend free tier, 100/day, when password reset lands)
 
-`EmailProvider` port with a noop MVP implementation. Replacement: Postmark/SES/SMTP.
+Not implemented: `src/infra/email` is a placeholder and no `EmailProvider` port exists yet (no password reset or verification email at MVP). Replacement: Postmark/SES/SMTP.
 
 ## Error tracking — optional later (Sentry free 5k events/mo)
 
-pino stdout logs at MVP; thin reporter hook if adopted. Replacement: GlitchTip, Axiom.
+Structured JSON lines via `console` to stdout at MVP (no logging library); thin reporter hook if adopted. Replacement: GlitchTip, Axiom.

@@ -79,7 +79,7 @@ The 8-style scale: `display` 40/44/700/−0.02em (hero balance, ticket amount) �
 
 ### Iconography
 
-One library (Lucide-style), 24px, 1.75px stroke, rounded caps and joins. Category icons sit in 40px rounded-square chips (`IconChip`): tint fill, icon in the category hue. No emoji, no mixed icon styles. Illustration is flat geometric shapes in bloom colours, onboarding and empty states only.
+One set — the system's own (`Arthosrot.icon`), drawn in the app by `src/components/icons/Icon.tsx` — 24px, 1.75px stroke, rounded caps and joins. Glyphs it lacks are app extensions in the same idiom; never a second library. Icons sit in 40px rounded-square chips (`IconChip`): a **category** chip (tint fill, icon in the category hue) names an asset class; a **semantic** chip (gain, loss, warning, info, neutral) names a money movement or a state. Sizes and the as-built mapping: design/DESIGN_SYSTEM.md and design/DESIGN.md → Iconography. No emoji, no mixed icon styles. Illustration is flat geometric shapes in bloom colours, onboarding and empty states only.
 
 ### Motion
 

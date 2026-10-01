@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { TriangleAlert } from "lucide-react";
+import { Icon } from "@/components/icons/Icon";
 import { api } from "@/lib/api";
 import { relativeAge } from "@/lib/format";
 
@@ -22,7 +22,7 @@ export function StatusBanner() {
   if (isError) {
     return (
       <div className="status-banner" role="status">
-        <TriangleAlert className="ar-icon" size={20} aria-hidden />
+        <Icon name="alert" size={20} />
         <span>System status unavailable — data on this page may be delayed.</span>
       </div>
     );
@@ -34,7 +34,7 @@ export function StatusBanner() {
 
   return (
     <div className="status-banner" role="status">
-      <TriangleAlert className="ar-icon" size={20} aria-hidden />
+      <Icon name="alert" size={20} />
       <span>
         Order updates may be delayed
         {data.broker.lastSyncAt ? <> — last sync {relativeAge(data.broker.lastSyncAt)}</> : null}.

@@ -1,8 +1,7 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import type { LucideIcon } from "lucide-react";
-import { FINANCE_GLYPHS } from "@/components/finance/MetricIcon";
+import { Icon, type IconName } from "@/components/icons/Icon";
 import { LiveEmptyState } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
@@ -17,23 +16,24 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 /**
- * The chip for a ledger entry names the KIND of movement, in its category:
- * cash in/out is the Cash category, a trade the Stocks category, fees and
- * adjustments neutral. Green/red stay reserved for gain and loss — a deposit
- * is not a gain — and the signed amount beside the chip carries direction.
+ * The chip for a ledger entry, per the system's Activity screen: money in is
+ * the gain chip with arrow-down-left, money out (withdrawal, fee) the loss
+ * chip with arrow-up-right, a trade the Stocks chip. An adjustment follows its
+ * sign; a zero adjustment is neutral.
  */
-function entryChip(type: string): { cls: string; Icon: LucideIcon } {
+function entryChip(type: string, sign: -1 | 0 | 1): { kind: string; icon: IconName } {
   switch (type) {
     case "DEPOSIT":
-      return { cls: "ar-chipicon--cash", Icon: FINANCE_GLYPHS.deposit };
+      return { kind: "gain", icon: "arrow-down-left" };
     case "WITHDRAWAL":
-      return { cls: "ar-chipicon--cash", Icon: FINANCE_GLYPHS.withdrawal };
     case "FEE":
-      return { cls: "ar-chipicon--neutral", Icon: FINANCE_GLYPHS.fee };
+      return { kind: "loss", icon: "arrow-up-right" };
     case "TRADE":
-      return { cls: "ar-chipicon--stocks", Icon: FINANCE_GLYPHS.trade };
+      return { kind: "stocks", icon: "stocks" };
     default:
-      return { cls: "ar-chipicon--neutral", Icon: FINANCE_GLYPHS.adjustment };
+      if (sign > 0) return { kind: "gain", icon: "arrow-down-left" };
+      if (sign < 0) return { kind: "loss", icon: "arrow-up-right" };
+      return { kind: "neutral", icon: "trade" };
   }
 }
 
@@ -104,11 +104,11 @@ export default function ActivityPage() {
         <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
           {data.entries.map((e) => {
             const sign = signOf(e.amount);
-            const { cls, Icon } = entryChip(e.type);
+            const chip = entryChip(e.type, sign);
             return (
               <li key={e.id} className="ar-row">
-                <span className={`ar-chipicon ${cls}`} aria-hidden>
-                  <Icon />
+                <span className={`ar-chipicon ar-chipicon--${chip.kind}`} aria-hidden>
+                  <Icon name={chip.icon} />
                 </span>
                 <div className="ar-row__main">
                   <span className="ar-row__title">{e.description}</span>

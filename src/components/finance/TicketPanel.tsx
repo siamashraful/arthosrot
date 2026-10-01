@@ -1,7 +1,7 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useRef } from "react";
+import { Icon } from "@/components/icons/Icon";
 import { useTradingMode } from "@/components/trading-mode";
 import type { QuoteDto } from "@/lib/api";
 import { TradingTicket } from "./TradingTicket";
@@ -53,7 +53,7 @@ export function TicketPanel(props: {
               aria-label="Close"
               onClick={() => dialogRef.current?.close()}
             >
-              <X size={20} aria-hidden />
+              <Icon name="x" size={20} />
             </button>
           </div>
           <TradingTicket {...props} />

@@ -6,14 +6,18 @@
 ## Broker port
 
 ```ts
+// src/core/execution/broker.ts
 interface Broker {
-  readonly kind: "DETERMINISTIC" | "ALPACA_PAPER"; // live kinds post-MVP
+  readonly kind: BrokerKindId; // "DETERMINISTIC" | "ALPACA_PAPER"; live kinds post-MVP
   provisionAccount(req: ProvisionRequest): Promise<BrokerAccountRef>; // create + fund venue account
   submit(req: BrokerOrderRequest): Promise<SubmitResult>; // req carries clientOrderId (= Arthosrot order id)
-  cancel(ref: BrokerOrderRef): Promise<CancelResult>;
-  getOrder(ref: BrokerOrderRef): Promise<BrokerOrderSnapshot>;
-  listOpenOrders(acct: BrokerAccountRef): Promise<BrokerOrderSnapshot[]>;
-  getAccountSnapshot(acct: BrokerAccountRef): Promise<BrokerAccountSnapshot>; // reconciliation reference only
+  cancel(brokerAccountId: string, clientOrderId: string): Promise<CancelResult>;
+  getOrderByClientId(
+    brokerAccountId: string,
+    clientOrderId: string,
+  ): Promise<BrokerOrderSnapshot | null>;
+  listOpenOrders(brokerAccountId: string): Promise<BrokerOrderSnapshot[]>;
+  getAccountSnapshot(brokerAccountId: string): Promise<BrokerAccountSnapshot>; // reconciliation reference only
   subscribe(
     cursor: EventCursor | null,
     onEvent: (e: CanonicalBrokerEvent) => Promise<void>,
@@ -25,9 +29,9 @@ Both implementations (AlpacaPaperBroker, DeterministicPaperBroker) must pass the
 
 ## Canonical broker events
 
-`ORDER_ACKNOWLEDGED`, `ORDER_ACCEPTED`, `ORDER_PARTIALLY_FILLED`, `ORDER_FILLED`, `ORDER_CANCEL_PENDING`, `ORDER_CANCELLED`, `ORDER_REJECTED`, `ORDER_EXPIRED`, `ORDER_REPLACED` (reserved), `UNKNOWN_VENDOR_STATUS`.
+`ORDER_ACKNOWLEDGED`, `ORDER_ACCEPTED`, `ORDER_PARTIALLY_FILLED`, `ORDER_FILLED`, `ORDER_CANCEL_PENDING`, `ORDER_CANCELLED`, `ORDER_REJECTED`, `ORDER_EXPIRED`, `ORDER_SUBMIT_FAILED`, `UNKNOWN_VENDOR_STATUS` (`CanonicalEventType` in `src/core/orders/types.ts`).
 
-Each event carries `{broker, brokerAccountId, brokerOrderId, clientOrderId, externalEventId, executionId?, fillQty?, fillPrice?, fee?, occurredAt, receivedAt, raw}`. A partial fill is an `ORDER_PARTIALLY_FILLED` event with its own venue `executionId`; multiple fills are multiple events.
+Each event carries `{type, broker, brokerAccountId, brokerOrderId, clientOrderId, externalEventId, executionId?, fillQty?, fillPrice?, fee?, occurredAt, raw?}` (`receivedAt` is stamped by the database on `order_events`; `externalEventId` is null for local/synthesized events). A partial fill is an `ORDER_PARTIALLY_FILLED` event with its own venue `executionId`; multiple fills are multiple events.
 
 **Unknown vendor statuses:** translate to `UNKNOWN_VENDOR_STATUS` → the event is persisted to `order_events` (audit), **no state transition occurs**, the order is flagged `needs_attention`, reconciliation status → ERROR, error-level log. A later known event or reconciliation snapshot resolves it. Domain logic uses normalized fields only — never vendor JSON (`raw_payload` is audit/debugging only, redacted).
 
@@ -91,9 +95,9 @@ Postgres row locks at READ COMMITTED; lock order fixed **account → order → p
 
 ## Reconciliation engine
 
-Triggers: worker startup · SSE reconnect · schedule (GH Actions → `POST /reconcile`, market hours ~10 min) · on demand.
+Triggers: worker startup · schedule (GH Actions → `POST /reconcile`, market hours every 10 min) · on demand (`POST /reconcile`). An SSE reconnect does not run a pass — it resumes from the in-memory cursor via `since_ulid` (exponential backoff 1s → 30s); a restarted worker resumes from the persisted `stream_cursors` row after its startup pass.
 
-Process per broker-backed account: list local non-terminal orders → `getOrder`/`listOpenOrders` diff → fetch missing executions → synthesize canonical events → idempotent apply → compare cash/position snapshots → structured result log `{accountsChecked, ordersRepaired, fillsImported, driftDetected[], durationMs}` → update `broker_accounts.reconciliation_status` (HEALTHY / STALE / RECONCILING / DRIFT_DETECTED / ERROR) + `last_reconciled_at` / `last_stream_event_at`.
+Process per broker-backed account: list local non-terminal orders → `getOrder`/`listOpenOrders` diff → fetch missing executions → synthesize canonical events → idempotent apply → compare cash/position snapshots → structured result log `{accountsChecked, ordersChecked, eventsReplayed, submitFailures, driftDetected[], errors[], durationMs}` (the worker adds its provisioning-sweep counts) → update `broker_accounts.reconciliation_status` (RECONCILING during the pass, then HEALTHY / DRIFT_DETECTED / ERROR) + `last_reconciled_at`; the worker then writes the `reconcile-heartbeat` row that `/api/v1/system/status` derives pipeline health from. (`STALE` and `broker_accounts.last_stream_event_at` exist in the schema but nothing writes them today.)
 
 Rules: discover missed fills; repair stale order states through idempotent event processing; never double-apply financial effects; never blindly overwrite from snapshots; log discrepancies; preserve audit history.
 

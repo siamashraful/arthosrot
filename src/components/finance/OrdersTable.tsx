@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Check, Clock, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
+import { Icon, type IconName } from "@/components/icons/Icon";
 import { api, type OrderDto } from "@/lib/api";
 import { formatDateTime, formatPrice } from "@/lib/format";
 import { OrderStatusBadge } from "./OrderStatusBadge";
@@ -18,12 +18,12 @@ const OPEN = new Set([
 ]);
 
 /** Semantic chip for an order's state: icon plus tint, mirrored by the status tag's word. */
-function stateChip(state: string): { cls: string; Icon: typeof Check } {
-  if (state === "FILLED") return { cls: "ar-chipicon--gain", Icon: Check };
+function stateChip(state: string): { cls: string; icon: IconName } {
+  if (state === "FILLED") return { cls: "ar-chipicon--gain", icon: "check" };
   if (state === "REJECTED" || state === "SUBMIT_FAILED")
-    return { cls: "ar-chipicon--loss", Icon: TriangleAlert };
-  if (OPEN.has(state)) return { cls: "ar-chipicon--warning", Icon: Clock };
-  return { cls: "ar-chipicon--neutral", Icon: X };
+    return { cls: "ar-chipicon--loss", icon: "alert" };
+  if (OPEN.has(state)) return { cls: "ar-chipicon--warning", icon: "clock" };
+  return { cls: "ar-chipicon--neutral", icon: "x" };
 }
 
 /**
@@ -116,11 +116,11 @@ function OrderRow({
   cancelError: string | null;
 }) {
   const cancellable = isCancellable(order.state);
-  const { cls, Icon } = stateChip(order.state);
+  const { cls, icon } = stateChip(order.state);
   return (
     <li className="ar-row">
       <span className={`ar-chipicon ${cls}`} aria-hidden>
-        <Icon />
+        <Icon name={icon} />
       </span>
       <div className="ar-row__main">
         <span className="ar-row__title">

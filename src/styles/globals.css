@@ -1214,12 +1214,12 @@ a.list-row:hover {
   height: 24px;
   border-radius: 7px;
 }
-/* Glyph size follows the chip, stroke follows the sidebar (--icon-stroke):
-   callers never pass size/strokeWidth to an icon inside a chip. */
+/* Glyph size follows the chip (the system's IconChip: 22 in 40px, 18 in the
+   32px --sm, 14 at stroke 2 in the 24px --xs insight head); callers never
+   pass size/stroke to an icon inside a chip. */
 .ar-chipicon > svg {
-  width: 20px;
-  height: 20px;
-  stroke-width: var(--icon-stroke);
+  width: 22px;
+  height: 22px;
 }
 .ar-chipicon--sm > svg {
   width: 18px;
@@ -1228,13 +1228,7 @@ a.list-row:hover {
 .ar-chipicon--xs > svg {
   width: 14px;
   height: 14px;
-}
-/* MetricIcon: an unboxed glyph beside a metric label, in the label's colour */
-.metric-icon {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  stroke-width: var(--icon-stroke);
+  stroke-width: 2;
 }
 .ar-hero__pill > svg,
 .ar-tile__head > svg {
@@ -1959,6 +1953,36 @@ a.list-row:hover {
 .ar-card--list {
   padding: 0 16px;
 }
+/* the system's StockDetail "Stats": a two-column grid of label/value cells
+   on a compact card; the bottom pair drops its hairline */
+.ar-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 16px;
+}
+.ar-stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  min-height: 32px;
+  border-bottom: 1px solid var(--divider);
+  font-size: 14px;
+  line-height: 20px;
+  padding: 6px 0;
+}
+.ar-stat:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+.ar-stat__label {
+  color: var(--text-secondary);
+}
+.ar-stat__value {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 .ar-hero {
   background: var(--hero);
   color: var(--on-hero);
@@ -2322,83 +2346,61 @@ a.list-row:hover {
   justify-content: space-between;
   margin-top: 12px;
 }
-/* Markets browse (BrowseGrid + the list page). Every card is the Stocks
-   chip on a surface card: bloom colour is asset class, so sectors are told
-   apart by icon and name, never by hue. */
-.browse-grid {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-@media (min-width: 768px) {
-  .browse-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-.browse-grid > li {
-  min-width: 0;
-}
-.browse-grid__featured {
-  grid-column: 1 / -1;
-}
-.browse-card {
+/* Markets browse (BrowseGrid + the list page). The Top 100 is one featured
+   surface card; sectors are account rows on a list card. Every chip is the
+   Stocks chip: bloom colour is asset class, so sectors are told apart by
+   icon and name, never by hue. */
+.browse-featured {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 12px;
-  height: 100%;
-  min-height: 132px;
-  box-sizing: border-box;
   color: inherit;
   text-decoration: none;
   /* a hairline on hover/press, not elevation (no card shadows) */
   box-shadow: inset 0 0 0 1px transparent;
   transition: box-shadow var(--dur-fast, 120ms) ease-out;
 }
-.browse-card:hover {
+.browse-featured:hover {
   box-shadow: inset 0 0 0 1px var(--divider);
 }
-.browse-card:active {
+.browse-featured:active {
   background: var(--pressed);
 }
-.browse-card--featured {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 0;
-}
-.browse-card__lead {
+.browse-featured__lead {
   display: flex;
   align-items: center;
   gap: 12px;
   min-width: 0;
 }
-.browse-card__text {
+.browse-featured__text {
   display: flex;
   flex-direction: column;
   gap: 2px;
   min-width: 0;
 }
-.browse-card__name {
+.browse-featured__name {
   font-size: 16px;
   line-height: 22px;
   font-weight: 600;
-  text-wrap: balance;
 }
-.browse-card__meta {
+.browse-featured__meta {
   font-size: 13px;
   line-height: 18px;
   color: var(--text-tertiary);
 }
-.browse-card .logo-stack {
-  margin-top: auto;
+/* the account row's end: a peek of logos, then the chevron */
+.browse-row__end {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
 }
-.browse-card--featured .logo-stack {
-  margin-top: 0;
+/* phones: the sector name wins over the logo peek */
+@media (max-width: 479px) {
+  .browse-row__end .logo-stack {
+    display: none;
+  }
 }
 .logo-stack {
   display: inline-flex;
@@ -2430,7 +2432,7 @@ a.list-row:hover {
   font-variant-numeric: tabular-nums;
 }
 @media (prefers-reduced-motion: reduce) {
-  .browse-card {
+  .browse-featured {
     transition: none;
   }
 }

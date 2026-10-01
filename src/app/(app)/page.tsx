@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, PieChart, X } from "lucide-react";
 import Link from "next/link";
 import { NetWorthChart } from "@/components/finance/NetWorthChart";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
@@ -9,13 +8,12 @@ import { OnboardingPanel } from "@/components/onboarding";
 import { OrdersTable } from "@/components/finance/OrdersTable";
 import { Money } from "@/components/finance/Money";
 import { PriceChange } from "@/components/finance/PriceChange";
-import { FINANCE_GLYPHS, MetricIcon } from "@/components/finance/MetricIcon";
+import { Icon } from "@/components/icons/Icon";
+import { realizedInsightChip } from "./_lib/insight";
 import { LiveDashboard } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
-import { formatPrice, formatTime, signOf } from "@/lib/format";
-
-const { cash: CashGlyph, positions: PositionsGlyph, trade: TradeGlyph } = FINANCE_GLYPHS;
+import { formatMoney, formatPrice, formatSignedMoney, formatTime, signOf } from "@/lib/format";
 
 /**
  * Display-only share of the account (0–100) for a tile's bar. A rendering-
@@ -90,6 +88,7 @@ export default function DashboardPage() {
     );
   }
 
+  const realizedChip = realizedInsightChip(portfolio?.summary.realizedPnl);
   const todayChange = today && signOf(today.change.absolute) !== 0 ? today.change : null;
 
   return (
@@ -135,15 +134,15 @@ export default function DashboardPage() {
             </span>
             <div className="ar-hero__actions">
               <Link href="/markets" className="ar-hero__pill">
-                <TradeGlyph size={18} aria-hidden />
+                <Icon name="trade" size={18} />
                 Trade
               </Link>
               <Link href="/portfolio" className="ar-hero__pill">
-                <PieChart size={18} aria-hidden />
+                <Icon name="pie" size={18} />
                 Portfolio
               </Link>
               <Link href="/activity" className="ar-hero__pill">
-                <Activity size={18} aria-hidden />
+                <Icon name="activity" size={18} />
                 Activity
               </Link>
             </div>
@@ -156,7 +155,7 @@ export default function DashboardPage() {
             <Link href="/portfolio" className="ar-tile ar-tile--cobalt">
               <div className="ar-tile__head">
                 <span className="ar-tile__name">Stocks</span>
-                <PositionsGlyph size={20} aria-hidden />
+                <Icon name="stocks" size={20} />
               </div>
               <div>
                 <span className="ar-tile__value">
@@ -178,7 +177,7 @@ export default function DashboardPage() {
             <div className="ar-ptile">
               <div className="ar-ptile__head">
                 <span className="ar-chipicon ar-chipicon--cash ar-chipicon--sm" aria-hidden>
-                  <CashGlyph />
+                  <Icon name="cash" />
                 </span>
                 <span className="ar-ptile__name">Cash</span>
               </div>
@@ -209,7 +208,9 @@ export default function DashboardPage() {
           <div className="ar-insight-row">
             <div className="ar-insight">
               <span className="ar-insight__head">
-                <MetricIcon type="buying-power" />
+                <span className="ar-chipicon ar-chipicon--xs ar-chipicon--cash">
+                  <Icon name="banknote" />
+                </span>
                 Buying power
               </span>
               <span className="ar-insight__value">
@@ -218,11 +219,15 @@ export default function DashboardPage() {
             </div>
             <div className="ar-insight">
               <span className="ar-insight__head">
-                <MetricIcon type="realized" />
+                <span className={`ar-chipicon ar-chipicon--xs ar-chipicon--${realizedChip.kind}`}>
+                  <Icon name={realizedChip.icon} />
+                </span>
                 Realized P&L
               </span>
               <span className="ar-insight__value">
-                <PriceChange amount={portfolio.summary.realizedPnl} />
+                {signOf(portfolio.summary.realizedPnl) === 0
+                  ? formatMoney(portfolio.summary.realizedPnl)
+                  : formatSignedMoney(portfolio.summary.realizedPnl)}
               </span>
             </div>
           </div>
@@ -314,7 +319,7 @@ export default function DashboardPage() {
                   disabled={removeWatch.isPending}
                   onClick={() => removeWatch.mutate(item.id)}
                 >
-                  <X size={18} aria-hidden />
+                  <Icon name="x" size={18} />
                 </button>
               </li>
             ))}

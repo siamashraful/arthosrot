@@ -5,11 +5,19 @@ import Link from "next/link";
 import { Money } from "@/components/finance/Money";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { PriceChange } from "@/components/finance/PriceChange";
-import { MetricIcon } from "@/components/finance/MetricIcon";
+import { Icon } from "@/components/icons/Icon";
 import { LiveEmptyState } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
-import { formatPrice, formatPrice4, formatTime } from "@/lib/format";
+import {
+  formatMoney,
+  formatPrice,
+  formatPrice4,
+  formatSignedMoney,
+  formatTime,
+  signOf,
+} from "@/lib/format";
+import { realizedInsightChip } from "../_lib/insight";
 
 export default function PortfolioPage() {
   const mode = useTradingMode();
@@ -54,6 +62,8 @@ export default function PortfolioPage() {
     );
   }
 
+  const realized = realizedInsightChip(data.summary.realizedPnl);
+
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div className="ar-appbar">
@@ -76,7 +86,9 @@ export default function PortfolioPage() {
       <div className="ar-insight-row">
         <div className="ar-insight">
           <span className="ar-insight__head">
-            <MetricIcon type="cash" />
+            <span className="ar-chipicon ar-chipicon--xs ar-chipicon--cash">
+              <Icon name="cash" />
+            </span>
             Cash
           </span>
           <span className="ar-insight__value">
@@ -85,7 +97,9 @@ export default function PortfolioPage() {
         </div>
         <div className="ar-insight">
           <span className="ar-insight__head">
-            <MetricIcon type="positions" />
+            <span className="ar-chipicon ar-chipicon--xs ar-chipicon--stocks">
+              <Icon name="stocks" />
+            </span>
             Positions value
           </span>
           <span className="ar-insight__value">
@@ -94,11 +108,15 @@ export default function PortfolioPage() {
         </div>
         <div className="ar-insight">
           <span className="ar-insight__head">
-            <MetricIcon type="realized" />
+            <span className={`ar-chipicon ar-chipicon--xs ar-chipicon--${realized.kind}`}>
+              <Icon name={realized.icon} />
+            </span>
             Realized P&L
           </span>
           <span className="ar-insight__value">
-            <PriceChange amount={data.summary.realizedPnl} />
+            {signOf(data.summary.realizedPnl) === 0
+              ? formatMoney(data.summary.realizedPnl)
+              : formatSignedMoney(data.summary.realizedPnl)}
           </span>
         </div>
       </div>

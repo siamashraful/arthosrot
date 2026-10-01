@@ -1,8 +1,8 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { Icon } from "@/components/icons/Icon";
 
 /**
  * Deposit / withdraw sheet for live mode — visually complete, deliberately
@@ -34,7 +34,7 @@ export function FundingSheet({
 
   const title = kind === "deposit" ? "Deposit" : "Withdraw";
   const inputId = `funding-amount-${kind}`;
-  const TriggerIcon = kind === "deposit" ? ArrowDownLeft : ArrowUpRight;
+  const triggerIcon = kind === "deposit" ? "arrow-down-left" : "arrow-up-right";
 
   const sheet = (
     <dialog ref={dialogRef} className="sheet" aria-label={title}>
@@ -55,7 +55,7 @@ export function FundingSheet({
           aria-label="Close"
           onClick={() => dialogRef.current?.close()}
         >
-          <X size={20} aria-hidden />
+          <Icon name="x" size={20} />
         </button>
       </div>
 
@@ -112,7 +112,7 @@ export function FundingSheet({
         className={triggerClassName}
         onClick={() => dialogRef.current?.showModal()}
       >
-        <TriggerIcon size={18} aria-hidden />
+        <Icon name={triggerIcon} size={18} />
         {title}
       </button>
       {mounted ? createPortal(sheet, document.body) : null}

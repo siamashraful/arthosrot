@@ -4,8 +4,8 @@ Paper-trading platform with external broker-managed execution. Financial correct
 
 ## Architecture rules
 
-- Dependency direction: app → server → core ← infra; worker → core, infra. `src/core` must not import next, react, drizzle, or vendor SDKs. Modules interact only via index.ts exports; never touch another module's tables.
-- Vendor objects never leave infra/brokers/<vendor> or infra/market-data/<vendor>. The domain consumes canonical BrokerEvents and port types only. Broker and MarketDataProvider are independent ports — never couple them.
+- Dependency direction: app → server → core ← infra; worker → core, infra (+ the server/container.ts composition root only). `src/core` must not import next, react, drizzle, or vendor SDKs. Modules interact only via index.ts exports; never touch another module's tables.
+- Vendor objects never leave infra/brokers/<vendor>, infra/market-data/<vendor> or infra/sec-edgar. The domain consumes canonical BrokerEvents and port types only. Broker and MarketDataProvider are independent ports — never couple them.
 
 ## Execution rules
 

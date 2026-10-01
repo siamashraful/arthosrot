@@ -1,7 +1,7 @@
 "use client";
 
-import { Check, Clock, TriangleAlert, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { Icon, type IconName } from "@/components/icons/Icon";
 
 /**
  * Lifecycle tag covering all ten canonical states (EXECUTION.md) in the
@@ -11,17 +11,17 @@ import { useEffect, useRef, useState } from "react";
  * carry a warning icon instead so a rejection reads differently from a
  * cancel even in greyscale.
  */
-const TONE: Record<string, { cls: string; Icon: typeof Check }> = {
-  PENDING_SUBMISSION: { cls: "ar-tag--pending", Icon: Clock },
-  ACKNOWLEDGED: { cls: "ar-tag--pending", Icon: Clock },
-  ACCEPTED: { cls: "ar-tag--pending", Icon: Clock },
-  PARTIALLY_FILLED: { cls: "ar-tag--pending", Icon: Clock },
-  CANCEL_PENDING: { cls: "ar-tag--pending", Icon: Clock },
-  FILLED: { cls: "ar-tag--filled", Icon: Check },
-  CANCELLED: { cls: "ar-tag--cancelled", Icon: X },
-  EXPIRED: { cls: "ar-tag--cancelled", Icon: X },
-  REJECTED: { cls: "ar-tag--cancelled", Icon: TriangleAlert },
-  SUBMIT_FAILED: { cls: "ar-tag--cancelled", Icon: TriangleAlert },
+const TONE: Record<string, { cls: string; icon: IconName }> = {
+  PENDING_SUBMISSION: { cls: "ar-tag--pending", icon: "clock" },
+  ACKNOWLEDGED: { cls: "ar-tag--pending", icon: "clock" },
+  ACCEPTED: { cls: "ar-tag--pending", icon: "clock" },
+  PARTIALLY_FILLED: { cls: "ar-tag--pending", icon: "clock" },
+  CANCEL_PENDING: { cls: "ar-tag--pending", icon: "clock" },
+  FILLED: { cls: "ar-tag--filled", icon: "check" },
+  CANCELLED: { cls: "ar-tag--cancelled", icon: "x" },
+  EXPIRED: { cls: "ar-tag--cancelled", icon: "x" },
+  REJECTED: { cls: "ar-tag--cancelled", icon: "alert" },
+  SUBMIT_FAILED: { cls: "ar-tag--cancelled", icon: "alert" },
 };
 
 export function OrderStatusBadge({ state, display }: { state: string; display: string }) {
@@ -37,10 +37,10 @@ export function OrderStatusBadge({ state, display }: { state: string; display: s
     const t = setTimeout(() => setBeat(false), 300);
     return () => clearTimeout(t);
   }, [state]);
-  const { cls, Icon } = TONE[state] ?? { cls: "ar-tag--neutral", Icon: Clock };
+  const { cls, icon } = TONE[state] ?? { cls: "ar-tag--neutral", icon: "clock" };
   return (
     <span className={`badge ar-tag ${cls}${beat ? " badge-beat" : ""}`}>
-      <Icon className="ar-icon" size={12} strokeWidth={2.25} aria-hidden />
+      <Icon name={icon} size={12} stroke={2.25} />
       {display}
     </span>
   );

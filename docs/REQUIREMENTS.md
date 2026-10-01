@@ -6,7 +6,7 @@
 ## Assumptions
 
 1. US-listed equities; whole shares; long-only, cash-account semantics **enforced by Arthosrot pre-trade checks** (the sandbox opens limited-purpose margin accounts; our stricter rules mean margin/short orders are never submitted).
-2. One ACTIVE paper account per user; archived accounts accumulate on reset.
+2. One open (PROVISIONING or ACTIVE) paper account per user; archived accounts accumulate on reset.
 3. Regular session only (`extended_hours=false`); venue queuing behavior applies to after-hours submissions and is surfaced, not re-implemented.
 4. Alpaca Broker API **Sandbox** is the deployed venue (free, self-serve, real prices/market hours, simulated execution). Its dev/test framing is a documented risk with exit paths (LIMITATIONS.md, INTEGRATIONS.md).
 5. **Synthetic KYC only** — no real user PII is ever sent to the sandbox.
@@ -19,13 +19,13 @@
 - **FR-3 Instruments:** search by symbol/name; detail page with name, exchange, quote, chart.
 - **FR-4 Quotes:** bid/bidSize/ask/askSize/last + timestamp + market status + feed label. Never render a price without freshness context.
 - **FR-5 Charts:** 1D/1W/1M/3M/1Y/5Y candles; explicit missing-data states.
-- **FR-6 Watchlist:** add/remove/reorder; quote + day change per row.
+- **FR-6 Watchlist:** add/remove; last price per row. Not built yet: reorder (ROADMAP "Known deferred UI/UX gaps") and per-row day change (rows show the last price only).
 - **FR-7 Orders:** submit market/limit with idempotency key; local pre-trade validation (buying power incl. reservations, sellable qty, whole shares, price precision) → broker submission → asynchronous lifecycle (architecture/EXECUTION.md); cancel with CANCEL_PENDING semantics; list open/history; detail shows fills + canonical event timeline.
 - **FR-8 Execution:** broker-managed. Fills (incl. partial/multi-fill) arrive as canonical events via the worker; each fill atomically updates order, fills, ledger, position, cash projection. DAY limit orders expire per venue behavior.
 - **FR-9 Realtime UX:** submitted orders appear immediately as Pending and advance automatically; no manual refresh needed to learn about a fill.
 - **FR-10 Portfolio:** positions (qty, sellable, avg cost, market value, unrealized P&L, weight), summary, realized P&L.
 - **FR-11 Ledger:** every cash movement is an append-only entry linked to its canonical cause; activity page renders it.
-- **FR-12 Reconciliation:** on worker start, SSE reconnect, and schedule: reconcile open orders/fills/positions/cash vs broker; import missed events exactly-once; log drift with a reconciliation status.
+- **FR-12 Reconciliation:** on worker start, on schedule, and on demand (an SSE reconnect replays from its cursor instead): reconcile open orders/fills/positions/cash vs broker; import missed events exactly-once; log drift with a reconciliation status.
 - **FR-13 Modes:** accounts are explicitly PAPER; UI labels simulation persistently.
 
 ## Non-functional requirements

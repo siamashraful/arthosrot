@@ -13,13 +13,13 @@ Single role (user). Every query is filtered by the session's account at the repo
 
 ## Application controls
 
-- **Input:** Zod on every boundary (API bodies, env via `src/env.ts`, cron header).
+- **Input:** Zod on every boundary (API bodies/params, env via `src/env.ts`); the worker's cron bearer token is a constant-time compare.
 - **Output:** React escaping; no `dangerouslySetInnerHTML` (single sanctioned exception: the constant theme/mode-bootstrap script in `src/app/layout.tsx` — static string, no user input); security headers via next.config (nosniff, referrer-policy, frame-deny, HSTS, permissions-policy); CSP remains future hardening (Next inline scripts need nonce plumbing).
 - **SQLi:** Drizzle parameterized queries; raw SQL only via the parameterized `sql` template — string-concatenated SQL is review-blocked.
-- **SSRF:** outbound calls go only to pinned Alpaca base-URL constants plus the operator-configured `LOGO_UPSTREAM` template; no user-supplied URLs are fetched.
+- **SSRF:** outbound calls go only to pinned base-URL constants (Alpaca broker sandbox + data, SEC EDGAR `data.sec.gov` / `www.sec.gov`) plus the operator-configured `LOGO_UPSTREAM` template; no user-supplied URLs are fetched.
 - **Secrets:** env vars only; `.env.example` documents all; gitleaks in CI; logging is structured console JSON that never includes credentials, tokens, or request bodies; `order_events.raw_payload` passes a redaction filter before persistence; no secrets in client bundles (`process.env` only in src/env.ts; no `NEXT_PUBLIC_` secrets).
 - **Dependencies:** lockfile committed; Dependabot weekly (npm + actions).
-- **Errors:** one envelope (`src/server/api/http.ts`); internal causes are logged with a request id (also returned as `x-request-id`), never sent to the client. The worker's `/reconcile` responds pass/fail only; its `CRON_SECRET` check is constant-time.
+- **Errors:** one envelope (`src/server/api/http.ts`); internal causes are logged with a request id (also returned as `x-request-id`), never sent to the client. The worker's `/reconcile` responds pass/fail only and `/jobs/tick` returns job names + statuses only (errors stay in the log); their `CRON_SECRET` check is constant-time.
 - **Transport:** HTTPS everywhere (platform TLS) + HSTS (2y, includeSubDomains).
 
 ## Broker-integration specifics
@@ -28,7 +28,7 @@ Single role (user). Every query is filtered by the session's account at the repo
 - **Synthetic KYC only:** no real user PII is ever sent to the sandbox.
 - The adapter pins the **sandbox** base URL; the production broker-api hostname appears nowhere in the codebase at MVP.
 - `order_events.raw_payload` passes a redaction filter before persistence.
-- Worker HTTP surface: `/healthz` + `/reconcile` (CRON_SECRET-guarded) only.
+- Worker HTTP surface: `/healthz` + `POST /reconcile` and `POST /jobs/tick` (both CRON_SECRET-guarded) only.
 
 ## Paper/live isolation (defense in depth, MVP-active)
 

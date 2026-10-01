@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { Icon } from "@/components/icons/Icon";
 import { formatSignedMoney, formatSignedPercent, signOf } from "@/lib/format";
 
 /**
@@ -28,14 +28,14 @@ export function PriceChange({
       </span>
     );
   }
-  const Arrow = sign > 0 ? ArrowUpRight : ArrowDownRight;
+  const arrow = sign > 0 ? "arrow-up" : "arrow-down";
   return (
     <span
       className={`ar-delta tabular ${sign > 0 ? "ar-delta--gain" : "ar-delta--loss"}${
         chip ? " ar-delta--chip" : ""
       }`}
     >
-      <Arrow className="ar-icon" size={14} strokeWidth={2.25} aria-hidden />
+      <Icon name={arrow} size={14} stroke={2.25} />
       <span className="sr-only">{sign > 0 ? "up" : "down"} </span>
       <span>
         {formatSignedMoney(amount)}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Clock } from "lucide-react";
+import { Icon } from "@/components/icons/Icon";
 import { relativeAge } from "@/lib/format";
 
 /**
@@ -24,7 +24,7 @@ export function FreshnessChip({
   const stale = age > 120_000;
   return (
     <span className={stale ? "ar-tag ar-tag--pending" : "ar-tag ar-tag--neutral"}>
-      {stale ? <Clock className="ar-icon" size={12} aria-hidden /> : null}
+      {stale ? <Icon name="clock" size={12} /> : null}
       {stale ? "Stale · " : ""}
       {source} · {relativeAge(ts)}
     </span>

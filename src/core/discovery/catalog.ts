@@ -6,7 +6,7 @@ import { TOP100_SEED_ENTRIES, TOP100_SEED_AS_OF } from "./top100-seed";
  * job and only falls back to the seed below until a snapshot exists.
  */
 
-/** Icon keys the client maps to lucide icons — no UI imports in core. */
+/** Icon keys the client maps to the Arthosrot icon set (components/icons) — no UI imports in core. */
 export type SectorIcon =
   | "cpu"
   | "radio-tower"

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Star } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
 import { CandleChart } from "@/components/finance/CandleChart";
@@ -10,6 +9,7 @@ import { KeyStats } from "@/components/finance/KeyStats";
 import { PriceChange } from "@/components/finance/PriceChange";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { TicketPanel } from "@/components/finance/TicketPanel";
+import { Icon } from "@/components/icons/Icon";
 import { useTradingMode } from "@/components/trading-mode";
 import { api, ApiError } from "@/lib/api";
 import { formatPrice, formatPrice4 } from "@/lib/format";
@@ -74,7 +74,7 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
           className="ar-btn ar-btn--icon ar-btn--plain"
           aria-label="Back to markets"
         >
-          <ChevronLeft aria-hidden />
+          <Icon name="chevron-left" />
         </Link>
         <span className="ar-appbar__title ar-appbar__title--sm">{data.instrument.name}</span>
         <button
@@ -84,7 +84,7 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
           disabled={!watchlist || toggleWatch.isPending}
           aria-pressed={watchItem !== null}
         >
-          <Star size={16} aria-hidden fill={watchItem ? "currentColor" : "none"} />
+          <Icon name="star" size={16} filled={watchItem !== null} />
           {watchItem ? "Remove from watchlist" : "Add to watchlist"}
         </button>
       </div>

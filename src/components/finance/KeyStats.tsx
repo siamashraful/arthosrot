@@ -12,10 +12,10 @@ const shortDate = (iso: string) =>
   });
 
 /**
- * Key stats in the same label/value rows as "Your position" (.ar-ticket-row
- * in a card) — the system's stat-row pattern, not a new one. Each figure says
- * where it comes from in the footnote: these are derived display numbers,
- * and never presented as more precise or more live than they are.
+ * The system's StockDetail "Stats": a compact card holding a two-column grid
+ * of label/value cells (market cap | P/E, 52-week high | low). Each figure
+ * says where it comes from in the footnote: these are derived display
+ * numbers, and never presented as more precise or more live than they are.
  */
 export function KeyStats({ symbol }: { symbol: string }) {
   const { data, isPending, isError } = useQuery({
@@ -25,7 +25,7 @@ export function KeyStats({ symbol }: { symbol: string }) {
   });
 
   const value = (v: string | null | undefined) =>
-    isPending ? <span className="ar-skel ar-skel--text" style={{ width: 64 }} /> : (v ?? "—");
+    isPending ? <span className="ar-skel ar-skel--text" style={{ width: 56 }} /> : (v ?? "—");
 
   const pe = data?.pe ?? (data?.peNotMeaningful ? "n/m" : null);
   const notes = [
@@ -40,42 +40,44 @@ export function KeyStats({ symbol }: { symbol: string }) {
   return (
     <section aria-labelledby="key-stats-heading" style={{ display: "grid", gap: 8 }}>
       <h2 id="key-stats-heading" className="ar-heading" style={{ margin: 0 }}>
-        Key stats
+        Stats
       </h2>
-      <div className="ar-card" style={{ paddingTop: 4, paddingBottom: 4 }}>
-        <div className="ar-ticket-row">
-          <span className="ar-ticket-row__label">Market cap</span>
-          <span className="ar-ticket-row__value">
-            {value(data?.marketCap ? formatCompactMoney(data.marketCap) : null)}
-          </span>
-        </div>
-        <div className="ar-ticket-row">
-          <span className="ar-ticket-row__label">
-            P/E ratio{data?.peBasis === "fy" ? " (FY)" : data?.pe ? " (TTM)" : ""}
-          </span>
-          <span className="ar-ticket-row__value">
-            {value(pe)}
-            {pe === "n/m" ? (
-              <span className="sr-only"> — not meaningful, negative earnings</span>
-            ) : null}
-          </span>
-        </div>
-        <div className="ar-ticket-row">
-          <span className="ar-ticket-row__label">52-week high</span>
-          <span className="ar-ticket-row__value">
-            {value(data?.week52 ? formatPrice(data.week52.high) : null)}
-          </span>
-        </div>
-        <div className="ar-ticket-row">
-          <span className="ar-ticket-row__label">52-week low</span>
-          <span className="ar-ticket-row__value">
-            {value(data?.week52 ? formatPrice(data.week52.low) : null)}
-          </span>
+      <div className="ar-card ar-card--compact" style={{ padding: "4px 16px" }}>
+        <div className="ar-stats">
+          <div className="ar-stat">
+            <span className="ar-stat__label">Market cap</span>
+            <span className="ar-stat__value">
+              {value(data?.marketCap ? formatCompactMoney(data.marketCap) : null)}
+            </span>
+          </div>
+          <div className="ar-stat">
+            <span className="ar-stat__label">
+              P/E ratio{data?.peBasis === "fy" ? " (FY)" : data?.pe ? " (TTM)" : ""}
+            </span>
+            <span className="ar-stat__value">
+              {value(pe)}
+              {pe === "n/m" ? (
+                <span className="sr-only"> — not meaningful, negative earnings</span>
+              ) : null}
+            </span>
+          </div>
+          <div className="ar-stat">
+            <span className="ar-stat__label">52w high</span>
+            <span className="ar-stat__value">
+              {value(data?.week52 ? formatPrice(data.week52.high) : null)}
+            </span>
+          </div>
+          <div className="ar-stat">
+            <span className="ar-stat__label">52w low</span>
+            <span className="ar-stat__value">
+              {value(data?.week52 ? formatPrice(data.week52.low) : null)}
+            </span>
+          </div>
         </div>
       </div>
       {isError ? (
         <p className="ar-caption ar-tertiary" style={{ margin: 0 }}>
-          Key stats are unavailable right now.
+          Stats are unavailable right now.
         </p>
       ) : notes.length > 0 ? (
         <p className="ar-caption ar-tertiary" style={{ margin: 0 }}>

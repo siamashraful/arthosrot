@@ -1,7 +1,7 @@
 "use client";
 
-import { Moon, Sun } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Icon } from "@/components/icons/Icon";
 
 /** Explicit preference; null = follow the OS scheme (no data-theme attribute). */
 type Theme = "light" | "dark" | null;
@@ -50,7 +50,7 @@ export function ThemeToggle() {
 
   // One icon, the one that matches the current look (a mirror, not a switch
   // showing the destination): sun for light, moon for dark.
-  const Icon = resolved === "dark" ? Moon : Sun;
+  const glyph = resolved === "dark" ? "moon" : "sun";
 
   return (
     <button
@@ -59,7 +59,7 @@ export function ThemeToggle() {
       onClick={toggle}
       aria-label="Toggle theme"
     >
-      <Icon size={16} aria-hidden />
+      <Icon name={glyph} size={16} />
       Theme
     </button>
   );

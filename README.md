@@ -1,6 +1,6 @@
 # Arthosrot
 
-A paper-trading platform for US equities that behaves like a credible modern brokerage: users open an isolated simulated brokerage account with starting cash they choose ($1,000–$25,000), browse the 100 largest US companies and 11 sectors or search any instrument, view bid/ask/last quotes with day change and charts, place **market and limit orders** with a real asynchronous order lifecycle (acknowledgement, fills, partial fills, cancellation, expiration), and track positions, P&L, a net-worth curve derived from the immutable ledger, and the full transaction history. Simulated money only — the UI says so persistently via the mode ribbon. The UI implements the **Arthosrot Design System** (Claude Design) — colour-block clarity on a neutral ground, green/red reserved for financial meaning, no celebratory mechanics ([docs/design/DESIGN.md](docs/design/DESIGN.md)). A Settings switch previews the future **live-trading mode** (distinct visual identity, own empty states, designed deposit/withdraw flows) — presentation only, with the backend seams and remaining work documented in [docs/LIVE_TRADING_TODO.md](docs/LIVE_TRADING_TODO.md) (ADR-011).
+A paper-trading platform for US equities that behaves like a credible modern brokerage: users open an isolated simulated brokerage account with starting cash they choose ($1,000–$25,000), browse the 100 largest US companies and 11 sectors or search any instrument, view bid/ask/last quotes with day change, scrub-able price charts and key stats (market cap, P/E TTM, 52-week range), place **market and limit orders** with a real asynchronous order lifecycle (acknowledgement, fills, partial fills, cancellation, expiration), and track positions, P&L, a net-worth curve derived from the immutable ledger, and the full transaction history. Simulated money only — the UI says so persistently via the mode ribbon. The UI implements the **Arthosrot Design System** (Claude Design) — colour-block clarity on a neutral ground, green/red reserved for financial meaning, no celebratory mechanics ([docs/design/DESIGN.md](docs/design/DESIGN.md)). A Settings switch previews the future **live-trading mode** (distinct visual identity, own empty states, designed deposit/withdraw flows) — presentation only, with the backend seams and remaining work documented in [docs/LIVE_TRADING_TODO.md](docs/LIVE_TRADING_TODO.md) (ADR-011).
 
 **Status: deployed at $0/month — [arthosrot.vercel.app](https://arthosrot.vercel.app).** All application phases through hardening are implemented with passing unit, integration, and E2E suites, and the platform runs in production (Vercel web + Render worker + Neon Postgres + Alpaca sandbox venue). One verification remains open: the order slices against the live venue during market hours (docs/ROADMAP.md Phase 18). Deliberately deferred UI niceties are tracked in [docs/ROADMAP.md](docs/ROADMAP.md). Realism and data limitations are documented honestly in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
@@ -10,7 +10,7 @@ A paper-trading platform for US equities that behaves like a credible modern bro
 - All business logic lives in framework-free [`src/core`](src/core) behind explicit module boundaries (lint-enforced). PostgreSQL is Arthosrot's system of record.
 - Execution goes through a canonical **Broker port**: deployed venue is the **Alpaca Broker API Sandbox** (one isolated sandbox brokerage account per user; broker-managed limit matching and fills), while tests/CI/local use a **DeterministicPaperBroker** implementing the identical contract.
 - The worker consumes the broker's **replayable SSE event stream**, translates vendor events into canonical BrokerEvents, and applies them transactionally (order state, fills, ledger, positions, cash). A REST **reconciliation engine** heals missed events exactly-once.
-- The worker also runs **scheduled jobs** (hourly tick, per-job interval + lease): the daily **Top 100 by market value** ranks SEC EDGAR share counts × IEX prices ([INTEGRATIONS.md](docs/architecture/INTEGRATIONS.md)).
+- The worker also runs **scheduled jobs** (`src/worker/jobs`; hourly `POST /jobs/tick` from GitHub Actions, per-job interval + lease in `job_runs`): the daily **Top 100 by market value** ranks SEC EDGAR share counts × IEX prices and saves per-company share counts for the instrument page's market cap ([INTEGRATIONS.md](docs/architecture/INTEGRATIONS.md)). Rankings, day change and key stats are display data — never inputs to execution or the ledger.
 - Market data is a separate **MarketDataProvider port** (free Alpaca IEX feed + deterministic fixtures). The broker is authoritative for execution facts; Arthosrot's append-only ledger is the authoritative financial history.
 
 ```
@@ -26,7 +26,7 @@ Full picture: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE
 
 - Node.js ≥ 22
 - pnpm ≥ 11 (`corepack enable pnpm` or https://pnpm.io/installation)
-- Docker (optional — only for the local Postgres once the database phase lands)
+- Docker for the local Postgres (`pnpm db:up`) — or point `DATABASE_URL` at a Neon branch
 
 ## Quick start
 
@@ -34,41 +34,54 @@ Full picture: [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE
 git clone <repo-url> arthosrot && cd arthosrot
 pnpm install
 cp .env.example .env.local
+set -a; . ./.env.local; set +a   # worker + scripts read the shell env (Next.js loads .env.local itself)
+pnpm db:up && pnpm db:migrate && pnpm db:seed
 pnpm dev            # web app on http://localhost:3000
 pnpm dev:worker     # event/reconciliation worker on http://localhost:8090 (separate terminal)
 ```
 
-The defaults run **fully offline**: `BROKER_PROVIDER=deterministic` and `MARKET_DATA_PROVIDER=fixture` — no external accounts or network needed. Database setup (`docker compose up -d`, `pnpm db:migrate`, `pnpm db:seed`) arrives with the database phase; see ROADMAP.
+The defaults run **fully offline**: `BROKER_PROVIDER=deterministic` and `MARKET_DATA_PROVIDER=fixture` — no external accounts or network needed. Set `FORCE_MARKET_OPEN=1` to let the deterministic venue fill outside market hours. `pnpm db:seed` loads a small instrument set plus fixture fundamentals for key stats (idempotent); `pnpm db:sync-instruments` imports the full venue catalog (needs Alpaca broker keys).
 
 ## Commands
 
-| Command                           | What it does                                                        |
-| --------------------------------- | ------------------------------------------------------------------- |
-| `pnpm dev` / `pnpm dev:worker`    | Run web app / worker in watch mode                                  |
-| `pnpm build` / `pnpm start`       | Production build / serve of the web app                             |
-| `pnpm test` / `pnpm test:watch`   | Unit + integration tests (Vitest; never touches live Alpaca)        |
-| `pnpm test:e2e`                   | Playwright E2E (desktop + mobile projects, deterministic providers) |
-| `pnpm lint`                       | ESLint incl. module-boundary rules                                  |
-| `pnpm typecheck`                  | TypeScript, strict                                                  |
-| `pnpm format` / `pnpm format:fix` | Prettier check / write                                              |
+| Command                                | What it does                                                                     |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm dev` / `pnpm dev:worker`         | Run web app / worker in watch mode                                               |
+| `pnpm start:worker`                    | Run the worker (production entrypoint on Render)                                 |
+| `pnpm build` / `pnpm start`            | Production build / serve of the web app                                          |
+| `pnpm test` / `pnpm test:watch`        | Unit + contract tests (Vitest; offline, never touches live Alpaca)               |
+| `pnpm test:int`                        | DB-backed integration tests (`TEST_DB=1`; needs Postgres at `TEST_DATABASE_URL`) |
+| `pnpm test:e2e`                        | Playwright E2E (desktop + mobile projects, deterministic providers)              |
+| `pnpm test:external`                   | Alpaca sandbox smoke suite (`tests/external`; manual only, never CI)             |
+| `pnpm lint`                            | ESLint incl. module-boundary rules                                               |
+| `pnpm typecheck`                       | TypeScript, strict                                                               |
+| `pnpm format` / `pnpm format:fix`      | Prettier check / write                                                           |
+| `pnpm check:contrast`                  | WCAG contrast check of the design tokens (CI gate)                               |
+| `pnpm db:up`                           | Local Postgres via docker compose                                                |
+| `pnpm db:generate` / `pnpm db:migrate` | Generate a drizzle-kit migration / apply migrations                              |
+| `pnpm db:seed`                         | Idempotent seed: instruments + fixture key-stats fundamentals                    |
+| `pnpm db:sync-instruments`             | Import the venue's tradable US equities (Alpaca broker keys)                     |
+| `pnpm jobs:run [name] [--force]`       | Run due scheduled jobs by hand (`--force` ignores the interval)                  |
 
 ## Environment
 
-Instrument search is DB-backed: `pnpm db:sync-instruments` imports the venue's ~13k tradable US equities (see docs/architecture/DEPLOYMENT.md). Every variable is documented in [.env.example](.env.example). Highlights: `BROKER_PROVIDER` (`deterministic` \| `alpaca-paper`), `MARKET_DATA_PROVIDER` (`fixture` \| `alpaca`), `DATABASE_URL`, `STARTING_CASH_MIN/MAX/DEFAULT`, `MARKET_BUY_BUFFER`, `CRON_SECRET`, `SEC_USER_AGENT` / `TOP100_REFRESH_INTERVAL` (Top 100 job; `pnpm jobs:run` runs jobs by hand). Secrets are never committed; deployment values are covered in [docs/architecture/DEPLOYMENT.md](docs/architecture/DEPLOYMENT.md).
+Instrument search is DB-backed: `pnpm db:sync-instruments` imports the venue's ~13k tradable US equities (see docs/architecture/DEPLOYMENT.md). Every variable is documented in [.env.example](.env.example). Highlights: `BROKER_PROVIDER` (`deterministic` \| `alpaca-paper`), `MARKET_DATA_PROVIDER` (`fixture` \| `alpaca`), `DATABASE_URL`, `BETTER_AUTH_SECRET` / `BETTER_AUTH_URL`, `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `STARTING_CASH_MIN/MAX/DEFAULT`, `MARKET_BUY_BUFFER`, `CRON_SECRET` (worker `/reconcile` + `/jobs/tick`), `SEC_USER_AGENT` / `TOP100_REFRESH_INTERVAL` (Top 100 job and P/E; `pnpm jobs:run` runs jobs by hand), `LOGO_UPSTREAM` (stock logos; unset ⇒ monograms), `FORCE_MARKET_OPEN` (dev/test only). `process.env` is read only in `src/env.ts`. Secrets are never committed; deployment values are covered in [docs/architecture/DEPLOYMENT.md](docs/architecture/DEPLOYMENT.md).
 
 ## Repository map
 
-| Path                                         | What lives there                                                                                           |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `src/core/`                                  | Framework-free domain modules (money, orders, execution, ledger, portfolio, …) — the heart of the system   |
-| `src/infra/`                                 | Adapters implementing core ports (Postgres repositories, Alpaca broker + market data, SEC EDGAR, fixtures) |
-| `src/server/`                                | Web composition root, auth, API handlers                                                                   |
-| `src/worker/`                                | Event-ingestion/reconciliation worker entrypoint + scheduled jobs (`jobs/`)                                |
-| `src/app/`                                   | Next.js routes (pages + `/api/v1/*`)                                                                       |
-| `src/components/`, `src/lib/`, `src/styles/` | UI components, client utilities, design tokens                                                             |
-| `tests/`                                     | integration / contract / e2e / **external** (sandbox smoke — excluded from CI) / fixtures                  |
-| `drizzle/`                                   | Committed SQL migrations                                                                                   |
-| `docs/`                                      | All documentation (index below)                                                                            |
+| Path                                         | What lives there                                                                                                                          |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/core/`                                  | Framework-free domain modules (money, orders, execution, ledger, portfolio, reconciliation, discovery, …) — the heart of the system       |
+| `src/infra/`                                 | Adapters implementing core ports (`db/` Postgres schema + repositories, `brokers/alpaca`, `market-data/` Alpaca + fixtures, `sec-edgar/`) |
+| `src/server/`                                | Web composition root, auth, API handlers                                                                                                  |
+| `src/worker/`                                | Event-ingestion/reconciliation worker entrypoint (`main.ts`) + scheduled-jobs registry (`jobs/`)                                          |
+| `src/app/`                                   | Next.js routes (pages + `/api/v1/*`)                                                                                                      |
+| `src/components/`, `src/lib/`, `src/styles/` | UI components, client utilities, design tokens                                                                                            |
+| `tests/`                                     | integration / contract / e2e / **external** (sandbox smoke — excluded from CI) / fixtures                                                 |
+| `drizzle/`                                   | Committed SQL migrations (0000–0005)                                                                                                      |
+| `scripts/`                                   | migrate, seed, sync-instruments, jobs-run, check-contrast                                                                                 |
+| `.github/workflows/`                         | ci (gates + worker deploy), migrate, reconcile, jobs, external-smoke                                                                      |
+| `docs/`                                      | All documentation (index below)                                                                                                           |
 
 ## Testing
 

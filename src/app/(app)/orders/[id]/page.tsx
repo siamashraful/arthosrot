@@ -1,13 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronLeft, Clock, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
 import { use } from "react";
 import { Explainer } from "@/components/Explainer";
 import { OrderStatusBadge } from "@/components/finance/OrderStatusBadge";
 import { FillProgress } from "@/components/finance/FillProgress";
 import { Money } from "@/components/finance/Money";
+import { Icon, type IconName } from "@/components/icons/Icon";
 import { isCancellable } from "@/components/finance/OrdersTable";
 import { useCancelOrder } from "@/components/finance/useCancelOrder";
 import { api } from "@/lib/api";
@@ -16,14 +16,14 @@ import { formatDateTime, formatPrice, formatPrice4 } from "@/lib/format";
 const TERMINAL = new Set(["FILLED", "CANCELLED", "REJECTED", "EXPIRED", "SUBMIT_FAILED"]);
 
 /** Semantic chip for a lifecycle event, by what the event did. */
-function eventChip(type: string): { cls: string; Icon: typeof Check } {
-  if (type.includes("FILL")) return { cls: "ar-chipicon--gain", Icon: Check };
+function eventChip(type: string): { cls: string; icon: IconName } {
+  if (type.includes("FILL")) return { cls: "ar-chipicon--gain", icon: "check" };
   if (type.includes("REJECT") || type.includes("FAIL"))
-    return { cls: "ar-chipicon--loss", Icon: TriangleAlert };
+    return { cls: "ar-chipicon--loss", icon: "alert" };
   if (type.includes("CANCEL") || type.includes("EXPIRE"))
-    return { cls: "ar-chipicon--neutral", Icon: X };
+    return { cls: "ar-chipicon--neutral", icon: "x" };
   // still in flight: the same Pending treatment the orders list uses
-  return { cls: "ar-chipicon--warning", Icon: Clock };
+  return { cls: "ar-chipicon--warning", icon: "clock" };
 }
 
 /** "PARTIALLY_FILLED" → "Partially filled": event names read as words, not codes. */
@@ -73,7 +73,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
           className="ar-btn ar-btn--icon ar-btn--plain"
           aria-label="Back to orders"
         >
-          <ChevronLeft aria-hidden />
+          <Icon name="chevron-left" />
         </Link>
         <h1 className="ar-appbar__title">
           {order.side === "BUY" ? "Buy" : "Sell"} {order.qty} {order.symbol}
@@ -154,7 +154,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {fills.map((f, i) => (
               <li key={i} className="ar-row">
                 <span className="ar-chipicon ar-chipicon--gain" aria-hidden>
-                  <Check />
+                  <Icon name="check" />
                 </span>
                 <div className="ar-row__main">
                   <span className="ar-row__title">
@@ -184,11 +184,11 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
         <ol className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
           {events.map((e, i) => {
-            const { cls, Icon } = eventChip(e.type);
+            const { cls, icon } = eventChip(e.type);
             return (
               <li key={i} className="ar-row">
                 <span className={`ar-chipicon ar-chipicon--sm ${cls}`} aria-hidden>
-                  <Icon />
+                  <Icon name={icon} />
                 </span>
                 <div className="ar-row__main">
                   <span className="ar-row__title">{humanize(e.type)}</span>

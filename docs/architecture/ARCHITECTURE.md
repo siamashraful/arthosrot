@@ -11,17 +11,20 @@ A modular monolith in one TypeScript repository producing **two deployables from
 Browser (React) ── HTTPS ──▶ Next.js on Vercel
    │  pages + /api/v1/*  (adaptive polling for order/portfolio updates)
    │  server/container.ts → core services → infra/db ──▶ Neon Postgres (Arthosrot system of record)
-   │                                    └─ infra/market-data ─▶ Alpaca IEX (cached)
+   │                                    ├─ infra/market-data ─▶ Alpaca IEX (cached)
+   │                                    └─ infra/sec-edgar ─▶ SEC EDGAR (trailing EPS for key stats, cached a day)
    │  order placement: validate + reserve locally → AlpacaPaperBroker.submit (REST)
    │
 Worker on Render (same codebase)
    ├─ SSE subscribe /v2/events/trades (since_ulid = stored cursor) ─▶ Alpaca Broker Sandbox
    ├─ adapter translates vendor events → canonical BrokerEvents
    ├─ ExecutionService applies each event in one DB transaction
-   ├─ Reconciliation engine (startup / reconnect / schedule / on-demand)
-   └─ HTTP: /healthz, /reconcile (CRON_SECRET)
+   ├─ Reconciliation engine (startup / schedule / on-demand)
+   ├─ Scheduled jobs (src/worker/jobs; lease in job_runs): Top 100 ranking ─▶ SEC EDGAR + Alpaca IEX
+   └─ HTTP: /healthz, /reconcile, /jobs/tick (CRON_SECRET)
 
 GitHub Actions (market hours, ~10 min) ──▶ POST worker /reconcile   # genuine reconciliation; also wakes a slept worker
+GitHub Actions (hourly)                ──▶ POST worker /jobs/tick   # runs whatever scheduled jobs are due
 ```
 
 No queues, Redis, Kubernetes, or event bus. All Arthosrot state lives in Postgres; the broker's SSE stream is **replayable via ULID cursors**, so worker restarts and free-tier sleeps are safe — missed events are recovered exactly-once. Two deployables is the minimum topology satisfying "broker-pushed events, near-real-time, $0": serverless can't hold an outbound SSE subscription, and a slow scheduler as the primary matching/notification path is rejected by design (ADR-010).
@@ -39,30 +42,34 @@ Disagreement handling: broker execution facts win; Arthosrot discovers missing/e
 
 ## Directory responsibilities
 
-| Path                                                    | Responsibility                                                                                             |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `src/core/money`                                        | Money/Px/Qty value objects, rounding rules                                                                 |
-| `src/core/accounts`                                     | Account lifecycle (PROVISIONING/ACTIVE/ARCHIVED), reset orchestration rules                                |
-| `src/core/instruments`                                  | Instrument entity, symbol normalization                                                                    |
-| `src/core/market-data`                                  | MarketDataProvider port, display-freshness rules                                                           |
-| `src/core/orders`                                       | Order entity, state machine, validation taxonomy, reservation formulas                                     |
-| `src/core/execution`                                    | ExecutionService, Broker port, canonical BrokerEvent model, event application                              |
-| `src/core/brokers/deterministic`                        | DeterministicPaperBroker (no vendor deps)                                                                  |
-| `src/core/reconciliation`                               | Reconciliation engine (pure logic; ports injected)                                                         |
-| `src/core/ledger`                                       | Entry types, posting rules, cash projection + reconcile                                                    |
-| `src/core/portfolio`                                    | Positions, sellable qty, avg cost, P&L                                                                     |
-| `src/core/watchlists`                                   | Watchlist rules                                                                                            |
-| `src/core/shared`                                       | Ids, Clock port, errors, invariant helper                                                                  |
-| `src/infra/db`                                          | Drizzle schema, client, repositories                                                                       |
-| `src/infra/brokers/alpaca`                              | Alpaca adapter: REST + SSE clients, status/event translation — **vendor types never leave this directory** |
-| `src/infra/market-data`                                 | Alpaca IEX adapter, fixture provider, caching decorator                                                    |
-| `src/server`                                            | Web composition root, auth, API handlers, middleware                                                       |
-| `src/worker`                                            | Worker composition root: ingest loop, cursor mgmt, reconciliation triggers, health HTTP                    |
-| `src/app` / `src/components` / `src/lib` / `src/styles` | Next.js routes, UI components, client utils, tokens                                                        |
+| Path                                                    | Responsibility                                                                                                              |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `src/core/money`                                        | Money/Px/Qty value objects, rounding rules                                                                                  |
+| `src/core/accounts`                                     | Account lifecycle (PROVISIONING/ACTIVE/ARCHIVED), reset orchestration rules                                                 |
+| `src/core/instruments`                                  | Instrument entity, symbol normalization                                                                                     |
+| `src/core/market-data`                                  | MarketDataProvider port, display-freshness rules                                                                            |
+| `src/core/orders`                                       | Order entity, state machine, validation taxonomy, reservation formulas                                                      |
+| `src/core/execution`                                    | ExecutionService, Broker port, canonical BrokerEvent model, event application                                               |
+| `src/core/brokers/deterministic`                        | DeterministicPaperBroker (no vendor deps)                                                                                   |
+| `src/core/reconciliation`                               | Reconciliation engine (pure logic; ports injected)                                                                          |
+| `src/core/ledger`                                       | Entry types, posting rules, cash projection + reconcile                                                                     |
+| `src/core/portfolio`                                    | Positions, sellable qty, avg cost, P&L                                                                                      |
+| `src/core/watchlists`                                   | Placeholder (watchlist storage lives in `infra/db/repositories/watchlists.ts`)                                              |
+| `src/core/discovery`                                    | Browse catalog (11 sectors), Top 100 ranking rules + snapshot validation, key-stats math (EPS TTM, P/E, 52W)                |
+| `src/core/funding`                                      | FundingProvider port only (live-mode seam, ADR-011; no implementation)                                                      |
+| `src/core/shared`                                       | Ids, Clock port, errors, invariant helper                                                                                   |
+| `src/infra/db`                                          | Drizzle schema, client, repositories                                                                                        |
+| `src/infra/brokers/alpaca`                              | Alpaca adapter: REST + SSE clients, status/event translation — **vendor types never leave this directory**                  |
+| `src/infra/market-data`                                 | Alpaca IEX adapter, fixture provider, caching decorator, logo proxy cache                                                   |
+| `src/infra/sec-edgar`                                   | SEC EDGAR adapter: bulk share-count frames, ticker map, SIC, trailing EPS — vendor shapes stay here                         |
+| `src/server`                                            | Web composition root, auth, API handlers, middleware                                                                        |
+| `src/worker`                                            | Worker entrypoint (`main.ts`; reuses `server/container.ts`): ingest loop, cursor mgmt, reconciliation triggers, health HTTP |
+| `src/worker/jobs`                                       | Scheduled-jobs registry (`defineJob`, due/lease via `job_runs`) and the Top 100 job                                         |
+| `src/app` / `src/components` / `src/lib` / `src/styles` | Next.js routes, UI components, client utils, tokens                                                                         |
 
 ## Frontend architecture
 
-App Router; server components for initial reads, client components for live surfaces. All client data access goes through `/api/v1` + a typed client (`lib/api.ts`, shared Zod schemas). Realtime model: TanStack Query polls open orders at **2s while any order is non-terminal**, else pauses; quotes at 10–15s in market hours; terminal transitions invalidate portfolio/ledger queries. The UI renders exact lifecycle states and a pipeline-health banner — it never optimistically shows FILLED. SSE push from the worker is the documented upgrade path (ADR-010).
+App Router; server components for initial reads, client components for live surfaces. All client data access goes through `/api/v1` + a typed client (`lib/api.ts`; money/prices stay strings end to end; request bodies are Zod-validated server-side). Realtime model: TanStack Query polls open orders at **2s while any order is non-terminal**, else pauses; quotes every 15s on the instrument page and watchlist, 30s on browse lists while the market is open; portfolio/net-worth 30s; terminal transitions invalidate portfolio/ledger queries. The UI renders exact lifecycle states and a pipeline-health banner — it never optimistically shows FILLED. SSE push from the worker is the documented upgrade path (ADR-010).
 
 ## Backend/application architecture
 

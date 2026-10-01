@@ -28,7 +28,13 @@ Review gates: **hard gate** = Fable (architecture-model) review required before 
 
 ## Shipped since the phase plan
 
-- **Markets discovery (2026-09-30):** Browse on the empty Markets screen — a Top 100 by market value and 11 curated sectors — with list pages, day change vs the previous close on lists and the instrument header, and a scheduled-jobs runner in the worker (hourly tick, per-job interval and lease). The Top 100 recomputes daily from SEC EDGAR share counts × IEX prices (INTEGRATIONS.md). Follow-ups: "Top movers" (day change now available), sector lists sorted by market value from the same snapshot, and an automated check of the share-override table.
+- **Design system adoption (2026-09-30):** the app implements the Arthosrot Design System verbatim — tokens, component bundle, screens; contrast gate verifies its usage pairs (ADR-013, ADR-012 superseded).
+- **Logos + interaction pass (2026-09-30):** working stock logos via `LOGO_UPSTREAM` (class shares mapped to the CDN's hyphenated form, monogram fallback); dead-end interactions completed — watchlist add/remove, cancel from order detail, "Show older activity" keyset paging on (created_at, id), trade-ticket pre-checks, guarded reset/sign-out.
+- **Reconciliation fill import fix (2026-09-30):** reconciliation now reads fills from the correct Broker API activities endpoint, throws on any error (an incomplete fill set reports ERROR, never in sync), and normalizes activity ids to the stream's execution_id so a stream + reconciliation import of one execution books once.
+- **CI-deployed worker (2026-09-30):** ci.yml's `deploy-worker` job deploys the exact `main` commit to Render after `quality`, `integration` and `e2e` pass and waits until live; Render auto-deploy is off (DEPLOYMENT.md).
+- **Scrub charts (2026-09-30):** price and net-worth charts share one fixed-window scrub pattern — no pan/zoom (range pills own the window), touch and mouse alike, a floating date/time label at bar resolution and the exact change since the range opened. Alpaca 1D now means the latest session, so weekends and Monday mornings no longer show an empty chart.
+- **Markets discovery (2026-09-30):** Browse on the empty Markets screen — a Top 100 by market value and 11 curated sectors — with list pages, day change vs the previous close on lists and the instrument header, and a scheduled-jobs registry in the worker (`src/worker/jobs`: `defineJob`, run on startup, `POST /jobs/tick` from the hourly `jobs.yml`, or `pnpm jobs:run`; per-job interval and lease in `job_runs`). Day change comes from one Alpaca `/v2/stocks/snapshots` call per batch (previous session close). Browse falls back to the dated Top 100 seed if the ranking store is unavailable. The Top 100 (`top-100-market-cap` job, `TOP100_REFRESH_INTERVAL`, default 24h) recomputes from SEC EDGAR share counts × IEX prices into `market_cap_snapshots`/`market_cap_entries` (INTEGRATIONS.md). APIs: `/api/v1/browse`, `/api/v1/browse/[slug]`. Follow-ups: "Top movers" (day change now available), sector lists sorted by market value from the same snapshot, and an automated check of the share-override table.
+- **Key stats + iconography (2026-09-30):** the instrument page shows market cap (SEC shares from the daily job × live last, stored in `company_fundamentals`), P/E TTM (trailing EPS fetched from SEC on first view, cached a day; FY fallback labelled, "n/m" for losses) and the 52-week range (daily bars over 365 days, widened by the live last) — `/api/v1/instruments/[symbol]/stats`. One lucide glyph per finance concept at a shared stroke; colour carries meaning only (CLAUDE.md "Design consistency").
 
 ## Vertical slices (standing acceptance)
 
@@ -43,10 +49,10 @@ banner with mutation disabling · watchlist drag-reorder · SSE push to the
 browser (adaptive polling is the MVP mechanism) · multiple watchlists.
 The corresponding design-doc sections are annotated "post-MVP".
 
-**Phase 18 note:** all code, workflows, and docs for deployment are in place;
-the remaining steps require the account owner (Neon project, Vercel project,
-Render blueprint, Alpaca Broker Dashboard sandbox signup + secrets) — see
-architecture/DEPLOYMENT.md. The external smoke suite validates the sandbox
-adapter once credentials exist.
+**Phase 18 note:** deployed 2026-08-27 (web on Vercel, worker on Render, DB on
+Neon — architecture/DEPLOYMENT.md); the worker now ships from CI after every
+gate passes. What remains is verifying the order slices against the live
+sandbox during market hours; the external smoke suite (external-smoke.yml)
+validates the sandbox adapter on demand.
 
 Fast-follow queue after MVP: see MVP.md.

@@ -1,13 +1,13 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { BrowseChip, formatAsOfDate } from "@/components/finance/BrowseGrid";
 import { FreshnessChip } from "@/components/finance/FreshnessChip";
 import { PriceChange } from "@/components/finance/PriceChange";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
+import { Icon } from "@/components/icons/Icon";
 import { ApiError, api } from "@/lib/api";
 import { formatPrice } from "@/lib/format";
 
@@ -40,7 +40,7 @@ export default function BrowseListPage() {
           className="ar-btn ar-btn--icon ar-btn--plain"
           aria-label="Back to markets"
         >
-          <ChevronLeft aria-hidden />
+          <Icon name="chevron-left" />
         </Link>
         <h1 className="ar-appbar__title ar-appbar__title--sm">{first?.list.name ?? " "}</h1>
       </div>

@@ -9,8 +9,8 @@ import {
   LineSeries,
   LineStyle,
 } from "lightweight-charts";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "@/components/icons/Icon";
 import { api } from "@/lib/api";
 import { formatScrubTime, type ChartRange } from "@/lib/chart-format";
 import { formatMoney } from "@/lib/format";
@@ -181,7 +181,7 @@ export function NetWorthChart() {
 
   const negative = data?.change.absolute.startsWith("-");
   const flat = data?.change.absolute === "0.00";
-  const Arrow = negative ? ArrowDownRight : ArrowUpRight;
+  const arrow = negative ? "arrow-down" : "arrow-up";
 
   return (
     <div>
@@ -201,7 +201,7 @@ export function NetWorthChart() {
             </span>
           ) : (
             <span className={`ar-delta ${negative ? "ar-delta--loss" : "ar-delta--gain"}`}>
-              <Arrow className="ar-icon" size={14} strokeWidth={2.25} aria-hidden />
+              <Icon name={arrow} size={14} stroke={2.25} />
               <span className="sr-only">{negative ? "Down" : "Up"} </span>
               <span className="tabular">
                 {negative ? "−" : "+"}

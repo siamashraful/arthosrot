@@ -1,8 +1,8 @@
 "use client";
 
-import { Activity, Home, ListOrdered, PieChart, Search, Settings } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Icon, type IconName } from "@/components/icons/Icon";
 
 /**
  * The five primary destinations in tab-bar order: Markets is the centre,
@@ -10,19 +10,24 @@ import { usePathname } from "next/navigation";
  * in the middle of the bar).
  */
 const LINKS = [
-  { href: "/", label: "Dashboard", icon: Home, centre: false },
-  { href: "/portfolio", label: "Portfolio", icon: PieChart, centre: false },
-  { href: "/markets", label: "Markets", icon: Search, centre: true },
-  { href: "/orders", label: "Orders", icon: ListOrdered, centre: false },
-  { href: "/activity", label: "Activity", icon: Activity, centre: false },
-] as const;
+  { href: "/", label: "Dashboard", icon: "home", centre: false },
+  { href: "/portfolio", label: "Portfolio", icon: "pie", centre: false },
+  { href: "/markets", label: "Markets", icon: "discover", centre: true },
+  { href: "/orders", label: "Orders", icon: "orders", centre: false },
+  { href: "/activity", label: "Activity", icon: "activity", centre: false },
+] as const satisfies ReadonlyArray<{
+  href: string;
+  label: string;
+  icon: IconName;
+  centre: boolean;
+}>;
 
 function isCurrent(pathname: string, href: string) {
   return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 }
 
 function links(pathname: string, emphasiseCentre: boolean) {
-  return LINKS.map(({ href, label, icon: Icon, centre }) => {
+  return LINKS.map(({ href, label, icon, centre }) => {
     const current = isCurrent(pathname, href);
     const emphasised = emphasiseCentre && centre;
     return (
@@ -34,10 +39,10 @@ function links(pathname: string, emphasiseCentre: boolean) {
       >
         {emphasised ? (
           <span className="nav-disc">
-            <Icon aria-hidden />
+            <Icon name={icon} />
           </span>
         ) : (
-          <Icon aria-hidden />
+          <Icon name={icon} />
         )}
         {label}
       </Link>
@@ -58,7 +63,7 @@ export function SidebarNav() {
         className="nav-link"
         aria-current={pathname.startsWith("/settings") ? "page" : undefined}
       >
-        <Settings aria-hidden />
+        <Icon name="settings" />
         Settings
       </Link>
       <div className="shell-footer">
@@ -99,7 +104,7 @@ export function MobileTopBar() {
           aria-label="Search markets"
           aria-current={pathname.startsWith("/markets") ? "page" : undefined}
         >
-          <Search aria-hidden />
+          <Icon name="search" />
         </Link>
         <Link
           href="/settings"
@@ -107,7 +112,7 @@ export function MobileTopBar() {
           aria-label="Settings"
           aria-current={pathname.startsWith("/settings") ? "page" : undefined}
         >
-          <Settings aria-hidden />
+          <Icon name="settings" />
         </Link>
       </div>
     </header>

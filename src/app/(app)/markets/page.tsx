@@ -1,11 +1,11 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrowseGrid } from "@/components/finance/BrowseGrid";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
+import { Icon } from "@/components/icons/Icon";
 import { api } from "@/lib/api";
 
 /** One request per pause in typing, not one per keystroke. */
@@ -39,7 +39,7 @@ export default function MarketsPage() {
           Search US equities
         </label>
         <div className="ar-input ar-input--search">
-          <Search className="ar-icon" size={20} aria-hidden />
+          <Icon name="search" size={20} />
           <input
             id="market-search"
             placeholder="Symbol or company name — e.g. AAPL"

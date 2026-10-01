@@ -1,38 +1,25 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import {
-  Building2,
-  Cpu,
-  Factory,
-  Fuel,
-  HeartPulse,
-  Landmark,
-  Pickaxe,
-  RadioTower,
-  ShoppingBag,
-  ShoppingCart,
-  Trophy,
-  Zap,
-  type LucideIcon,
-} from "lucide-react";
 import Link from "next/link";
 import { api, type BrowseIcon } from "@/lib/api";
+import { Icon, type IconName } from "@/components/icons/Icon";
 import { SymbolLogo } from "./SymbolLogo";
 
-const ICONS: Record<BrowseIcon, LucideIcon> = {
-  trophy: Trophy,
-  cpu: Cpu,
-  "radio-tower": RadioTower,
-  "shopping-bag": ShoppingBag,
-  "shopping-cart": ShoppingCart,
-  "heart-pulse": HeartPulse,
-  landmark: Landmark,
-  factory: Factory,
-  fuel: Fuel,
-  pickaxe: Pickaxe,
-  building: Building2,
-  zap: Zap,
+/** The API's browse icon keys → the icon set's sector glyphs. */
+const GLYPHS: Record<BrowseIcon, IconName> = {
+  trophy: "trophy",
+  cpu: "technology",
+  "radio-tower": "communication",
+  "shopping-bag": "consumer-discretionary",
+  "shopping-cart": "consumer-staples",
+  "heart-pulse": "health-care",
+  landmark: "financials",
+  factory: "industrials",
+  fuel: "energy",
+  pickaxe: "materials",
+  building: "real-estate",
+  zap: "utilities",
 };
 
 /**
@@ -41,10 +28,9 @@ const ICONS: Record<BrowseIcon, LucideIcon> = {
  * icon is what tells them apart.
  */
 export function BrowseChip({ icon, size = "sm" }: { icon: BrowseIcon; size?: "sm" | "md" }) {
-  const Icon = ICONS[icon];
   return (
     <span className={`ar-chipicon ar-chipicon--stocks${size === "sm" ? " ar-chipicon--sm" : ""}`}>
-      <Icon aria-hidden />
+      <Icon name={GLYPHS[icon]} />
     </span>
   );
 }
@@ -70,8 +56,10 @@ export function formatAsOfDate(iso: string): string {
 }
 
 /**
- * The Markets screen before a search: the Top 100 first (full width), then
- * the sectors. Each card is one link whose text is its accessible name.
+ * The Markets screen before a search: the Top 100 as one featured card, then
+ * the sectors as account rows on one list card (the system's ListRow: chip,
+ * name and count, a peek of logos, chevron) — not a grid of same-size cards.
+ * Each link's text is its accessible name.
  */
 export function BrowseGrid() {
   const { data, isPending, isError } = useQuery({
@@ -94,52 +82,57 @@ export function BrowseGrid() {
           </div>
         </div>
       ) : isPending ? (
-        <ul className="browse-grid" aria-busy="true">
-          <li className="browse-grid__featured">
-            <span className="ar-skel" style={{ display: "block", height: 112, borderRadius: 20 }} />
-          </li>
-          {Array.from({ length: 6 }, (_, i) => (
-            <li key={i}>
-              <span
-                className="ar-skel"
-                style={{ display: "block", height: 132, borderRadius: 20 }}
-              />
-            </li>
-          ))}
-        </ul>
+        <div aria-busy="true" style={{ display: "grid", gap: 12 }}>
+          <span className="ar-skel" style={{ display: "block", height: 80, borderRadius: 20 }} />
+          <div className="ar-card ar-card--list">
+            {Array.from({ length: 6 }, (_, i) => (
+              <div key={i} className="ar-skel-row">
+                <span className="ar-skel ar-skel--chip" />
+                <div className="ar-skel-row__main">
+                  <span className="ar-skel ar-skel--text" style={{ width: "45%" }} />
+                  <span className="ar-skel ar-skel--text" style={{ width: "30%" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       ) : (
-        <ul className="browse-grid">
-          <li className="browse-grid__featured">
-            <Link
-              href={`/markets/s/${data.top100.slug}`}
-              className="ar-card browse-card browse-card--featured"
-            >
-              <span className="browse-card__lead">
-                <BrowseChip icon="trophy" size="md" />
-                <span className="browse-card__text">
-                  <span className="browse-card__name">Top 100</span>
-                  <span className="browse-card__meta">
-                    Largest US companies by market value · updated{" "}
-                    {formatAsOfDate(data.top100.asOf)}
-                  </span>
+        <>
+          <Link href={`/markets/s/${data.top100.slug}`} className="ar-card browse-featured">
+            <span className="browse-featured__lead">
+              <BrowseChip icon="trophy" size="md" />
+              <span className="browse-featured__text">
+                <span className="browse-featured__name">Top 100</span>
+                <span className="browse-featured__meta">
+                  Largest US companies by market value · updated {formatAsOfDate(data.top100.asOf)}
                 </span>
               </span>
-              <LogoStack symbols={data.top100.preview} />
-            </Link>
-          </li>
-          {data.sectors.map((s) => (
-            <li key={s.slug}>
-              <Link href={`/markets/s/${s.slug}`} className="ar-card browse-card">
-                <BrowseChip icon={s.icon} />
-                <span className="browse-card__text">
-                  <span className="browse-card__name">{s.name}</span>
-                  <span className="browse-card__meta">{s.count} companies</span>
-                </span>
-                <LogoStack symbols={s.preview} />
-              </Link>
-            </li>
-          ))}
-        </ul>
+            </span>
+            <LogoStack symbols={data.top100.preview} />
+          </Link>
+          <div style={{ display: "grid", gap: 8 }}>
+            <h3 className="ar-group-label" style={{ margin: 0 }}>
+              Sectors
+            </h3>
+            <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
+              {data.sectors.map((s) => (
+                <li key={s.slug}>
+                  <Link href={`/markets/s/${s.slug}`} className="ar-row">
+                    <BrowseChip icon={s.icon} size="md" />
+                    <span className="ar-row__main">
+                      <span className="ar-row__title">{s.name}</span>
+                      <span className="ar-row__sub">{s.count} companies</span>
+                    </span>
+                    <span className="ar-row__end browse-row__end">
+                      <LogoStack symbols={s.preview} />
+                      <Icon name="chevron-right" size={20} className="ar-row__chev" />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
       )}
     </section>
   );

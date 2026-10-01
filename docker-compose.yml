@@ -1,5 +1,5 @@
 # Local Postgres for development and integration tests.
-# Usage: docker compose up -d   (or `pnpm db:up` once db scripts land in Phase 2)
+# Usage: pnpm db:up   (= docker compose up -d), then pnpm db:migrate && pnpm db:seed
 services:
   postgres:
     image: postgres:16-alpine
