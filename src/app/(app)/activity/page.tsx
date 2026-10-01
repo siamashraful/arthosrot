@@ -1,7 +1,8 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowDownLeft, ArrowUpRight, Receipt, SlidersHorizontal, TrendingUp } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import { FINANCE_GLYPHS } from "@/components/finance/MetricIcon";
 import { LiveEmptyState } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
@@ -16,26 +17,23 @@ const TYPE_LABEL: Record<string, string> = {
 };
 
 /**
- * The semantic chip for a ledger entry: money in is the gain chip, fees and
- * withdrawals the loss chip, trades the Stocks category, adjustments neutral.
- * The chip marks the kind of movement; the signed amount beside it carries
- * the direction in text.
+ * The chip for a ledger entry names the KIND of movement, in its category:
+ * cash in/out is the Cash category, a trade the Stocks category, fees and
+ * adjustments neutral. Green/red stay reserved for gain and loss — a deposit
+ * is not a gain — and the signed amount beside the chip carries direction.
  */
-function entryChip(type: string, sign: -1 | 0 | 1): { cls: string; Icon: typeof Receipt } {
+function entryChip(type: string): { cls: string; Icon: LucideIcon } {
   switch (type) {
     case "DEPOSIT":
-      return { cls: "ar-chipicon--gain", Icon: ArrowDownLeft };
+      return { cls: "ar-chipicon--cash", Icon: FINANCE_GLYPHS.deposit };
     case "WITHDRAWAL":
-      return { cls: "ar-chipicon--loss", Icon: ArrowUpRight };
+      return { cls: "ar-chipicon--cash", Icon: FINANCE_GLYPHS.withdrawal };
     case "FEE":
-      return { cls: "ar-chipicon--loss", Icon: Receipt };
+      return { cls: "ar-chipicon--neutral", Icon: FINANCE_GLYPHS.fee };
     case "TRADE":
-      return { cls: "ar-chipicon--stocks", Icon: TrendingUp };
+      return { cls: "ar-chipicon--stocks", Icon: FINANCE_GLYPHS.trade };
     default:
-      return {
-        cls: sign > 0 ? "ar-chipicon--gain" : "ar-chipicon--neutral",
-        Icon: SlidersHorizontal,
-      };
+      return { cls: "ar-chipicon--neutral", Icon: FINANCE_GLYPHS.adjustment };
   }
 }
 
@@ -106,11 +104,11 @@ export default function ActivityPage() {
         <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
           {data.entries.map((e) => {
             const sign = signOf(e.amount);
-            const { cls, Icon } = entryChip(e.type, sign);
+            const { cls, Icon } = entryChip(e.type);
             return (
               <li key={e.id} className="ar-row">
                 <span className={`ar-chipicon ${cls}`} aria-hidden>
-                  <Icon size={22} />
+                  <Icon />
                 </span>
                 <div className="ar-row__main">
                   <span className="ar-row__title">{e.description}</span>

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { use } from "react";
 import { CandleChart } from "@/components/finance/CandleChart";
 import { FreshnessChip } from "@/components/finance/FreshnessChip";
+import { KeyStats } from "@/components/finance/KeyStats";
 import { PriceChange } from "@/components/finance/PriceChange";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { TicketPanel } from "@/components/finance/TicketPanel";
@@ -167,8 +168,11 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
       ) : null}
 
       <div className="instrument-grid">
-        <div className="ar-card">
-          <CandleChart symbol={symbol} />
+        <div style={{ display: "grid", gap: 16, minWidth: 0 }}>
+          <div className="ar-card">
+            <CandleChart symbol={symbol} />
+          </div>
+          <KeyStats symbol={symbol} />
         </div>
         {mode === "live" ? (
           // renders the live-preview refusal; no paper figures are passed

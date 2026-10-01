@@ -1,15 +1,15 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { Layers, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import Link from "next/link";
 import { Money } from "@/components/finance/Money";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { PriceChange } from "@/components/finance/PriceChange";
+import { MetricIcon } from "@/components/finance/MetricIcon";
 import { LiveEmptyState } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
-import { formatPrice, formatPrice4, formatTime, signOf } from "@/lib/format";
+import { formatPrice, formatPrice4, formatTime } from "@/lib/format";
 
 export default function PortfolioPage() {
   const mode = useTradingMode();
@@ -54,8 +54,6 @@ export default function PortfolioPage() {
     );
   }
 
-  const realized = signOf(data.summary.realizedPnl);
-
   return (
     <div style={{ display: "grid", gap: 16 }}>
       <div className="ar-appbar">
@@ -78,9 +76,7 @@ export default function PortfolioPage() {
       <div className="ar-insight-row">
         <div className="ar-insight">
           <span className="ar-insight__head">
-            <span className="ar-chipicon ar-chipicon--cash ar-chipicon--xs" aria-hidden>
-              <Wallet size={14} strokeWidth={2} />
-            </span>
+            <MetricIcon type="cash" />
             Cash
           </span>
           <span className="ar-insight__value">
@@ -89,9 +85,7 @@ export default function PortfolioPage() {
         </div>
         <div className="ar-insight">
           <span className="ar-insight__head">
-            <span className="ar-chipicon ar-chipicon--stocks ar-chipicon--xs" aria-hidden>
-              <Layers size={14} strokeWidth={2} />
-            </span>
+            <MetricIcon type="positions" />
             Positions value
           </span>
           <span className="ar-insight__value">
@@ -100,18 +94,7 @@ export default function PortfolioPage() {
         </div>
         <div className="ar-insight">
           <span className="ar-insight__head">
-            <span
-              className={`ar-chipicon ar-chipicon--xs ${
-                realized < 0 ? "ar-chipicon--loss" : "ar-chipicon--gain"
-              }`}
-              aria-hidden
-            >
-              {realized < 0 ? (
-                <TrendingDown size={14} strokeWidth={2} />
-              ) : (
-                <TrendingUp size={14} strokeWidth={2} />
-              )}
-            </span>
+            <MetricIcon type="realized" />
             Realized P&L
           </span>
           <span className="ar-insight__value">

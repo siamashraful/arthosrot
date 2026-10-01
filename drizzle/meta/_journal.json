@@ -36,6 +36,13 @@
       "when": 1790816858419,
       "tag": "0004_discovery-rankings-and-jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790822068588,
+      "tag": "0005_company-fundamentals",
+      "breakpoints": true
     }
   ]
 }

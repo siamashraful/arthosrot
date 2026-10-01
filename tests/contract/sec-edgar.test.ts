@@ -59,6 +59,28 @@ function recordedFetch(seen: Array<{ url: string; ua: string | null }> = []): Se
         ? Response.json({ data: frames[frame] })
         : new Response("", { status: 404 });
     if (u.pathname === "/submissions/CIK0001045810.json") return Response.json({ sic: "3674" });
+    if (
+      u.pathname === "/api/xbrl/companyconcept/CIK0001045810/us-gaap/EarningsPerShareDiluted.json"
+    ) {
+      return Response.json({
+        units: {
+          "USD/shares": [
+            { start: "2025-01-27", end: "2026-01-25", val: 4.9, form: "10-K" },
+            // the same period restated in a later filing — one fact survives
+            { start: "2025-01-27", end: "2026-01-25", val: 4.9, form: "10-K" },
+            { start: "2026-01-26", end: "2026-07-26", val: 4.85, form: "10-Q" },
+            { end: "2026-07-26", val: 1 }, // instant-shaped noise: no start → ignored
+          ],
+        },
+      });
+    }
+    if (
+      u.pathname === "/api/xbrl/companyconcept/CIK0000000007/us-gaap/EarningsPerShareBasic.json"
+    ) {
+      return Response.json({
+        units: { "USD/shares": [{ start: "2025-01-01", end: "2025-12-31", val: -0.42 }] },
+      });
+    }
     return new Response("", { status: 404 });
   };
 }
@@ -113,6 +135,21 @@ describe("SEC EDGAR share counts (recorded responses)", () => {
     expect(await source.industryCode("1045810")).toBe("3674");
     expect(await source.industryCode("1045810")).toBe("3674");
     expect(seen.filter((r) => r.url.includes("/submissions/"))).toHaveLength(1);
+  });
+
+  it("reads diluted EPS history, one fact per period, as 4dp strings", async () => {
+    const facts = await sec(recordedFetch()).epsHistory("1045810");
+    expect(facts).toEqual([
+      { start: "2025-01-27", end: "2026-01-25", value: "4.9000" },
+      { start: "2026-01-26", end: "2026-07-26", value: "4.8500" },
+    ]);
+  });
+
+  it("falls back to basic EPS, and to null when a filer reports none", async () => {
+    expect(await sec(recordedFetch()).epsHistory("7")).toEqual([
+      { start: "2025-01-01", end: "2025-12-31", value: "-0.4200" },
+    ]);
+    expect(await sec(recordedFetch()).epsHistory("8")).toBeNull();
   });
 
   it("maps SEC errors to ProviderUnavailableError", async () => {

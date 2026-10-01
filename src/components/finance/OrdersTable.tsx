@@ -120,7 +120,7 @@ function OrderRow({
   return (
     <li className="ar-row">
       <span className={`ar-chipicon ${cls}`} aria-hidden>
-        <Icon size={22} />
+        <Icon />
       </span>
       <div className="ar-row__main">
         <span className="ar-row__title">

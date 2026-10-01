@@ -152,6 +152,8 @@ test("price chart: fixed window, scrub reads out price, change and date/time", a
   await page.mouse.move(box.x - 5, box.y - 40);
   await chart.getByRole("tab", { name: "1D" }).click();
   await expect(chart.getByText("last session")).toBeVisible();
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
+  // re-measure: the tab click can scroll the page
+  const box1d = (await canvas.boundingBox())!;
+  await page.mouse.move(box1d.x + box1d.width * 0.5, box1d.y + box1d.height / 2);
   await expect(label).toHaveText(/\d{1,2}:\d{2} (AM|PM) ET$/);
 });

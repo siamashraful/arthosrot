@@ -30,6 +30,24 @@ const EXTRA: Array<{ symbol: string; name: string; exchange: string }> = [
   { symbol: "T", name: "AT&T Inc.", exchange: "NYSE" },
 ];
 
+/**
+ * Offline key-stats fundamentals for the ten core fixtures (real CIKs, shares
+ * and EPS of roughly the right size — fixture data, never refreshed). In a
+ * deployment these rows come from the daily SEC job instead.
+ */
+const FIXTURE_FUNDAMENTALS: Array<[symbol: string, cik: string, shares: string, epsTtm: string]> = [
+  ["AAPL", "320193", "14594180000", "7.9000"],
+  ["MSFT", "789019", "7425545491", "15.2000"],
+  ["GOOGL", "1652044", "12151000000", "11.5000"],
+  ["AMZN", "1018724", "10700000000", "7.1000"],
+  ["NVDA", "1045810", "24300000000", "7.9100"],
+  ["META", "1326801", "2520000000", "27.5000"],
+  ["TSLA", "1318605", "3220000000", "-0.4000"], // a loss year: P/E "n/m"
+  ["JPM", "19617", "2750000000", "21.0000"],
+  ["V", "1403161", "1880000000", "11.4000"],
+  ["KO", "21344", "4300000000", "2.8500"],
+];
+
 async function main(): Promise<void> {
   const db = getDb();
   const all = [
@@ -49,6 +67,27 @@ async function main(): Promise<void> {
       });
   }
   console.log(`seeded ${all.length} instruments`);
+
+  for (const [symbol, cik, shares, epsTtm] of FIXTURE_FUNDAMENTALS) {
+    const fixture = DEFAULT_FIXTURES.find((f) => f.symbol === symbol)!;
+    const row = {
+      symbol,
+      cik,
+      name: fixture.name,
+      shares: BigInt(shares),
+      sharesAsOf: "2026-07-17",
+      sharesBasis: "fixture",
+      epsTtm,
+      epsBasis: "ttm",
+      epsPeriodEnd: "2026-06-30",
+      epsCheckedAt: new Date(),
+    };
+    await db
+      .insert(schema.companyFundamentals)
+      .values(row)
+      .onConflictDoUpdate({ target: schema.companyFundamentals.symbol, set: row });
+  }
+  console.log(`seeded ${FIXTURE_FUNDAMENTALS.length} fixture fundamentals`);
   await closeDb();
 }
 

@@ -46,6 +46,17 @@ export interface QuoteDto {
   dayChange: { absolute: string; percent: string } | null;
 }
 
+export interface InstrumentStatsDto {
+  symbol: string;
+  marketCap: string | null;
+  sharesAsOf: string | null;
+  pe: string | null;
+  peBasis: "ttm" | "fy" | null;
+  epsPeriodEnd: string | null;
+  peNotMeaningful: boolean;
+  week52: { high: string; low: string } | null;
+}
+
 export type BrowseIcon =
   | "trophy"
   | "cpu"
@@ -177,6 +188,8 @@ export const api = {
       "/api/v1/account/provision",
       { method: "POST", body: JSON.stringify({ startingCash }) },
     ),
+  instrumentStats: (symbol: string) =>
+    request<InstrumentStatsDto>(`/api/v1/instruments/${encodeURIComponent(symbol)}/stats`),
   browse: () => request<BrowseDto>("/api/v1/browse"),
   browseList: (slug: string, page: number) =>
     request<BrowseListDto>(`/api/v1/browse/${encodeURIComponent(slug)}?page=${page}`),

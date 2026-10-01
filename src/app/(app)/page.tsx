@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Activity, PieChart, TrendingDown, TrendingUp, Wallet, X, Zap } from "lucide-react";
+import { Activity, PieChart, X } from "lucide-react";
 import Link from "next/link";
 import { NetWorthChart } from "@/components/finance/NetWorthChart";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
@@ -9,10 +9,13 @@ import { OnboardingPanel } from "@/components/onboarding";
 import { OrdersTable } from "@/components/finance/OrdersTable";
 import { Money } from "@/components/finance/Money";
 import { PriceChange } from "@/components/finance/PriceChange";
+import { FINANCE_GLYPHS, MetricIcon } from "@/components/finance/MetricIcon";
 import { LiveDashboard } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
 import { formatPrice, formatTime, signOf } from "@/lib/format";
+
+const { cash: CashGlyph, positions: PositionsGlyph, trade: TradeGlyph } = FINANCE_GLYPHS;
 
 /**
  * Display-only share of the account (0–100) for a tile's bar. A rendering-
@@ -87,7 +90,6 @@ export default function DashboardPage() {
     );
   }
 
-  const realized = portfolio ? signOf(portfolio.summary.realizedPnl) : 0;
   const todayChange = today && signOf(today.change.absolute) !== 0 ? today.change : null;
 
   return (
@@ -133,7 +135,7 @@ export default function DashboardPage() {
             </span>
             <div className="ar-hero__actions">
               <Link href="/markets" className="ar-hero__pill">
-                <TrendingUp size={18} aria-hidden />
+                <TradeGlyph size={18} aria-hidden />
                 Trade
               </Link>
               <Link href="/portfolio" className="ar-hero__pill">
@@ -154,7 +156,7 @@ export default function DashboardPage() {
             <Link href="/portfolio" className="ar-tile ar-tile--cobalt">
               <div className="ar-tile__head">
                 <span className="ar-tile__name">Stocks</span>
-                <TrendingUp size={20} aria-hidden />
+                <PositionsGlyph size={20} aria-hidden />
               </div>
               <div>
                 <span className="ar-tile__value">
@@ -176,7 +178,7 @@ export default function DashboardPage() {
             <div className="ar-ptile">
               <div className="ar-ptile__head">
                 <span className="ar-chipicon ar-chipicon--cash ar-chipicon--sm" aria-hidden>
-                  <Wallet size={18} />
+                  <CashGlyph />
                 </span>
                 <span className="ar-ptile__name">Cash</span>
               </div>
@@ -207,9 +209,7 @@ export default function DashboardPage() {
           <div className="ar-insight-row">
             <div className="ar-insight">
               <span className="ar-insight__head">
-                <span className="ar-chipicon ar-chipicon--stocks ar-chipicon--xs" aria-hidden>
-                  <Zap size={14} strokeWidth={2} />
-                </span>
+                <MetricIcon type="buying-power" />
                 Buying power
               </span>
               <span className="ar-insight__value">
@@ -218,18 +218,7 @@ export default function DashboardPage() {
             </div>
             <div className="ar-insight">
               <span className="ar-insight__head">
-                <span
-                  className={`ar-chipicon ar-chipicon--xs ${
-                    realized < 0 ? "ar-chipicon--loss" : "ar-chipicon--gain"
-                  }`}
-                  aria-hidden
-                >
-                  {realized < 0 ? (
-                    <TrendingDown size={14} strokeWidth={2} />
-                  ) : (
-                    <TrendingUp size={14} strokeWidth={2} />
-                  )}
-                </span>
+                <MetricIcon type="realized" />
                 Realized P&L
               </span>
               <span className="ar-insight__value">

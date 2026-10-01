@@ -44,7 +44,7 @@ export function BrowseChip({ icon, size = "sm" }: { icon: BrowseIcon; size?: "sm
   const Icon = ICONS[icon];
   return (
     <span className={`ar-chipicon ar-chipicon--stocks${size === "sm" ? " ar-chipicon--sm" : ""}`}>
-      <Icon size={size === "sm" ? 18 : 20} strokeWidth={2} aria-hidden />
+      <Icon aria-hidden />
     </span>
   );
 }

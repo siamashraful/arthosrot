@@ -1,6 +1,11 @@
 import { ProviderUnavailableError } from "@/core/market-data";
 import { Money, Qty } from "@/core/money";
-import type { ShareCount, SharesOutstandingSource } from "@/core/discovery";
+import type {
+  EarningsSource,
+  EpsFact,
+  ShareCount,
+  SharesOutstandingSource,
+} from "@/core/discovery";
 
 /**
  * SEC EDGAR share counts (docs/architecture/INTEGRATIONS.md). Free, keyless,
@@ -81,7 +86,13 @@ function chooseCount(
   return w ? { row: w, basis: "weighted-average" } : null;
 }
 
-export class SecEdgarShares implements SharesOutstandingSource {
+interface ConceptFact {
+  start?: string;
+  end: string;
+  val: number;
+}
+
+export class SecEdgarShares implements SharesOutstandingSource, EarningsSource {
   private lastRequestAt = 0;
   private sicCache = new Map<string, string | null>();
 
@@ -192,6 +203,35 @@ export class SecEdgarShares implements SharesOutstandingSource {
       });
     }
     return out;
+  }
+
+  /**
+   * Reported EPS history (diluted; basic when a filer reports no diluted
+   * figure). One companyconcept call, ~50KB. Duplicates across filings (a
+   * period restated in later reports) collapse to one fact per period.
+   */
+  async epsHistory(cik: string): Promise<EpsFact[] | null> {
+    const padded = cik.padStart(10, "0");
+    for (const concept of ["EarningsPerShareDiluted", "EarningsPerShareBasic"]) {
+      const body = await this.get<{ units?: Record<string, ConceptFact[]> }>(
+        `${SEC_DATA}/api/xbrl/companyconcept/CIK${padded}/us-gaap/${concept}.json`,
+        { allow404: true },
+      );
+      const facts = body?.units?.["USD/shares"];
+      if (!facts?.length) continue;
+      const byPeriod = new Map<string, EpsFact>();
+      for (const f of facts) {
+        if (!f.start || !Number.isFinite(f.val)) continue;
+        // later filings restate earlier periods: the last one listed wins
+        byPeriod.set(`${f.start}/${f.end}`, {
+          start: f.start,
+          end: f.end,
+          value: f.val.toFixed(4),
+        });
+      }
+      return [...byPeriod.values()];
+    }
+    return null;
   }
 
   async industryCode(cik: string): Promise<string | null> {

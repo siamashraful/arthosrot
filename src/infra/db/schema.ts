@@ -481,3 +481,27 @@ export const jobRuns = pgTable("job_runs", {
   lastError: text("last_error"),
   leaseUntil: timestamp("lease_until", { withTimezone: true }),
 });
+
+/**
+ * Per-symbol fundamentals for the instrument page's key stats. Shares come
+ * from the daily SEC job (one row per listed class of every company it can
+ * value); trailing EPS is filled lazily from SEC on first view, cached a day.
+ * Display data — never an input to execution or the ledger.
+ */
+export const companyFundamentals = pgTable(
+  "company_fundamentals",
+  {
+    symbol: text("symbol").primaryKey(),
+    cik: text("cik").notNull(),
+    name: text("name").notNull(),
+    shares: bigint("shares", { mode: "bigint" }).notNull(),
+    sharesAsOf: text("shares_as_of").notNull(),
+    sharesBasis: text("shares_basis").notNull(),
+    epsTtm: numeric("eps_ttm", { precision: 18, scale: 4 }),
+    epsBasis: text("eps_basis"),
+    epsPeriodEnd: text("eps_period_end"),
+    epsCheckedAt: timestamp("eps_checked_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("company_fundamentals_cik").on(t.cik)],
+);

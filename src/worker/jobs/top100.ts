@@ -13,6 +13,7 @@ import type { Px } from "@/core/money";
 import { env } from "@/env";
 import { listActiveInstruments } from "@/infra/db/repositories/instruments";
 import { marketCapRankings } from "@/infra/db/repositories/market-cap-rankings";
+import { companyFundamentals, type SharesRow } from "@/infra/db/repositories/company-fundamentals";
 import { AlpacaMarketData } from "@/infra/market-data";
 import { SecEdgarShares } from "@/infra/sec-edgar";
 import { systemClock } from "@/core/shared";
@@ -26,6 +27,8 @@ export interface Top100Deps {
   quotes: (symbols: string[]) => Promise<Map<string, Quote>>;
   activeInstruments: () => Promise<Array<{ symbol: string; name: string }>>;
   store: MarketCapRankingStore;
+  /** Persist every valued company's share count (key stats: market cap). */
+  saveShares?: (rows: SharesRow[]) => Promise<void>;
   now: () => Date;
 }
 
@@ -65,6 +68,42 @@ export async function refreshTop100(deps: Top100Deps) {
     overrides: SHARE_OVERRIDES,
     industryCode: (cik) => deps.shares.industryCode(cik),
   });
+  // Share counts for the instrument page's market cap: every company we can
+  // value (not just the top 100), minus anything the float check rejected.
+  // Written before the ranking's own validation — a refused ranking is about
+  // prices and the top 10, not about these per-company counts.
+  if (deps.saveShares) {
+    const rejectedSymbols = new Set(rejected.map((r) => r.symbol));
+    const rows: SharesRow[] = [];
+    for (const sc of shareCounts) {
+      if (!sc.shares || overrideCiks.has(sc.cik)) continue;
+      const tickers = sc.tickers.filter((t) => eligible.has(t));
+      if (tickers.some((t) => rejectedSymbols.has(t))) continue;
+      for (const symbol of tickers) {
+        rows.push({
+          symbol,
+          cik: sc.cik,
+          name: displayCompanyName(sc.name),
+          shares: sc.shares.toString(),
+          sharesAsOf: sc.asOf,
+          sharesBasis: sc.basis,
+        });
+      }
+    }
+    for (const o of SHARE_OVERRIDES) {
+      if (!("displaySymbol" in o) || !eligible.has(o.displaySymbol)) continue;
+      rows.push({
+        symbol: o.displaySymbol,
+        cik: o.cik,
+        name: o.name,
+        shares: o.shares,
+        sharesAsOf: o.asOf,
+        sharesBasis: "override",
+      });
+    }
+    await deps.saveShares(rows);
+  }
+
   const previous = await deps.store.latest(TOP100_LIST);
   const verdict = validateSnapshot(previous?.entries ?? null, ranked, {
     candidates: symbols.length,
@@ -132,6 +171,7 @@ export function top100Job() {
         quotes: (symbols) => feed.getQuotes(symbols),
         activeInstruments: listActiveInstruments,
         store: marketCapRankings,
+        saveShares: (rows) => companyFundamentals.upsertShares(rows),
         now: () => systemClock.now(),
       });
     },

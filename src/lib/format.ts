@@ -25,6 +25,19 @@ export function formatSignedMoney(value: string): string {
   return `+${formatMoney(value)}`;
 }
 
+const compactMoney = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  notation: "compact",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+/** "$4.88T" / "$215.30B" from a canonical money string — large display figures only. */
+export function formatCompactMoney(value: string): string {
+  return compactMoney.format(Number(value)); // presentation only
+}
+
 /** Prices display at 2dp ("200.10") from 4dp canonical strings. */
 export function formatPrice(value: string): string {
   if (!value) return "—";

@@ -1214,6 +1214,32 @@ a.list-row:hover {
   height: 24px;
   border-radius: 7px;
 }
+/* Glyph size follows the chip, stroke follows the sidebar (--icon-stroke):
+   callers never pass size/strokeWidth to an icon inside a chip. */
+.ar-chipicon > svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: var(--icon-stroke);
+}
+.ar-chipicon--sm > svg {
+  width: 18px;
+  height: 18px;
+}
+.ar-chipicon--xs > svg {
+  width: 14px;
+  height: 14px;
+}
+/* MetricIcon: an unboxed glyph beside a metric label, in the label's colour */
+.metric-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  stroke-width: var(--icon-stroke);
+}
+.ar-hero__pill > svg,
+.ar-tile__head > svg {
+  stroke-width: var(--icon-stroke);
+}
 .ar-chipicon--stocks {
   background: var(--sky);
   color: var(--cobalt);

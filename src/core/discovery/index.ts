@@ -19,4 +19,12 @@ export {
 export { SHARE_OVERRIDES } from "./share-overrides";
 export { displayCompanyName } from "./names";
 export { SECTORS, TOP100_LIST, TOP100_SEED, type Sector, type SectorIcon } from "./catalog";
+export {
+  fiftyTwoWeekRange,
+  priceToEarnings,
+  trailingEps,
+  type EarningsSource,
+  type EpsFact,
+  type TrailingEps,
+} from "./fundamentals";
 export type { MarketCapRankingStore, StoredRanking, StoredRankingEntry } from "./store";

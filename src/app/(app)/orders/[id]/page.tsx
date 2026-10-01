@@ -22,7 +22,8 @@ function eventChip(type: string): { cls: string; Icon: typeof Check } {
     return { cls: "ar-chipicon--loss", Icon: TriangleAlert };
   if (type.includes("CANCEL") || type.includes("EXPIRE"))
     return { cls: "ar-chipicon--neutral", Icon: X };
-  return { cls: "ar-chipicon--info", Icon: Clock };
+  // still in flight: the same Pending treatment the orders list uses
+  return { cls: "ar-chipicon--warning", Icon: Clock };
 }
 
 /** "PARTIALLY_FILLED" → "Partially filled": event names read as words, not codes. */
@@ -153,7 +154,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             {fills.map((f, i) => (
               <li key={i} className="ar-row">
                 <span className="ar-chipicon ar-chipicon--gain" aria-hidden>
-                  <Check size={22} />
+                  <Check />
                 </span>
                 <div className="ar-row__main">
                   <span className="ar-row__title">
@@ -187,7 +188,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
             return (
               <li key={i} className="ar-row">
                 <span className={`ar-chipicon ar-chipicon--sm ${cls}`} aria-hidden>
-                  <Icon size={18} />
+                  <Icon />
                 </span>
                 <div className="ar-row__main">
                   <span className="ar-row__title">{humanize(e.type)}</span>

@@ -10,7 +10,7 @@ export async function truncateAll(): Promise<void> {
       positions, ledger_entries,
       broker_accounts, stream_cursors, accounts,
       market_data_cache, instruments,
-      market_cap_entries, market_cap_snapshots, job_runs,
+      market_cap_entries, market_cap_snapshots, job_runs, company_fundamentals,
       sessions, auth_accounts, verifications, users
     CASCADE
   `);

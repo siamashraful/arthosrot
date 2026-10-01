@@ -4,6 +4,7 @@ import type { ShareCount, SharesOutstandingSource } from "@/core/discovery";
 import type { Quote } from "@/core/market-data";
 import { Px, Qty } from "@/core/money";
 import { closeDb, getDb, schema } from "@/infra/db";
+import { companyFundamentals } from "@/infra/db/repositories/company-fundamentals";
 import { marketCapRankings } from "@/infra/db/repositories/market-cap-rankings";
 import { getBrowse, getBrowseList } from "@/server/api/discovery";
 import { defineJob, runDueJobs } from "@/worker/jobs/registry";
@@ -139,8 +140,19 @@ function syntheticMarket(offset = 0) {
 describe("Top 100 job", () => {
   it("publishes a ranked snapshot, then refuses a wholesale reshuffle", async () => {
     const now = () => new Date("2026-09-30T21:00:00Z");
-    const summary = await refreshTop100({ ...syntheticMarket(), store: marketCapRankings, now });
+    const summary = await refreshTop100({
+      ...syntheticMarket(),
+      store: marketCapRankings,
+      saveShares: (rows) => companyFundamentals.upsertShares(rows),
+      now,
+    });
     expect(summary.top5).toEqual(["C120", "C119", "C118", "C117", "C116"]);
+    // every valued company's share count lands for key stats — not just the top 100
+    expect((await companyFundamentals.get("C1"))?.shares).toBe(1000n);
+    expect(await companyFundamentals.get("C120")).toMatchObject({
+      name: "Company 120 Inc.",
+      sharesBasis: "cover",
+    });
 
     const latest = await marketCapRankings.latest("top-100");
     expect(latest?.entries).toHaveLength(100);
