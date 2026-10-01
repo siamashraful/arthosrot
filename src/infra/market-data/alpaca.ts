@@ -45,13 +45,27 @@ interface AlpacaBar {
 }
 
 const RANGE_TO_REQUEST: Record<CandleRange, { timeframe: string; lookbackMs: number }> = {
-  "1D": { timeframe: "5Min", lookbackMs: 1 * 24 * 60 * 60_000 },
+  // 1D is the most recent SESSION, not the last 24 hours: a 24h window on a
+  // weekend or a Monday morning holds no bars (the feed answers `bars: {}`),
+  // which surfaced as "chart unavailable". Fetch far enough back to span a
+  // long weekend, then keep only the latest session (lastSession below).
+  "1D": { timeframe: "5Min", lookbackMs: 6 * 24 * 60 * 60_000 },
   "1W": { timeframe: "1Hour", lookbackMs: 7 * 24 * 60 * 60_000 },
   "1M": { timeframe: "1Day", lookbackMs: 31 * 24 * 60 * 60_000 },
   "3M": { timeframe: "1Day", lookbackMs: 93 * 24 * 60 * 60_000 },
   "1Y": { timeframe: "1Day", lookbackMs: 366 * 24 * 60 * 60_000 },
   "5Y": { timeframe: "1Week", lookbackMs: 5 * 366 * 24 * 60 * 60_000 },
 };
+
+const etDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
+
+/** The bars of the latest US-Eastern trading date present (bars are ascending). */
+function lastSession(bars: AlpacaBar[]): AlpacaBar[] {
+  const last = bars.at(-1);
+  if (!last) return bars;
+  const day = etDate.format(new Date(last.t));
+  return bars.filter((b) => etDate.format(new Date(b.t)) === day);
+}
 
 export type FetchFn = (url: string, init: RequestInit) => Promise<Response>;
 
@@ -135,8 +149,9 @@ export class AlpacaMarketData implements MarketDataProvider {
     const data = await this.request<{ bars: Record<string, AlpacaBar[]> }>(
       `/v2/stocks/bars?symbols=${encodeURIComponent(sym)}&timeframe=${timeframe}&start=${encodeURIComponent(start)}&limit=1000&adjustment=split&feed=iex&sort=asc`,
     );
-    const bars = data.bars?.[sym];
-    if (!bars) throw new UnknownSymbolError(symbol);
+    const all = data.bars?.[sym];
+    if (!all) throw new UnknownSymbolError(symbol);
+    const bars = range === "1D" ? lastSession(all) : all;
     return bars.map((b) => ({
       time: new Date(b.t).toISOString(),
       open: b.o.toFixed(4),

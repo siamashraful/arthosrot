@@ -110,3 +110,48 @@ test("signed-in visitors to the auth pages land on the dashboard", async ({ page
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Portfolio value")).toBeVisible({ timeout: 15_000 });
 });
+
+test("price chart: fixed window, scrub reads out price, change and date/time", async ({ page }) => {
+  await signUpWithAccount(page);
+  await page.goto("/i/AAPL");
+  const chart = page.getByRole("region", { name: "AAPL price chart" });
+  const canvas = chart.locator(".chart-scrub__canvas");
+  await expect(canvas.locator("canvas").first()).toBeVisible({ timeout: 15_000 });
+  await expect(chart.getByText("past month")).toBeVisible();
+
+  const box = (await canvas.boundingBox())!;
+  const label = chart.locator(".chart-scrub__label");
+
+  // Wheel over the chart no longer zooms (the picture is unchanged). Sent to
+  // the chart itself: a real wheel would also scroll the page under it.
+  const before = await canvas.screenshot();
+  const cx = box.width / 2;
+  const cy = box.height / 2;
+  for (let i = 0; i < 5; i++) {
+    await canvas
+      .locator("canvas")
+      .first()
+      .dispatchEvent("wheel", {
+        deltaY: -300,
+        clientX: box.x + cx,
+        clientY: box.y + cy,
+        bubbles: true,
+        cancelable: true,
+      });
+  }
+  await expect(label).toBeHidden();
+  expect((await canvas.screenshot()).equals(before)).toBe(true);
+
+  // Daily range: scrubbing shows the price and the bar's date.
+  await page.mouse.move(box.x + box.width * 0.4, box.y + box.height / 2);
+  await expect(label).toBeVisible();
+  await expect(label).toHaveText(/^\w{3}, \w{3} \d{1,2}, \d{4}$/);
+  await expect(chart.locator(".chart-readout__price")).toHaveText(/^\$\d/);
+
+  // Intraday range: the label carries the market time.
+  await page.mouse.move(box.x - 5, box.y - 40);
+  await chart.getByRole("tab", { name: "1D" }).click();
+  await expect(chart.getByText("last session")).toBeVisible();
+  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height / 2);
+  await expect(label).toHaveText(/\d{1,2}:\d{2} (AM|PM) ET$/);
+});

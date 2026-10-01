@@ -54,7 +54,12 @@ export const BAR_DURATION_MS: Record<CandleRange, number> = {
   "5Y": 7 * 24 * 60 * 60_000,
 };
 
-/** Window lookbacks per range — mirror the Alpaca adapter's request windows. */
+/**
+ * Window lookbacks per range — mirror the Alpaca adapter's request windows,
+ * except 1D: the adapter fetches days back to find the latest session, while
+ * the net-worth "today" window stays the trailing 24h (older bars are
+ * clipped by the grid filter below).
+ */
 export const RANGE_LOOKBACK_MS: Record<CandleRange, number> = {
   "1D": 1 * 24 * 60 * 60_000,
   "1W": 7 * 24 * 60 * 60_000,

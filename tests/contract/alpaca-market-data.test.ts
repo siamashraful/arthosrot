@@ -73,6 +73,31 @@ describe("AlpacaMarketData translation (recorded responses)", () => {
     });
   });
 
+  it("1D is the latest session, even when the last 24h hold no bars (weekend)", async () => {
+    let requested = "";
+    const weekend = provider(async (url) => {
+      requested = url;
+      return new Response(
+        JSON.stringify({
+          bars: {
+            AAPL: [
+              // Thursday's session, then Friday's (ET) — requested on a Sunday
+              { o: 1, h: 1, l: 1, c: 1, v: 1, t: "2026-01-01T20:55:00Z" },
+              { o: 2, h: 2, l: 2, c: 2, v: 1, t: "2026-01-02T14:30:00Z" },
+              { o: 3, h: 3, l: 3, c: 3, v: 1, t: "2026-01-02T20:55:00Z" },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    const candles = await weekend.getCandles("AAPL", "1D");
+    expect(candles.map((c) => c.close)).toEqual(["2.0000", "3.0000"]);
+    const start = new URL(requested).searchParams.get("start")!;
+    // reaches back past a long weekend, not just 24h
+    expect(fixedClock.now().getTime() - Date.parse(start)).toBeGreaterThanOrEqual(4 * 86_400_000);
+  });
+
   it("maps 5xx to ProviderUnavailableError", async () => {
     const failing = provider(makeFetch({ "/v2/stocks/trades/latest": { status: 500 } }));
     await expect(failing.getQuote("AAPL")).rejects.toThrow(ProviderUnavailableError);

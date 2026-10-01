@@ -1,12 +1,30 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
-import { AreaSeries, createChart, LineSeries, LineStyle } from "lightweight-charts";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import {
+  AreaSeries,
+  createChart,
+  type IChartApi,
+  type ISeriesApi,
+  LineSeries,
+  LineStyle,
+} from "lightweight-charts";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
-import { formatDateTime, formatMoney, formatTime } from "@/lib/format";
+import { formatScrubTime, type ChartRange } from "@/lib/chart-format";
+import { formatMoney } from "@/lib/format";
 import { chartTokens, useThemeVersion } from "./chart-theme";
+import { attachScrub, placeScrubLabel, scrubChartOptions } from "./chart-scrub";
+
+type HistoryPoint = { t: string; value: string; netDeposits: string };
+
+interface Plotted {
+  /** Bar resolution of the plotted series (ALL resolves by account age). */
+  resolution: ChartRange;
+  down: boolean;
+  points: Array<{ sec: number; p: HistoryPoint }>;
+}
 
 const RANGES = ["1D", "1W", "1M", "3M", "1Y", "ALL"] as const;
 type HistoryRange = (typeof RANGES)[number];
@@ -32,145 +50,134 @@ const RANGE_LABEL: Record<HistoryRange, string> = {
  */
 export function NetWorthChart() {
   const [range, setRange] = useState<HistoryRange>("1M");
-  const containerRef = useRef<HTMLDivElement>(null);
-  // Hover readout is driven imperatively from the chart callback (the
-  // standard lightweight-charts legend pattern): zero re-renders per
-  // mousemove, and immune to setState timing across chart lifecycles.
-  const deltaRef = useRef<HTMLParagraphElement>(null);
-  const readoutRef = useRef<HTMLParagraphElement>(null);
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  const chartRef = useRef<{
+    chart: IChartApi;
+    series: ISeriesApi<"Area">;
+    deposits: ISeriesApi<"Line">;
+  } | null>(null);
+  const plottedRef = useRef<Plotted | null>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const [scrub, setScrub] = useState<{ i: number; x: number } | null>(null);
   const themeVersion = useThemeVersion();
 
-  const { data, isPending, isError } = useQuery({
+  const { data, isPending, isError, isPlaceholderData } = useQuery({
     queryKey: ["portfolio-history", range],
     queryFn: () => api.portfolioHistory(range),
     refetchInterval: 30_000,
+    // a range switch keeps the current line up until the new one lands
+    placeholderData: keepPreviousData,
   });
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el || !data || data.points.length < 2) return;
-    const t = chartTokens(el, {
-      line: "--chart-line",
-      gainFill: "--gain-tint",
-      lossFill: "--loss-tint",
-      grid: "--divider",
-      text: "--text-tertiary",
-    });
-    // area fill by period direction — the line itself never changes colour
-    const fill = data.change.absolute.startsWith("-") ? t.lossFill : t.gainFill;
-    const depositsColor = t.text; // quiet beside the ink line
-    // Second-resolution render points: floor to whole seconds (the keys must
-    // round-trip exactly through the crosshair callback), then collapse
-    // same-second neighbours to the LATEST value — lightweight-charts
-    // hard-throws on duplicate timestamps, and a fresh account's deposit
-    // event and live tail can land inside one second.
-    const renderPoints: Array<{ sec: number; p: (typeof data.points)[number] }> = [];
+  // Second-resolution render points: floor to whole seconds, then collapse
+  // same-second neighbours to the LATEST value — lightweight-charts
+  // hard-throws on duplicate timestamps, and a fresh account's deposit event
+  // and live tail can land inside one second. Index-aligned with the series.
+  const plotted = useMemo<Plotted | null>(() => {
+    if (!data) return null;
+    const points: Plotted["points"] = [];
     for (const point of data.points) {
       const sec = Math.floor(new Date(point.t).getTime() / 1000);
-      const last = renderPoints[renderPoints.length - 1];
+      const last = points[points.length - 1];
       if (last && last.sec === sec) last.p = point;
-      else renderPoints.push({ sec, p: point });
+      else points.push({ sec, p: point });
     }
-    if (renderPoints.length < 2) return;
+    if (points.length < 2) return null;
+    // Label at the resolution the points actually have: a young account's
+    // series is its own ledger events (minutes apart) even on a 1M view.
+    const spanMs = (points.at(-1)!.sec - points[0]!.sec) * 1000;
+    const resolution = (spanMs < 8 * 86_400_000 ? "1W" : data.resolvedRange) as ChartRange;
+    return { resolution, down: data.change.absolute.startsWith("-"), points };
+  }, [data]);
+
+  // Built once per container/theme — refetches (every 30s) and range
+  // switches swap the data without tearing the canvas down mid-scrub.
+  useEffect(() => {
+    if (!el) return;
+    const t = chartTokens(el, {
+      line: "--chart-line",
+      grid: "--divider",
+      text: "--text-tertiary",
+      scrub: "--lime",
+      ring: "--text",
+    });
+    const base = scrubChartOptions(t);
     const chart = createChart(el, {
-      autoSize: true,
-      layout: {
-        background: { color: "transparent" },
-        textColor: t.text,
-        attributionLogo: false,
-      },
+      ...base,
       // no gridlines on the compact card chart — the tint area is the ground
       grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       rightPriceScale: { visible: false },
       leftPriceScale: { visible: false },
-      timeScale: { borderVisible: false, timeVisible: range === "1D" },
-      crosshair: {
-        horzLine: { visible: false, labelVisible: false },
-        vertLine: { color: t.grid, labelVisible: false },
-      },
-      handleScroll: false,
-      handleScale: false,
+      // no time axis on the compact card: the scrub label carries the time
+      timeScale: { ...base.timeScale, visible: false },
     });
     // a flat young series should sit anchored mid-panel, not float at an edge
     chart.priceScale("right").applyOptions({ scaleMargins: { top: 0.22, bottom: 0.18 } });
     const series = chart.addSeries(AreaSeries, {
       lineColor: t.line,
-      topColor: fill,
-      bottomColor: fill,
       lineWidth: 2,
       priceLineVisible: false,
       lastValueVisible: false,
-      crosshairMarkerVisible: true,
+      // the system's scrubber handle: lime with an ink ring
+      crosshairMarkerRadius: 5,
+      crosshairMarkerBorderWidth: 2,
+      crosshairMarkerBackgroundColor: t.scrub,
+      crosshairMarkerBorderColor: t.ring,
     });
-    series.setData(
-      renderPoints.map(({ sec, p }) => ({
-        time: sec as never,
-        value: Number(p.value), // rendering boundary: conversion, no arithmetic
-      })),
-    );
     // Net deposits: the dotted grey comparison line — dotted vs solid is the
-    // non-colour distinction (meaning never by colour alone).
-    const depositsSeries = chart.addSeries(LineSeries, {
-      color: depositsColor,
+    // non-colour distinction (meaning never by colour alone). Surfaces only
+    // while the user is ON the chart; at rest the panel shows one line.
+    const deposits = chart.addSeries(LineSeries, {
+      color: t.text,
       lineWidth: 1,
       lineStyle: LineStyle.Dotted,
       priceLineVisible: false,
       lastValueVisible: false,
       crosshairMarkerVisible: false,
-      // surfaces only while the user is ON the chart (hover/touch) — at rest
-      // the panel shows one line, the story; the comparison appears on ask
       visible: false,
     });
-    depositsSeries.setData(
-      renderPoints.map(({ sec, p }) => ({ time: sec as never, value: Number(p.netDeposits) })),
-    );
-    // Hover/touch: surface the date and both values in the readout line.
-    const showHover = (point: (typeof data.points)[number] | undefined) => {
-      depositsSeries.applyOptions({ visible: point !== undefined });
-      const delta = deltaRef.current;
-      const readout = readoutRef.current;
-      if (!delta || !readout) return;
-      if (point) {
-        const when = range === "1D" ? formatTime(point.t) : formatDateTime(point.t);
-        readout.textContent = `${when} · Net worth ${formatMoney(point.value)} · ┈ Net deposits ${formatMoney(point.netDeposits)}`;
-      }
-      readout.hidden = !point;
-      delta.hidden = !!point;
-    };
-    // Own pointer listeners instead of subscribeCrosshairMove: the library
-    // callback proved unreliable across chart rebuilds; nearest-point math
-    // over timeToCoordinate is deterministic. The chart still paints its
-    // native crosshair — we only drive the readout + deposits line.
-    if (readoutRef.current) readoutRef.current.hidden = true;
-    const timeScale = chart.timeScale();
-    const nearestPoint = (clientX: number) => {
-      const rect = el.getBoundingClientRect();
-      const x = clientX - rect.left;
-      let best: { d: number; p: (typeof renderPoints)[number]["p"] } | null = null;
-      for (const { sec, p: point } of renderPoints) {
-        const cx = timeScale.timeToCoordinate(sec as never);
-        if (cx === null) continue;
-        const d = Math.abs(cx - x);
-        if (!best || d < best.d) best = { d, p: point };
-      }
-      return best?.p;
-    };
-    const onMove = (ev: PointerEvent) => showHover(nearestPoint(ev.clientX));
-    const onLeave = () => showHover(undefined);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerdown", onMove);
-    el.addEventListener("pointerleave", onLeave);
-    el.addEventListener("pointercancel", onLeave);
-    chart.timeScale().fitContent();
+    chartRef.current = { chart, series, deposits };
+    const detach = attachScrub(el, chart, series, {
+      count: () => plottedRef.current?.points.length ?? 0,
+      pointAt: (i) => {
+        const { sec, p } = plottedRef.current!.points[i]!;
+        return { value: Number(p.value), time: sec as never };
+      },
+      onScrub: (i, x) => {
+        deposits.applyOptions({ visible: i !== null });
+        setScrub(i === null ? null : { i, x });
+      },
+    });
     return () => {
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerdown", onMove);
-      el.removeEventListener("pointerleave", onLeave);
-      el.removeEventListener("pointercancel", onLeave);
-      showHover(undefined);
+      detach();
       chart.remove();
+      chartRef.current = null;
     };
-  }, [data, range, themeVersion]);
+  }, [el, themeVersion]);
+
+  useEffect(() => {
+    const target = chartRef.current;
+    plottedRef.current = plotted;
+    if (!el || !target || !plotted) return;
+    const t = chartTokens(el, { gainFill: "--gain-tint", lossFill: "--loss-tint" });
+    // area fill by period direction — the line itself never changes colour
+    const fill = plotted.down ? t.lossFill : t.gainFill;
+    target.series.applyOptions({ topColor: fill, bottomColor: fill });
+    // rendering boundary: conversion for plotting, no arithmetic
+    target.series.setData(
+      plotted.points.map(({ sec, p }) => ({ time: sec as never, value: Number(p.value) })),
+    );
+    target.deposits.setData(
+      plotted.points.map(({ sec, p }) => ({ time: sec as never, value: Number(p.netDeposits) })),
+    );
+    target.chart.timeScale().fitContent();
+  }, [plotted, el, themeVersion]);
+
+  useLayoutEffect(() => {
+    if (scrub && labelRef.current && el) placeScrubLabel(labelRef.current, scrub.x, el.clientWidth);
+  }, [scrub, el]);
+
+  const scrubbed = scrub ? plotted?.points[scrub.i]?.p : undefined;
 
   const negative = data?.change.absolute.startsWith("-");
   const flat = data?.change.absolute === "0.00";
@@ -179,21 +186,14 @@ export function NetWorthChart() {
   return (
     <div>
       <span className="ar-caption ar-tertiary">Net worth</span>
-      <p
-        ref={readoutRef}
-        className="ar-caption ar-secondary tabular"
-        style={{ margin: "2px 0 8px" }}
-        aria-live="off"
-      />
-      {data ? (
-        <p
-          ref={deltaRef}
-          // no inline display here: the hover readout toggles the `hidden`
-          // attribute, which an inline display would override
-          className="ar-label ar-secondary"
-          style={{ margin: "2px 0 8px" }}
-          aria-live="off"
-        >
+      {scrubbed ? (
+        // scrubbing: the values under the pointer (the time floats above it)
+        <p className="ar-label ar-secondary chart-readout tabular" aria-live="off">
+          <span className="chart-readout__price">{formatMoney(scrubbed.value)}</span>
+          <span>┈ Net deposits {formatMoney(scrubbed.netDeposits)}</span>
+        </p>
+      ) : data ? (
+        <p className="ar-label ar-secondary chart-readout" aria-live="off">
           {flat ? (
             <span className="tabular">
               <span className="sr-only">Unchanged </span>
@@ -212,7 +212,7 @@ export function NetWorthChart() {
               </span>
             </span>
           )}{" "}
-          {RANGE_LABEL[range]}
+          {RANGE_LABEL[data.range as HistoryRange]}
         </p>
       ) : null}
 
@@ -222,12 +222,22 @@ export function NetWorthChart() {
         </p>
       ) : isPending ? (
         <div className="ar-skel" style={{ height: 160 }} />
-      ) : data.points.length < 2 ? (
+      ) : !plotted ? (
         <p className="ar-caption ar-secondary" style={{ margin: 0 }}>
           Your net-worth line starts drawing after your first market day.
         </p>
       ) : (
-        <div ref={containerRef} style={{ height: 160 }} aria-hidden />
+        <div className="chart-scrub">
+          <span ref={labelRef} className="chart-scrub__label ar-caption tabular" hidden={!scrubbed}>
+            {scrubbed && plotted ? formatScrubTime(scrubbed.t, plotted.resolution) : ""}
+          </span>
+          <div
+            ref={setEl}
+            className={`chart-scrub__canvas${isPlaceholderData ? " is-loading" : ""}`}
+            style={{ height: 160 }}
+            aria-hidden
+          />
+        </div>
       )}
 
       <div role="tablist" aria-label="Net worth range" className="ar-seg ar-seg--pills ar-periods">
@@ -266,7 +276,7 @@ export function NetWorthChart() {
             <tbody>
               {data.points.slice(-10).map((p) => (
                 <tr key={p.t}>
-                  <td>{formatTime(p.t)}</td>
+                  <td>{formatScrubTime(p.t, plotted?.resolution ?? "1W")}</td>
                   <td className="num">{formatMoney(p.value)}</td>
                   <td className="num">{formatMoney(p.netDeposits)}</td>
                 </tr>

@@ -136,7 +136,7 @@ export const api = {
   instrument: (symbol: string) =>
     request<InstrumentDetailDto>(`/api/v1/instruments/${encodeURIComponent(symbol)}`),
   candles: (symbol: string, range: string) =>
-    request<{ candles: CandleDto[] }>(
+    request<{ range: string; candles: CandleDto[] }>(
       `/api/v1/instruments/${encodeURIComponent(symbol)}/candles?range=${range}`,
     ),
   portfolio: () => request<PortfolioDto>("/api/v1/portfolio"),

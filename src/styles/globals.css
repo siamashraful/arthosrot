@@ -2296,6 +2296,47 @@ a.list-row:hover {
   justify-content: space-between;
   margin-top: 12px;
 }
+/* Scrub charts (chart-scrub.ts): a fixed-height readout above, then a strip
+   for the floating date/time label over the scrubbed bar, then the canvas. */
+.chart-readout {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-height: 24px;
+  margin: 0 0 4px;
+}
+.chart-readout__price {
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 700;
+}
+.chart-scrub {
+  position: relative;
+  padding-top: 22px;
+}
+.chart-scrub__label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  white-space: nowrap;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.chart-scrub__canvas {
+  /* vertical drags still scroll the page; horizontal drags scrub */
+  touch-action: pan-y;
+  cursor: crosshair;
+  transition: opacity var(--dur-base, 180ms) ease-out;
+}
+.chart-scrub__canvas.is-loading {
+  opacity: 0.45;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chart-scrub__canvas {
+    transition: none;
+  }
+}
 .ar-periods .ar-seg__item {
   min-width: 0;
   flex: 1;
