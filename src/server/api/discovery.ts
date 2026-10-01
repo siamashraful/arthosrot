@@ -27,7 +27,15 @@ interface Top100 {
 
 /** Newest job snapshot, or the generated seed until one exists. */
 async function top100(): Promise<Top100> {
-  const latest = await marketCapRankings.latest(TOP100_LIST);
+  // Display data must not take the Markets screen down: if the ranking store
+  // is unreachable (e.g. the web deployed before its migration ran), log it
+  // loudly and serve the dated seed instead.
+  const latest = await marketCapRankings.latest(TOP100_LIST).catch((err: unknown) => {
+    console.error(
+      JSON.stringify({ level: "error", msg: "top-100 snapshot unavailable", err: String(err) }),
+    );
+    return null;
+  });
   if (latest && latest.entries.length > 0) {
     return {
       asOf: latest.asOf.toISOString(),
