@@ -26,4 +26,5 @@ export {
   type OpenSellReader,
   type PortfolioView,
   type PositionView,
+  type WithdrawalHoldReader,
 } from "./portfolio";

@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+import { expectNoSeriousA11yViolations, signUp } from "./helpers";
 
 /**
  * Live-mode preview E2E (ADR-011): the Settings switch flips the app into the
@@ -7,27 +7,9 @@ import { expect, test } from "@playwright/test";
  * data must never render as live), non-functional funding sheets — and back.
  */
 
-const email = () => `e2e-live-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-
-async function expectNoSeriousA11yViolations(page: import("@playwright/test").Page) {
-  const results = await new AxeBuilder({ page }).analyze();
-  const serious = results.violations.filter(
-    (v) => v.impact === "serious" || v.impact === "critical",
-  );
-  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-}
-
 test("switch to live preview, verify isolation from paper data, switch back", async ({ page }) => {
   // Sign up + open a paper account so there IS paper data to leak.
-  await page.goto("/signup");
-  await page.getByLabel("Name").fill("E2E Live Preview");
-  await page.getByLabel("Email").fill(email());
-  await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
-  await page.getByRole("button", { name: "Create account" }).click();
-  const slider = page.getByLabel("Starting cash");
-  await expect(slider).toBeVisible({ timeout: 15_000 });
-  await page.getByRole("button", { name: "Open practice account" }).click();
-  await expect(page.getByText("Portfolio value")).toBeVisible({ timeout: 15_000 });
+  await signUp(page, { tag: "e2e-live", name: "E2E Live Preview" });
 
   // Practice ribbon is up (the load-bearing simulation notice).
   await expect(page.getByRole("note", { name: "Simulation notice" })).toBeVisible();
@@ -71,6 +53,11 @@ test("switch to live preview, verify isolation from paper data, switch back", as
   // Portfolio and orders show live empty states, not paper content.
   await page.goto("/portfolio");
   await expect(page.getByText(/No live positions/)).toBeVisible();
+  await expect(page.getByRole("table", { name: "Positions" })).toHaveCount(0);
+  await expectNoSeriousA11yViolations(page);
+  await page.goto("/activity");
+  await expect(page.getByText(/No live activity/)).toBeVisible();
+  await expect(page.getByText("Opening deposit")).toHaveCount(0);
   await page.goto("/orders");
   await expect(page.getByText(/No live orders/)).toBeVisible();
 

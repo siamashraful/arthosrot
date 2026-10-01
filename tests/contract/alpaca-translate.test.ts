@@ -54,6 +54,44 @@ describe("Alpaca trade-event translation", () => {
     expect(event.fillPrice!.toString()).toBe("200.1000");
   });
 
+  it("an invalid or missing timestamp falls back to received-at (no poison event)", () => {
+    for (const stamp of [{ timestamp: "garbage" }, {}]) {
+      const before = Date.now();
+      const event = translateTradeEvent({
+        ...base,
+        event_id: "01ULIDBADTS",
+        event: "accepted",
+        ...stamp,
+      });
+      expect(Number.isNaN(event.occurredAt.getTime())).toBe(false);
+      expect(event.occurredAt.getTime()).toBeGreaterThanOrEqual(before);
+    }
+    const dated = translateTradeEvent({
+      ...base,
+      event_id: "01ULIDGOODTS",
+      event: "accepted",
+      at: "2026-01-06T15:00:00Z",
+    });
+    expect(dated.occurredAt.toISOString()).toBe("2026-01-06T15:00:00.000Z");
+  });
+
+  it("converts the vendor price string exactly (HALF_EVEN, never via a float)", () => {
+    const fill = (price: string) =>
+      translateTradeEvent({
+        ...base,
+        event_id: `01ULID${price}`,
+        event: "fill",
+        timestamp: "2026-01-06T15:00:01Z",
+        execution_id: "exec-78",
+        price,
+        qty: "1",
+      }).fillPrice!.toString();
+    // Number("0.12345").toFixed(4) is "0.1235"; the exact decimal tie is even
+    expect(fill("0.12345")).toBe("0.1234");
+    expect(fill("324.850000")).toBe("324.8500");
+    expect(() => fill("abc")).toThrow();
+  });
+
   it("unknown vendor statuses become UNKNOWN_VENDOR_STATUS (safe no-transition)", () => {
     const event = translateTradeEvent({
       ...base,

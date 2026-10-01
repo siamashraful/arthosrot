@@ -10,6 +10,13 @@ import type {
   Subscription,
   SubmitResult,
 } from "@/core/execution";
+import {
+  TransferRejectedError,
+  type CashTransferDirection,
+  type CashTransferVenue,
+  type VenueTransfer,
+  type VenueTransferListing,
+} from "@/core/cash-transfers";
 import { Money, Qty } from "@/core/money";
 import type { CanonicalBrokerEvent } from "@/core/orders";
 import {
@@ -19,6 +26,14 @@ import {
   type AlpacaOrder,
   type AlpacaTradeEvent,
 } from "./translate";
+import {
+  directionToVendor,
+  pickAchRelationship,
+  translateTransfer,
+  vendorTimestamp,
+  type AlpacaAchRelationship,
+  type AlpacaTransfer,
+} from "./transfers";
 
 /**
  * AlpacaPaperBroker — the deployed execution venue (ADR-006): one isolated
@@ -35,7 +50,25 @@ export const SANDBOX_BASE = "https://broker-api.sandbox.alpaca.markets";
 
 export type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 
-export class AlpacaPaperBroker implements Broker {
+/** Synthetic sandbox bank (never real data) for the simulated ACH relationship. */
+const SIMULATED_BANK = {
+  account_owner_name: "Paper Account",
+  bank_account_type: "CHECKING",
+  bank_account_number: "123456789",
+  bank_routing_number: "121000358",
+  nickname: "Simulated funding",
+};
+
+/**
+ * 4xx responses to a transfer POST mean the venue did NOT create it
+ * (e.g. 400 `40010001 maximum total daily transfer allowed is $50000`) —
+ * a definitive rejection. 5xx/timeouts are ambiguous and throw plainly.
+ */
+const TRANSFER_REJECT_STATUSES = [400, 401, 403, 404, 409, 422, 429];
+const TRANSFER_PAGE = 100;
+const TRANSFER_MAX_PAGES = 50;
+
+export class AlpacaPaperBroker implements Broker, CashTransferVenue {
   readonly kind = "ALPACA_PAPER" as const;
   private readonly authHeader: string;
 
@@ -122,13 +155,7 @@ export class AlpacaPaperBroker implements Broker {
     const { body: rel } = await this.request<{ id: string }>(
       "POST",
       `/v1/accounts/${account.id}/ach_relationships`,
-      {
-        account_owner_name: "Paper Account",
-        bank_account_type: "CHECKING",
-        bank_account_number: "123456789",
-        bank_routing_number: "121000358",
-        nickname: "Simulated funding",
-      },
+      SIMULATED_BANK,
     );
     await this.request("POST", `/v1/accounts/${account.id}/transfers`, {
       transfer_type: "ach",
@@ -138,6 +165,155 @@ export class AlpacaPaperBroker implements Broker {
     });
 
     return { broker: this.kind, externalAccountId: account.id };
+  }
+
+  // -------------------------------------------------------------------------
+  // CashTransferVenue (ADR-015): paper deposits = ACH INCOMING, withdrawals =
+  // ACH OUTGOING, on the account's existing simulated ACH relationship.
+  // Settlement is asynchronous (10–30 min, INTEGRATIONS.md) — callers poll.
+  // -------------------------------------------------------------------------
+
+  async initiate(
+    ref: BrokerAccountRef,
+    req: { transferId: string; direction: CashTransferDirection; amount: Money },
+  ): Promise<VenueTransfer> {
+    const accountId = ref.externalAccountId;
+    const relationshipId = await this.ensureAchRelationship(accountId);
+    const { status, body } = await this.request<AlpacaTransfer & { message?: string }>(
+      "POST",
+      `/v1/accounts/${accountId}/transfers`,
+      {
+        transfer_type: "ach",
+        relationship_id: relationshipId,
+        amount: req.amount.toString(),
+        direction: directionToVendor(req.direction),
+      },
+      TRANSFER_REJECT_STATUSES,
+    );
+    if (status >= 400) {
+      throw new TransferRejectedError(
+        body?.message
+          ? `${body.message} (HTTP ${status})`
+          : `Venue refused the transfer (HTTP ${status})`,
+      );
+    }
+    return translateTransfer(body);
+  }
+
+  /**
+   * The Broker API documents list (not get-by-id) for transfers, so this
+   * pages the account's transfers until it finds the id. null only when
+   * every page was read — "the venue has no record" must be authoritative.
+   */
+  async getTransfer(ref: BrokerAccountRef, venueTransferId: string): Promise<VenueTransfer | null> {
+    let found: AlpacaTransfer | null = null;
+    await this.pageTransfers(ref.externalAccountId, (batch) => {
+      found = batch.find((t) => t.id === venueTransferId) ?? null;
+      return found !== null;
+    });
+    return found ? translateTransfer(found) : null;
+  }
+
+  /**
+   * User transfers created at/after `since`. Every page is read: rows that
+   * cannot be translated (bad date/amount/direction) are skipped and logged
+   * one by one — never thrown, so one bad row cannot stall recovery — and
+   * the listing reports itself incomplete. The account's OPENING funding
+   * transfer (its oldest; provisionAccount posts it right after creating
+   * the account, before any user transfer can exist) is never listed.
+   */
+  async listTransfers(ref: BrokerAccountRef, since: Date): Promise<VenueTransferListing> {
+    const rows: AlpacaTransfer[] = [];
+    await this.pageTransfers(ref.externalAccountId, (batch) => {
+      rows.push(...batch);
+      return false;
+    });
+
+    let skipped = 0;
+    const skip = (row: unknown, err: unknown) => {
+      skipped += 1;
+      console.error(
+        JSON.stringify({
+          level: "error",
+          msg: "alpaca transfer row unreadable; skipped (listing incomplete)",
+          account: ref.externalAccountId,
+          id: (row as { id?: unknown } | null)?.id ?? null,
+          err: String(err),
+        }),
+      );
+    };
+
+    const dated: Array<{ row: AlpacaTransfer; at: number }> = [];
+    for (const row of rows) {
+      try {
+        dated.push({ row, at: vendorTimestamp(row?.created_at).getTime() });
+      } catch (err) {
+        skip(row, err);
+      }
+    }
+    const opening = dated.reduce<{ row: AlpacaTransfer; at: number } | null>(
+      (oldest, d) => (oldest === null || d.at < oldest.at ? d : oldest),
+      null,
+    );
+
+    const transfers: VenueTransfer[] = [];
+    for (const d of dated) {
+      if (d.at < since.getTime()) continue;
+      if (d === opening && d.row.direction === "INCOMING") continue; // account funding
+      try {
+        transfers.push(translateTransfer(d.row));
+      } catch (err) {
+        skip(d.row, err);
+      }
+    }
+    return { transfers, complete: skipped === 0 };
+  }
+
+  /** DELETE the transfer (Broker API "close a transfer"); a 4xx means the venue refused. */
+  async cancelTransfer(ref: BrokerAccountRef, venueTransferId: string): Promise<boolean> {
+    const { status } = await this.request(
+      "DELETE",
+      `/v1/accounts/${ref.externalAccountId}/transfers/${encodeURIComponent(venueTransferId)}`,
+      undefined,
+      TRANSFER_REJECT_STATUSES,
+    );
+    return status < 400;
+  }
+
+  /** Page /transfers (limit/offset) until `stop` returns true or pages run out. */
+  private async pageTransfers(
+    accountId: string,
+    stop: (batch: AlpacaTransfer[]) => boolean,
+  ): Promise<void> {
+    for (let page = 0; page < TRANSFER_MAX_PAGES; page++) {
+      const qs = new URLSearchParams({
+        limit: String(TRANSFER_PAGE),
+        offset: String(page * TRANSFER_PAGE),
+      });
+      const { body } = await this.request<AlpacaTransfer[]>(
+        "GET",
+        `/v1/accounts/${accountId}/transfers?${qs.toString()}`,
+      );
+      const batch = body ?? [];
+      if (stop(batch) || batch.length < TRANSFER_PAGE) return;
+    }
+    throw new Error(`alpaca transfers for ${accountId} exceed ${TRANSFER_MAX_PAGES} pages`);
+  }
+
+  /** Reuse the account's ACH relationship (created at provisioning); create one only if none. */
+  private async ensureAchRelationship(accountId: string): Promise<string> {
+    const { body: rels } = await this.request<AlpacaAchRelationship[]>(
+      "GET",
+      `/v1/accounts/${accountId}/ach_relationships`,
+    );
+    const existing = pickAchRelationship(rels ?? []);
+    if (existing) return existing.id;
+    const { body: created } = await this.request<{ id: string }>(
+      "POST",
+      `/v1/accounts/${accountId}/ach_relationships`,
+      SIMULATED_BANK,
+    );
+    return created.id;
   }
 
   async submit(req: BrokerOrderRequest): Promise<SubmitResult> {
@@ -218,7 +394,7 @@ export class AlpacaPaperBroker implements Broker {
     ]);
     return {
       externalAccountId: brokerAccountId,
-      cash: Money.fromString(Number(account.cash).toFixed(2)),
+      cash: Money.fromVendorDecimal(account.cash),
       positions: (positions ?? []).map((p) => ({ symbol: p.symbol, qty: Qty.of(p.qty) })),
     };
   }

@@ -9,6 +9,7 @@ import { watchlistsRepository } from "@/infra/db/repositories/watchlists";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import type { SessionInfo } from "../session";
 import { getContainer } from "../container";
+import { readJson } from "./http";
 import { serializeQuote, symbolSchema } from "./market";
 
 export async function requireActiveAccount(session: SessionInfo) {
@@ -60,7 +61,7 @@ const provisionSchema = z.object({ startingCash: z.number().int() });
  * asynchronous and the DEPOSIT only posts at activation.
  */
 export async function provisionAccount(request: Request, session: SessionInfo): Promise<unknown> {
-  const { startingCash } = provisionSchema.parse(await request.json());
+  const { startingCash } = provisionSchema.parse(await readJson(request));
   const { STARTING_CASH_MIN, STARTING_CASH_MAX } = env();
   if (startingCash < STARTING_CASH_MIN || startingCash > STARTING_CASH_MAX) {
     throw new AppError(
@@ -219,7 +220,7 @@ export async function getWatchlist(session: SessionInfo): Promise<unknown> {
 const addWatchlistSchema = z.object({ symbol: symbolSchema });
 
 export async function addWatchlistItem(request: Request, session: SessionInfo): Promise<unknown> {
-  const { symbol } = addWatchlistSchema.parse(await request.json());
+  const { symbol } = addWatchlistSchema.parse(await readJson(request));
   const instrument = await getContainer().instrumentService.getOrRegister(symbol);
   await pgTransactionRunner.run(async (tx) => {
     const watchlistId = await watchlistsRepository.getOrCreateForUser(tx, session.userId);
@@ -252,7 +253,7 @@ const resetSchema = z.object({ confirm: z.literal("RESET") });
  *   4. archive + re-provision ONLY when nothing remains open, else 409.
  */
 export async function resetAccount(request: Request, session: SessionInfo): Promise<unknown> {
-  resetSchema.parse(await request.json());
+  resetSchema.parse(await readJson(request));
   const account = await requireActiveAccount(session);
   const c = getContainer();
 
@@ -284,10 +285,15 @@ export async function resetAccount(request: Request, session: SessionInfo): Prom
   if (open.length > 0) {
     throw new AppError(
       "CONFLICT",
-      `Reset blocked: ${open.length} order(s) still unresolved at the venue — try again shortly`,
+      `Reset blocked: ${open.length} order(s) still unresolved at the venue. Try again shortly.`,
       { details: { orderIds: open.map((o) => o.id) } },
     );
   }
+
+  // Ask the venue to cancel in-flight cash transfers first (best effort,
+  // never throws); the archive hook then cancels them locally and the
+  // sweep watches for any the venue settles anyway (ADR-015).
+  await c.cashTransferService.cancelPendingAtVenue(account.id);
 
   const fresh = await c.accountService.archiveAndReprovision(session.userId);
   return {

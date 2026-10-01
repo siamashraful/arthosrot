@@ -56,6 +56,8 @@ Disagreement handling: broker execution facts win; Arthosrot discovers missing/e
 | `src/core/portfolio`                                    | Positions, sellable qty, avg cost, P&L                                                                                      |
 | `src/core/watchlists`                                   | Placeholder (watchlist storage lives in `infra/db/repositories/watchlists.ts`)                                              |
 | `src/core/discovery`                                    | Browse catalog (11 sectors), Top 100 ranking rules + snapshot validation, key-stats math (EPS TTM, P/E, 52W)                |
+| `src/core/cash-transfers`                               | Paper deposits/withdrawals: limits, withdrawal holds, venue-settled posting, settlement sweep (ADR-015)                     |
+| `src/core/alerts`                                       | Price alerts: threshold validation, one-shot state machine, trigger rule on fresh in-session quotes (ADR-016)               |
 | `src/core/funding`                                      | FundingProvider port only (live-mode seam, ADR-011; no implementation)                                                      |
 | `src/core/shared`                                       | Ids, Clock port, errors, invariant helper                                                                                   |
 | `src/infra/db`                                          | Drizzle schema, client, repositories                                                                                        |
@@ -66,6 +68,7 @@ Disagreement handling: broker execution facts win; Arthosrot discovers missing/e
 | `src/worker`                                            | Worker entrypoint (`main.ts`; reuses `server/container.ts`): ingest loop, cursor mgmt, reconciliation triggers, health HTTP |
 | `src/worker/jobs`                                       | Scheduled-jobs registry (`defineJob`, due/lease via `job_runs`) and the Top 100 job                                         |
 | `src/app` / `src/components` / `src/lib` / `src/styles` | Next.js routes, UI components, client utils, tokens                                                                         |
+| `src/proxy.ts`                                          | Next 16 Proxy: forwards the requested page path to server layouts (sign-in return path) — no auth decisions                 |
 
 ## Frontend architecture
 

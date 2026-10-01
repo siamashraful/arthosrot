@@ -24,6 +24,7 @@ export {
 } from "./state-machine";
 export {
   OrdersService,
+  type CashHoldReader,
   type NewOrderInput,
   type OrderEventRecord,
   type OrdersConfig,

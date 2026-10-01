@@ -80,3 +80,84 @@ describe("DeterministicPaperBroker id uniqueness (regression)", () => {
     expect(ids.size).toBeGreaterThanOrEqual(6);
   });
 });
+
+describe("DeterministicPaperBroker as CashTransferVenue (ADR-015)", () => {
+  async function venue() {
+    const fixture = new FixtureProvider(fixedClock);
+    const broker = new DeterministicPaperBroker(fixedClock, fixture);
+    const ref = await broker.provisionAccount({
+      arthosrotAccountId: crypto.randomUUID(),
+      startingCash: Money.fromString("1000.00"),
+    });
+    return { broker, ref };
+  }
+  const amount = Money.fromString("250.00");
+
+  it("settles synchronously by default and moves venue cash both ways", async () => {
+    const { broker, ref } = await venue();
+    const dep = await broker.initiate(ref, { transferId: "a", direction: "DEPOSIT", amount });
+    expect(dep.state).toBe("SETTLED");
+    expect((await broker.getAccountSnapshot(ref.externalAccountId)).cash.toString()).toBe(
+      "1250.00",
+    );
+    const wd = await broker.initiate(ref, { transferId: "b", direction: "WITHDRAWAL", amount });
+    expect(wd.state).toBe("SETTLED");
+    expect((await broker.getAccountSnapshot(ref.externalAccountId)).cash.toString()).toBe(
+      "1000.00",
+    );
+    expect((await broker.getTransfer(ref, wd.venueTransferId))?.state).toBe("SETTLED");
+    expect(await broker.getTransfer(ref, "unknown")).toBeNull();
+  });
+
+  it("held transfers stay PENDING until completed or failed (async venue simulation)", async () => {
+    const { broker, ref } = await venue();
+    broker.holdTransfers(true);
+    const t = await broker.initiate(ref, { transferId: "a", direction: "DEPOSIT", amount });
+    expect(t.state).toBe("PENDING");
+    expect((await broker.getAccountSnapshot(ref.externalAccountId)).cash.toString()).toBe(
+      "1000.00",
+    );
+    broker.completeTransfer(t.venueTransferId);
+    broker.completeTransfer(t.venueTransferId); // idempotent at the venue too
+    expect((await broker.getAccountSnapshot(ref.externalAccountId)).cash.toString()).toBe(
+      "1250.00",
+    );
+
+    const f = await broker.initiate(ref, { transferId: "b", direction: "WITHDRAWAL", amount });
+    broker.failTransfer(f.venueTransferId, "R01");
+    const failed = await broker.getTransfer(ref, f.venueTransferId);
+    expect(failed).toMatchObject({ state: "FAILED", failureReason: "R01" });
+    const listing = await broker.listTransfers(ref, new Date(0));
+    expect(listing.complete).toBe(true);
+    expect(listing.transfers.map((x) => x.venueTransferId)).toEqual([
+      t.venueTransferId,
+      f.venueTransferId,
+    ]);
+
+    // cancel: only a PENDING venue transfer can be canceled (it then FAILS)
+    broker.holdTransfers(true);
+    const p = await broker.initiate(ref, { transferId: "c", direction: "DEPOSIT", amount });
+    expect(await broker.cancelTransfer(ref, p.venueTransferId)).toBe(true);
+    expect(await broker.getTransfer(ref, p.venueTransferId)).toMatchObject({ state: "FAILED" });
+    expect(await broker.cancelTransfer(ref, p.venueTransferId)).toBe(false);
+    expect(await broker.cancelTransfer(ref, t.venueTransferId)).toBe(false); // settled
+  });
+
+  it("fault hooks: definitive rejection vs ambiguous timeout", async () => {
+    const { broker, ref } = await venue();
+    const { TransferRejectedError } = await import("@/core/cash-transfers");
+    broker.failNextTransfer("reject");
+    await expect(
+      broker.initiate(ref, { transferId: "a", direction: "DEPOSIT", amount }),
+    ).rejects.toBeInstanceOf(TransferRejectedError);
+    broker.failNextTransfer("timeout");
+    const err = await broker
+      .initiate(ref, { transferId: "b", direction: "DEPOSIT", amount })
+      .catch((e: unknown) => e);
+    expect(err).not.toBeInstanceOf(TransferRejectedError);
+    // faults are one-shot
+    expect(
+      (await broker.initiate(ref, { transferId: "c", direction: "DEPOSIT", amount })).state,
+    ).toBe("SETTLED");
+  });
+});

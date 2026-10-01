@@ -19,7 +19,7 @@ const COPY = {
   "partial-fill": {
     term: "Why did only part of it fill?",
     body:
-      "An order fills when the market has shares at your price — and the " +
+      "An order fills when the market has shares at your price, and the " +
       "market may not have your whole quantity at once. Each piece is a " +
       "separate fill at its own price; the rest of the order keeps working " +
       "until it fills, expires, or you cancel it.",
@@ -28,9 +28,9 @@ const COPY = {
     term: "What do these statuses mean?",
     body:
       "Pending: sent to the venue, not yet confirmed. Open: the venue is " +
-      "working it — a limit order rests until the market crosses your " +
+      "working it: a limit order rests until the market crosses your " +
       "price. Partially filled: some shares have executed, the rest are " +
-      "still working. Filled, Cancelled, Rejected, and Expired are final — " +
+      "still working. Filled, Cancelled, Rejected, and Expired are final, and " +
       "fills that already happened always stand.",
   },
 } as const;

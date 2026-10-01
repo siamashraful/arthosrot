@@ -3,6 +3,7 @@
  * (EXECUTION.md reconciliation engine).
  */
 export {
+  CANCEL_RESEND_AFTER_MS,
   ReconciliationService,
   type ReconciliationReads,
   type ReconciliationResult,

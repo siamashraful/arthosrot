@@ -50,7 +50,7 @@ Each event carries `{type, broker, brokerAccountId, brokerOrderId, clientOrderId
 | EXPIRED (Expired)                   | Terminal; venue expired the DAY remainder                                          |
 | SUBMIT_FAILED (Failed to submit)    | Terminal; delivery failed AND reconciliation confirmed the venue never received it |
 
-**Rejection taxonomy:** request/domain validation failures (qty ≤ 0, bad symbol, missing/invalid limit price, precision, sell > sellable, buy > buying power) are 422 errors — **no order row is created**. REJECTED means the venue rejected it. SUBMIT_FAILED means transport failure. Never overloaded.
+**Rejection taxonomy:** request/domain validation failures (qty ≤ 0, bad symbol, missing/invalid limit price (must be > 0, ≤ 4dp, ≤ 10 integer digits), precision, sell > sellable, buy > buying power) are 422 errors — **no order row is created**. REJECTED means the venue rejected it. SUBMIT_FAILED means transport failure. Never overloaded.
 
 Transitions (via `applyTransition(order, canonicalEvent)` only; sources: B=broker event, L=local, R=reconciliation-synthesized):
 
@@ -73,7 +73,7 @@ Every transition is audit-logged to `order_events`. Cancellation of a partially 
 - **LIMIT BUY:** `reserve = limitPrice × remainingQty + estFees`.
 - **MARKET BUY:** `reserve = refPrice × qty × (1 + MARKET_BUY_BUFFER)`, `refPrice = ask ?? last`, buffer default 2.5%. If a fill still exceeds the reserve, the fill posts anyway (execution facts are immutable), cash projection may briefly dip negative, and reconciliation flags DRIFT_DETECTED — there is deliberately **no** `cash ≥ 0` DB CHECK that could reject a real fill.
 - **Release:** full remaining on CANCELLED/EXPIRED/REJECTED/SUBMIT_FAILED; on each fill recomputed from the new remaining qty and trued-up to actual notional.
-- **Buying power** = cash projection − Σ active buy reservations; recomputed inside the placement lock, never cached.
+- **Buying power** = cash projection − Σ active buy reservations − Σ PENDING paper withdrawals (a pending withdrawal holds its cash — ADR-015); recomputed inside the placement lock, never cached.
 - **SELL share reservation:** `sellable = position.qty − Σ remainingQty(open sells)`; a sell exceeding sellable is a validation error (no order created). Worked case: position 100, open SELL LIMIT 70, partial fill 20 ⇒ position 80, remainder 50 reserved, sellable 30.
 - **Broker disagreement** (venue rejects for buying power we thought sufficient): broker wins → REJECTED, reservation released, discrepancy logged with both computations.
 
@@ -86,18 +86,18 @@ Every transition is audit-logged to `order_events`. Cancellation of a partially 
 
 ## Concurrency
 
-Postgres row locks at READ COMMITTED; lock order fixed **account → order → position**.
+Postgres row locks at READ COMMITTED; lock order fixed **account → order → position** (paper cash transfers: **account → transfer** — ADR-015; a withdrawal request and a buy placement therefore serialize on the account row).
 
-- **Placement tx:** `SELECT … FOR UPDATE` account → compute buying power/sellable from locked state → insert PENDING_SUBMISSION → commit → submit outside the lock.
+- **Placement tx:** `SELECT … FOR UPDATE` account → compute buying power/sellable from locked state → insert PENDING_SUBMISSION → commit → submit outside the lock. Once the order is committed, the API answers with the order in its real state (201) even if the submit call throws — events/reconciliation converge it; a cancel whose venue request fails likewise returns the committed CANCEL_PENDING order, and reconciliation re-sends the cancel.
 - **Event application tx (worker):** lock account → load order `FOR UPDATE` → `applyTransition` (with out-of-order synthesis) → insert order_event (+fill) — unique violation ⇒ already applied ⇒ commit no-op — → update order state/filled_qty → upsert position → insert ledger entry → update cash projection.
 - **Cancel vs fill race:** CANCEL_PENDING locally; the venue decides; a vendor `canceled` after FILLED is rejected by the machine, logged, audit row kept.
 - **Worker:** single SSE consumer, events applied serially per account; reconciliation shares the same idempotent apply path so overlap is safe.
 
 ## Reconciliation engine
 
-Triggers: worker startup · schedule (GH Actions → `POST /reconcile`, market hours every 10 min) · on demand (`POST /reconcile`). An SSE reconnect does not run a pass — it resumes from the in-memory cursor via `since_ulid` (exponential backoff 1s → 30s); a restarted worker resumes from the persisted `stream_cursors` row after its startup pass.
+Triggers: worker startup · schedule (GH Actions → `POST /reconcile`, market hours every 10 min) · on demand (`POST /reconcile`). An SSE reconnect does not run a pass — it resumes from the in-memory cursor via `since_ulid` (exponential backoff 1s → 30s); a restarted worker resumes from the persisted `stream_cursors` row after its startup pass. A trade event with a missing or unparseable timestamp takes its received-at time (logged) rather than failing the apply — an unappliable event would pin the cursor and block every later event.
 
-Process per broker-backed account: list local non-terminal orders → `getOrder`/`listOpenOrders` diff → fetch missing executions → synthesize canonical events → idempotent apply → compare cash/position snapshots → structured result log `{accountsChecked, ordersChecked, eventsReplayed, submitFailures, driftDetected[], errors[], durationMs}` (the worker adds its provisioning-sweep counts) → update `broker_accounts.reconciliation_status` (RECONCILING during the pass, then HEALTHY / DRIFT_DETECTED / ERROR) + `last_reconciled_at`; the worker then writes the `reconcile-heartbeat` row that `/api/v1/system/status` derives pipeline health from. (`STALE` and `broker_accounts.last_stream_event_at` exist in the schema but nothing writes them today.)
+Process per broker-backed account: list local non-terminal orders → `getOrder`/`listOpenOrders` diff → fetch missing executions → synthesize canonical events → idempotent apply → compare cash/position snapshots → structured result log `{accountsChecked, ordersChecked, eventsReplayed, submitFailures, driftDetected[], errors[], durationMs}` (the worker adds its provisioning-sweep and cash-transfer-sweep counts — `CashTransferService.sweepPending` settles/fails PENDING paper transfers from venue status before the pass; in-flight transfers post nothing, so they can never read as cash-projection drift) → update `broker_accounts.reconciliation_status` (RECONCILING during the pass, then HEALTHY / DRIFT_DETECTED / ERROR) + `last_reconciled_at`; orders still CANCEL_PENDING past `CANCEL_RESEND_AFTER_MS` (60 s) get their venue cancel **re-sent** (the original request failed or was lost; while CANCEL_PENDING, a snapshot status still saying new/accepted is not applied — it only means the venue has not seen the cancel; fills and terminal outcomes always apply; counted as `cancelsResent`) → the worker then writes the `reconcile-heartbeat` row that `/api/v1/system/status` derives pipeline health from. (`STALE` and `broker_accounts.last_stream_event_at` exist in the schema but nothing writes them today.)
 
 Rules: discover missed fills; repair stale order states through idempotent event processing; never double-apply financial effects; never blindly overwrite from snapshots; log discrepancies; preserve audit history.
 

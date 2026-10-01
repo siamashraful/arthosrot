@@ -8,14 +8,16 @@ import {
   type ISeriesApi,
   LineSeries,
   LineStyle,
+  type UTCTimestamp,
 } from "lightweight-charts";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Icon } from "@/components/icons/Icon";
+import { showError } from "@/components/states";
 import { api } from "@/lib/api";
 import { formatScrubTime, type ChartRange } from "@/lib/chart-format";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, signOf } from "@/lib/format";
 import { chartTokens, useThemeVersion } from "./chart-theme";
 import { attachScrub, placeScrubLabel, scrubChartOptions } from "./chart-scrub";
+import { PriceChange } from "./PriceChange";
 
 type HistoryPoint = { t: string; value: string; netDeposits: string };
 
@@ -28,6 +30,13 @@ interface Plotted {
 
 const RANGES = ["1D", "1W", "1M", "3M", "1Y", "ALL"] as const;
 type HistoryRange = (typeof RANGES)[number];
+
+const isHistoryRange = (r: string): r is HistoryRange => (RANGES as readonly string[]).includes(r);
+
+/** Bar resolutions the scrub label knows ("ALL" resolves to one of these). */
+const CHART_RANGES: readonly ChartRange[] = ["1D", "1W", "1M", "3M", "1Y", "5Y"];
+const isChartRange = (r: string): r is ChartRange =>
+  (CHART_RANGES as readonly string[]).includes(r);
 
 const RANGE_LABEL: Record<HistoryRange, string> = {
   "1D": "today",
@@ -61,13 +70,14 @@ export function NetWorthChart() {
   const [scrub, setScrub] = useState<{ i: number; x: number } | null>(null);
   const themeVersion = useThemeVersion();
 
-  const { data, isPending, isError, isPlaceholderData } = useQuery({
+  const history = useQuery({
     queryKey: ["portfolio-history", range],
     queryFn: () => api.portfolioHistory(range),
     refetchInterval: 30_000,
     // a range switch keeps the current line up until the new one lands
     placeholderData: keepPreviousData,
   });
+  const { data, isPlaceholderData } = history;
 
   // Second-resolution render points: floor to whole seconds, then collapse
   // same-second neighbours to the LATEST value — lightweight-charts
@@ -86,8 +96,9 @@ export function NetWorthChart() {
     // Label at the resolution the points actually have: a young account's
     // series is its own ledger events (minutes apart) even on a 1M view.
     const spanMs = (points.at(-1)!.sec - points[0]!.sec) * 1000;
-    const resolution = (spanMs < 8 * 86_400_000 ? "1W" : data.resolvedRange) as ChartRange;
-    return { resolution, down: data.change.absolute.startsWith("-"), points };
+    const resolution: ChartRange =
+      spanMs < 8 * 86_400_000 || !isChartRange(data.resolvedRange) ? "1W" : data.resolvedRange;
+    return { resolution, down: signOf(data.change.absolute) < 0, points };
   }, [data]);
 
   // Built once per container/theme — refetches (every 30s) and range
@@ -141,7 +152,7 @@ export function NetWorthChart() {
       count: () => plottedRef.current?.points.length ?? 0,
       pointAt: (i) => {
         const { sec, p } = plottedRef.current!.points[i]!;
-        return { value: Number(p.value), time: sec as never };
+        return { value: Number(p.value), time: sec as UTCTimestamp };
       },
       onScrub: (i, x) => {
         deposits.applyOptions({ visible: i !== null });
@@ -165,10 +176,13 @@ export function NetWorthChart() {
     target.series.applyOptions({ topColor: fill, bottomColor: fill });
     // rendering boundary: conversion for plotting, no arithmetic
     target.series.setData(
-      plotted.points.map(({ sec, p }) => ({ time: sec as never, value: Number(p.value) })),
+      plotted.points.map(({ sec, p }) => ({ time: sec as UTCTimestamp, value: Number(p.value) })),
     );
     target.deposits.setData(
-      plotted.points.map(({ sec, p }) => ({ time: sec as never, value: Number(p.netDeposits) })),
+      plotted.points.map(({ sec, p }) => ({
+        time: sec as UTCTimestamp,
+        value: Number(p.netDeposits),
+      })),
     );
     target.chart.timeScale().fitContent();
   }, [plotted, el, themeVersion]);
@@ -178,10 +192,6 @@ export function NetWorthChart() {
   }, [scrub, el]);
 
   const scrubbed = scrub ? plotted?.points[scrub.i]?.p : undefined;
-
-  const negative = data?.change.absolute.startsWith("-");
-  const flat = data?.change.absolute === "0.00";
-  const arrow = negative ? "arrow-down" : "arrow-up";
 
   return (
     <div>
@@ -194,33 +204,26 @@ export function NetWorthChart() {
         </p>
       ) : data ? (
         <p className="ar-label ar-secondary chart-readout" aria-live="off">
-          {flat ? (
-            <span className="tabular">
-              <span className="sr-only">Unchanged </span>
-              {formatMoney(data.change.absolute)}
-            </span>
-          ) : (
-            <span className={`ar-delta ${negative ? "ar-delta--loss" : "ar-delta--gain"}`}>
-              <Icon name={arrow} size={14} stroke={2.25} />
-              <span className="sr-only">{negative ? "Down" : "Up"} </span>
-              <span className="tabular">
-                {negative ? "−" : "+"}
-                {formatMoney(data.change.absolute.replace("-", ""))}
-                {data.change.percent !== null
-                  ? ` (${negative ? "−" : "+"}${data.change.percent.replace("-", "")}%)`
-                  : ""}
-              </span>
-            </span>
-          )}{" "}
-          {RANGE_LABEL[data.range as HistoryRange]}
+          <PriceChange amount={data.change.absolute} percent={data.change.percent} />{" "}
+          {isHistoryRange(data.range) ? RANGE_LABEL[data.range] : null}
         </p>
       ) : null}
 
-      {isError ? (
-        <p className="ar-caption ar-secondary" style={{ margin: 0 }}>
-          Net-worth history is unavailable right now — live values above are unaffected.
-        </p>
-      ) : isPending ? (
+      {showError(history) ? (
+        <div role="alert" style={{ display: "grid", gap: 8, justifyItems: "start" }}>
+          <p className="ar-caption ar-secondary" style={{ margin: 0 }}>
+            Net-worth history is unavailable right now. Live values above are unaffected.
+          </p>
+          <button
+            type="button"
+            className="ar-btn ar-btn--secondary ar-btn--compact"
+            disabled={history.isFetching}
+            onClick={() => void history.refetch()}
+          >
+            {history.isFetching ? "Retrying…" : "Try again"}
+          </button>
+        </div>
+      ) : !data ? (
         <div className="ar-skel" style={{ height: 160 }} />
       ) : !plotted ? (
         <p className="ar-caption ar-secondary" style={{ margin: 0 }}>

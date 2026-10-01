@@ -8,9 +8,11 @@ import { invariant, type TxHandle } from "../shared";
  */
 
 /**
- * WITHDRAWAL exists in the DB enum and is reserved for live funding — no
- * writer exists yet. When one appears, net-deposits derivations
- * (core/portfolio/equity-series.ts) must subtract withdrawals (LIVE_TRADING_TODO.md).
+ * DEPOSIT/WITHDRAWAL entries are written by the opening deposit
+ * (core/accounts) and by settled PAPER cash transfers (core/cash-transfers,
+ * ADR-015; ref_type 'CASH_TRANSFER', ref_id = transfer id, DB-unique).
+ * WITHDRAWAL amounts are negative; net-deposits derivations
+ * (core/portfolio/equity-series.ts) subtract them.
  */
 export type LedgerEntryType = "DEPOSIT" | "WITHDRAWAL" | "TRADE" | "FEE" | "ADJUSTMENT";
 

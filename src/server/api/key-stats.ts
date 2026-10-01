@@ -81,7 +81,7 @@ export async function getInstrumentStats(symbolRaw: string): Promise<unknown> {
     marketCap,
     sharesAsOf: fundamentals?.sharesAsOf ?? null,
     pe,
-    peBasis: pe ? eps!.basis : null,
+    peBasis: pe && eps ? eps.basis : null,
     epsPeriodEnd: eps?.periodEnd ?? null,
     /** EPS exists but is ≤ 0 — the UI says "n/m", not a blank. */
     peNotMeaningful: Boolean(eps && last && pe === null),

@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import { expectNoSeriousA11yViolations, openTicket, signUp } from "./helpers";
 
 /**
  * Golden-path E2E (vertical slice A, UI criterion): signup -> instrument ->
@@ -9,24 +9,8 @@ import { expect, test } from "@playwright/test";
  * mobile viewport projects execute this file.
  */
 
-/** Responsive ticket scope: < lg the ticket lives in a bottom sheet behind a
- *  "Trade <SYM>" button; >= lg it is docked. Returns the locator to act in. */
-async function openTicket(page: import("@playwright/test").Page) {
-  const trigger = page.locator(".ticket-mobile").getByRole("button", { name: /^Trade / });
-  const dockedHeading = page.locator(".ticket-docked").getByRole("heading", { name: /^Trade / });
-  // Wait for whichever variant this viewport renders (page may still be loading).
-  await expect(trigger.or(dockedHeading).first()).toBeVisible({ timeout: 15_000 });
-  if (await trigger.isVisible()) {
-    await trigger.click();
-    return page.locator("dialog.sheet");
-  }
-  return page.locator(".ticket-docked");
-}
-
-const email = () => `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-
 /** Onboarding (FR-2): pick starting cash on the slider, open the account. */
-async function openAccount(page: import("@playwright/test").Page, amount?: number) {
+async function openAccount(page: Page, amount?: number) {
   const slider = page.getByLabel("Starting cash");
   await expect(slider).toBeVisible({ timeout: 15_000 });
   if (amount !== undefined) await slider.fill(String(amount));
@@ -34,21 +18,9 @@ async function openAccount(page: import("@playwright/test").Page, amount?: numbe
   await expect(page.getByText("Portfolio value")).toBeVisible({ timeout: 15_000 });
 }
 
-async function expectNoSeriousA11yViolations(page: import("@playwright/test").Page) {
-  const results = await new AxeBuilder({ page }).analyze();
-  const serious = results.violations.filter(
-    (v) => v.impact === "serious" || v.impact === "critical",
-  );
-  expect(serious, JSON.stringify(serious, null, 2)).toEqual([]);
-}
-
 test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ page }) => {
-  // Sign up.
-  await page.goto("/signup");
-  await page.getByLabel("Name").fill("E2E Trader");
-  await page.getByLabel("Email").fill(email());
-  await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
-  await page.getByRole("button", { name: "Create account" }).click();
+  // Sign up (the account is opened below, on the onboarding screen).
+  await signUp(page, { name: "E2E Trader", openAccount: false });
 
   // The brand lockup must actually PAINT — it renders via CSS mask over
   // currentColor, so a styling regression can leave it invisible while every
@@ -89,7 +61,12 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
   // Instrument page: quote with freshness context.
   await page.goto("/i/AAPL");
   await expect(page.getByRole("heading", { level: 1, name: /AAPL/ })).toBeVisible();
-  await expect(page.getByText(/fixture ·/)).toBeVisible();
+  await expect(
+    page
+      .getByRole("main")
+      .locator("header")
+      .getByText(/fixture ·/),
+  ).toBeVisible();
 
   // Ticket: buy 10 at market, review, confirm (bottom sheet on mobile).
   const ticket = await openTicket(page);
@@ -125,22 +102,20 @@ test("signup, buy 10 AAPL at market, watch it fill, see the position", async ({ 
   // Orders history shows the filled order.
   await page.goto("/orders");
   await page.getByRole("button", { name: "History" }).click();
-  await expect(page.locator(".badge", { hasText: "Filled" })).toBeVisible();
+  await expect(page.locator(".ar-tag", { hasText: "Filled" })).toBeVisible();
 });
 
 test("resting limit order can be cancelled and releases buying power", async ({ page }) => {
-  await page.goto("/signup");
-  await page.getByLabel("Name").fill("E2E Limit");
-  await page.getByLabel("Email").fill(email());
-  await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
-  await page.getByRole("button", { name: "Create account" }).click();
   // Onboarding with a slider-chosen amount (max of the range).
-  await openAccount(page, 25_000);
+  await signUp(page, { name: "E2E Limit", startingCash: 25_000 });
 
   // Non-marketable limit buy: 10 @ 150 (fixture last = 200).
   await page.goto("/i/AAPL");
   const ticket = await openTicket(page);
-  await ticket.getByLabel("Order type").selectOption("LIMIT");
+  await ticket
+    .getByRole("group", { name: "Order type" })
+    .getByRole("button", { name: "Limit (day)" })
+    .click();
   await ticket.getByLabel("Quantity (whole shares)").fill("10");
   await ticket.getByLabel("Limit price").fill("150");
   await ticket.getByRole("button", { name: "Review order" }).click();
@@ -156,7 +131,7 @@ test("resting limit order can be cancelled and releases buying power", async ({ 
   await page.getByRole("button", { name: "Cancel" }).click();
   await expect(page.getByText("No open orders.")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "History" }).click();
-  await expect(page.locator(".badge", { hasText: "Cancelled" })).toBeVisible({
+  await expect(page.locator(".ar-tag", { hasText: "Cancelled" })).toBeVisible({
     timeout: 15_000,
   });
 });

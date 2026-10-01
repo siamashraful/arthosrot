@@ -19,6 +19,8 @@
 - **Buying power** — cash projection − Σ active buy reservations.
 - **Ledger entry** — append-only record of a cash movement with type, signed 2dp amount, and cause reference. The ledger is the authoritative Arthosrot financial history.
 - **Cash projection** — `accounts.cash_balance`, a cached value asserted equal to Σ(ledger entries).
+- **Cash transfer** — a paper deposit or withdrawal request (ADR-015): PENDING → SETTLED | FAILED | CANCELED. It changes cash only through the ledger entry posted when the venue reports it settled; a PENDING withdrawal is a **hold** that reduces buying power and withdrawable.
+- **Withdrawable** — cash − open BUY reservations − pending withdrawals, floored at zero: the cash not actively being used.
 - **Realized P&L** — locked in by sells: proceeds − fees − allocated cost basis (average-cost method).
 - **Unrealized P&L** — (market − avg cost) × qty, always carrying the quote `asOf`.
 - **Reconciliation status** — per broker account: HEALTHY / STALE / RECONCILING / DRIFT_DETECTED / ERROR.
@@ -35,6 +37,7 @@ User 1─* Account (one open) 1─1 BrokerAccount
 Account 1─* Order 1─* Fill
 Order  1─* OrderEvent (canonical audit)
 Account 1─* LedgerEntry (append-only)
+Account 1─* CashTransfer 0..1─1 LedgerEntry (posted at SETTLED)
 Account 1─* Position *─1 Instrument
 User 1─1 Watchlist 1─* WatchlistItem *─1 Instrument
 MarketCapSnapshot 1─* MarketCapEntry          (display data; keyed by symbol/cik, no FK to Instrument)

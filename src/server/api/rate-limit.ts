@@ -26,7 +26,7 @@ export function enforceRateLimit(key: string, max: number, windowMs: number): vo
   }
   entry.count += 1;
   if (entry.count > max) {
-    throw new AppError("RATE_LIMITED", "Too many requests — slow down and try again shortly");
+    throw new AppError("RATE_LIMITED", "Too many requests. Slow down and try again shortly.");
   }
 }
 

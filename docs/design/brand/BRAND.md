@@ -139,15 +139,15 @@ The open corner is the idea. Completing it turns the mark into a plain grid and 
 
 **This is the highest-severity design problem in the product.** Once real trading exists, a user who believes they are in practice while placing a real order — or the reverse — has been failed in a way no amount of polish compensates for.
 
-> **Implementation status: presentation implemented (ADR-011).** `data-mode="live"` is set client-side by the Settings trading-mode switch and drives all three signals; live surfaces render only their own empty states. No live-trading BACKEND exists, and none may be added without a human-approved ADR (CLAUDE.md safety rules; `accounts.mode` is PAPER-only at the DB level). **One deliberate deviation while live is a preview:** the persistent label reads "Live preview — real trading isn't available yet" instead of the final "Live — real money" — the label must never claim real money before real money exists.
+> **Implementation status: presentation implemented (ADR-011).** `data-mode="live"` is set client-side by the Settings trading-mode switch and drives all three signals; live surfaces render only their own empty states. No live-trading BACKEND exists, and none may be added without a human-approved ADR (CLAUDE.md safety rules; `accounts.mode` is PAPER-only at the DB level). **One deliberate deviation while live is a preview:** the persistent label reads "Live preview: real trading isn't available yet" instead of the final "Live — real money" — the label must never claim real money before real money exists.
 
 The identity carries it in the card: **practice is a card with a grain you can feel; real money is a smooth, deeper one.**
 
-|                  | Practice (PAPER)                                         | Real money (LIVE)                                            |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------------------ |
-| Texture grain    | **Visible** — `--mode-texture-opacity: 1`                | **Absent** — `--mode-texture-opacity: 0`                     |
-| The hero card    | The system's `hero`: ink (light) / `surface-dark` (dark) | **Pure black `#000000` in both themes** — a step below       |
-| Persistent label | "Practice — simulated money" (info-tint Banner strip)    | "Live preview — real trading isn't available yet" (on black) |
+|                  | Practice (PAPER)                                         | Real money (LIVE)                                           |
+| ---------------- | -------------------------------------------------------- | ----------------------------------------------------------- |
+| Texture grain    | **Visible** — `--mode-texture-opacity: 1`                | **Absent** — `--mode-texture-opacity: 0`                    |
+| The hero card    | The system's `hero`: ink (light) / `surface-dark` (dark) | **Pure black `#000000` in both themes** — a step below      |
+| Persistent label | "Practice: simulated money" (info-tint Banner strip)     | "Live preview: real trading isn't available yet" (on black) |
 
 Three redundant signals, and **the mode is never carried by colour alone**:
 

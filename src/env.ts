@@ -62,6 +62,15 @@ const envSchema = z.object({
     .string()
     .regex(/^\d+[mhd]$/, "use <n>m, <n>h or <n>d")
     .default("24h"),
+  /**
+   * How often the price-alerts job evaluates ACTIVE alerts (ADR-016):
+   * "<n>m" | "<n>h" | "<n>d". The job only runs when a trigger ticks the
+   * worker, so the effective cadence is max(this, the tick cadence).
+   */
+  ALERTS_CHECK_INTERVAL: z
+    .string()
+    .regex(/^\d+[mhd]$/, "use <n>m, <n>h or <n>d")
+    .default("5m"),
   PORT: z.coerce.number().int().positive().default(8090),
 
   /**

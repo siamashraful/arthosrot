@@ -3,17 +3,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { NetWorthChart } from "@/components/finance/NetWorthChart";
-import { SymbolLogo } from "@/components/finance/SymbolLogo";
+import { SymbolRow } from "@/components/finance/SymbolRow";
+import { WatchlistFreshnessChip, WatchlistRows } from "@/components/finance/WatchlistRows";
+import { EmptyCard, ErrorCard, SkeletonRows, showError } from "@/components/states";
 import { OnboardingPanel } from "@/components/onboarding";
 import { OrdersTable } from "@/components/finance/OrdersTable";
 import { Money } from "@/components/finance/Money";
 import { PriceChange } from "@/components/finance/PriceChange";
 import { Icon } from "@/components/icons/Icon";
-import { realizedInsightChip } from "./_lib/insight";
+import { RealizedPnlInsight } from "./_lib/RealizedPnlInsight";
 import { LiveDashboard } from "@/components/live-preview";
 import { useTradingMode } from "@/components/trading-mode";
 import { api } from "@/lib/api";
-import { formatMoney, formatPrice, formatSignedMoney, formatTime, signOf } from "@/lib/format";
+import { formatMarketStatus, formatPrice, formatShares, formatTime, signOf } from "@/lib/format";
+import { queries } from "@/lib/queries";
 
 /**
  * Display-only share of the account (0–100) for a tile's bar. A rendering-
@@ -27,6 +30,30 @@ function sharePercent(part: string, whole: string): number {
   return Math.round(Math.min(100, (p / w) * 100));
 }
 
+type OnboardingStatus = "NONE" | "PROVISIONING" | "PROVISIONING_FAILED";
+
+/** The onboarding panel's state for an account that isn't ACTIVE (none or archived → NONE). */
+function onboardingStatus(account: { status: string } | null): OnboardingStatus {
+  if (account?.status === "PROVISIONING") return "PROVISIONING";
+  if (account?.status === "PROVISIONING_FAILED") return "PROVISIONING_FAILED";
+  return "NONE";
+}
+
+/**
+ * The page's vertical stack. minmax(0, 1fr): a long unbreakable row title
+ * (e.g. "Berkshire Hathaway Inc. Class B") must ellipsize inside its row,
+ * not widen the page past a phone's viewport.
+ */
+const PAGE_STACK = { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16 } as const;
+
+function DashboardHeader() {
+  return (
+    <div className="ar-appbar">
+      <h1 className="ar-appbar__title">Dashboard</h1>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   // Live preview never shows paper data (ADR-011): gate BEFORE any paper
   // markup — the queries below stay disabled while in live mode.
@@ -36,27 +63,25 @@ export default function DashboardPage() {
   // Account gate: no account yet (or still provisioning) renders onboarding.
   // While PROVISIONING the me-poll doubles as the activation check — the
   // server tries to activate on every read once venue funding settles.
-  const { data: me, isPending: mePending } = useQuery({
-    queryKey: ["me"],
-    queryFn: api.me,
+  const meQuery = useQuery({
+    ...queries.me(),
     enabled: mode === "paper",
     refetchInterval: (query) =>
       query.state.data?.account?.status === "PROVISIONING" ? 4_000 : false,
   });
+  const me = meQuery.data;
   const accountActive = me?.account?.status === "ACTIVE";
 
-  const { data: portfolio, isPending } = useQuery({
-    queryKey: ["portfolio"],
-    queryFn: api.portfolio,
-    refetchInterval: 30_000,
+  const portfolioQuery = useQuery({
+    ...queries.portfolio(),
     enabled: mode === "paper" && accountActive,
   });
-  const { data: watchlist } = useQuery({
-    queryKey: ["watchlist"],
-    queryFn: api.watchlist,
-    refetchInterval: 15_000,
+  const portfolio = portfolioQuery.data;
+  const watchlistQuery = useQuery({
+    ...queries.watchlist(),
     enabled: mode === "paper" && accountActive,
   });
+  const watchlist = watchlistQuery.data;
   // Today's change for the hero delta chip — the same server-side decimal
   // delta the chart uses, at the 1D range.
   const { data: today } = useQuery({
@@ -66,38 +91,50 @@ export default function DashboardPage() {
     enabled: mode === "paper" && accountActive,
   });
 
+  // Variables carry the symbol so a failure can name it, and so only the
+  // row being removed shows as busy.
   const removeWatch = useMutation({
-    mutationFn: (itemId: string) => api.removeFromWatchlist(itemId),
-    onSuccess: (fresh) => queryClient.setQueryData(["watchlist"], fresh),
+    mutationFn: (item: { id: string; symbol: string }) => api.removeFromWatchlist(item.id),
+    onSuccess: (fresh) => queryClient.setQueryData(queries.watchlist().queryKey, fresh),
   });
 
   if (mode === "live") return <LiveDashboard />;
 
-  if (!mePending && me && !accountActive) {
-    const status =
-      me.account === null
-        ? ("NONE" as const)
-        : (me.account.status as "PROVISIONING" | "PROVISIONING_FAILED");
+  if (showError(meQuery)) {
     return (
-      <div style={{ display: "grid", gap: 16 }}>
-        <div className="ar-appbar">
-          <h1 className="ar-appbar__title">Dashboard</h1>
-        </div>
-        <OnboardingPanel status={status} bounds={me.onboarding} />
+      <div style={PAGE_STACK}>
+        <DashboardHeader />
+        <ErrorCard
+          message="Your account couldn't be loaded."
+          onRetry={() => void meQuery.refetch()}
+          retrying={meQuery.isFetching}
+        />
       </div>
     );
   }
 
-  const realizedChip = realizedInsightChip(portfolio?.summary.realizedPnl);
+  if (me && !accountActive) {
+    return (
+      <div style={PAGE_STACK}>
+        <DashboardHeader />
+        <OnboardingPanel status={onboardingStatus(me.account)} bounds={me.onboarding} />
+      </div>
+    );
+  }
+
   const todayChange = today && signOf(today.change.absolute) !== 0 ? today.change : null;
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div className="ar-appbar">
-        <h1 className="ar-appbar__title">Dashboard</h1>
-      </div>
+    <div style={PAGE_STACK}>
+      <DashboardHeader />
 
-      {isPending || !portfolio ? (
+      {showError(portfolioQuery) ? (
+        <ErrorCard
+          message="Your account summary couldn't be loaded."
+          onRetry={() => void portfolioQuery.refetch()}
+          retrying={portfolioQuery.isFetching}
+        />
+      ) : !portfolio ? (
         // Placeholder shaped like the content it stands in for (hero card +
         // tiles) so the page does not jump when the numbers arrive.
         <div
@@ -121,16 +158,13 @@ export default function DashboardPage() {
             </span>
             {todayChange ? (
               <span className="ar-hero__delta">
-                <PriceChange
-                  chip
-                  amount={todayChange.absolute}
-                  percent={todayChange.percent !== null ? Number(todayChange.percent) : undefined}
-                />
+                <PriceChange chip amount={todayChange.absolute} percent={todayChange.percent} />
                 <span>today</span>
               </span>
             ) : null}
             <span className="ar-hero__delta ar-caption">
-              as of {formatTime(portfolio.summary.asOf)} · market {portfolio.market.status}
+              as of {formatTime(portfolio.summary.asOf)} ·{" "}
+              {formatMarketStatus(portfolio.market.status)}
             </span>
             <div className="ar-hero__actions">
               <Link href="/markets" className="ar-hero__pill">
@@ -208,7 +242,7 @@ export default function DashboardPage() {
           <div className="ar-insight-row">
             <div className="ar-insight">
               <span className="ar-insight__head">
-                <span className="ar-chipicon ar-chipicon--xs ar-chipicon--cash">
+                <span className="ar-chipicon ar-chipicon--xs ar-chipicon--cash" aria-hidden>
                   <Icon name="banknote" />
                 </span>
                 Buying power
@@ -217,124 +251,96 @@ export default function DashboardPage() {
                 <Money value={portfolio.summary.buyingPower} />
               </span>
             </div>
-            <div className="ar-insight">
-              <span className="ar-insight__head">
-                <span className={`ar-chipicon ar-chipicon--xs ar-chipicon--${realizedChip.kind}`}>
-                  <Icon name={realizedChip.icon} />
-                </span>
-                Realized P&L
-              </span>
-              <span className="ar-insight__value">
-                {signOf(portfolio.summary.realizedPnl) === 0
-                  ? formatMoney(portfolio.summary.realizedPnl)
-                  : formatSignedMoney(portfolio.summary.realizedPnl)}
-              </span>
-            </div>
+            <RealizedPnlInsight amount={portfolio.summary.realizedPnl} />
           </div>
+
+          {portfolio.positions.length === 0 ? (
+            <EmptyCard
+              title="No positions yet"
+              message="Search a symbol to place your first paper trade."
+              action={
+                <Link href="/markets" className="ar-btn ar-btn--primary">
+                  Search markets
+                </Link>
+              }
+            />
+          ) : (
+            <section aria-label="Top positions">
+              <div className="ar-section">
+                <h2 className="ar-heading">Positions</h2>
+                <Link href="/portfolio" className="ar-link">
+                  Full portfolio
+                </Link>
+              </div>
+              <ul className="ar-card ar-card--list ar-list">
+                {portfolio.positions.slice(0, 5).map((p) => (
+                  <li key={p.symbol}>
+                    <SymbolRow
+                      symbol={p.symbol}
+                      title={p.symbol}
+                      sub={`${formatShares(p.qty)}${p.lastPrice ? ` · ${formatPrice(p.lastPrice)}` : ""}`}
+                      end={
+                        <>
+                          <span className="ar-row__value">
+                            <Money value={p.marketValue} />
+                          </span>
+                          <PriceChange amount={p.unrealizedPnl} />
+                        </>
+                      }
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </>
       )}
 
-      {portfolio && portfolio.positions.length === 0 ? (
-        <div className="ar-card">
-          <div className="ar-empty">
-            <span className="ar-empty__title">No positions yet</span>
-            <span className="ar-empty__text">Search a symbol to place your first paper trade.</span>
-            <Link href="/markets" className="ar-btn ar-btn--primary">
-              Search markets
-            </Link>
-          </div>
-        </div>
-      ) : null}
-
-      {portfolio && portfolio.positions.length > 0 ? (
-        <section aria-label="Top positions">
-          <div className="ar-section">
-            <h2 className="ar-heading">Positions</h2>
-            <Link href="/portfolio" className="ar-link">
-              Full portfolio
-            </Link>
-          </div>
-          <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
-            {portfolio.positions.slice(0, 5).map((p) => (
-              <li key={p.symbol}>
-                <Link href={`/i/${p.symbol}`} className="ar-row">
-                  <SymbolLogo symbol={p.symbol} size={40} />
-                  <span className="ar-row__main">
-                    <span className="ar-row__title">{p.symbol}</span>
-                    <span className="ar-row__sub">
-                      {p.qty} {p.qty === "1" ? "share" : "shares"}
-                      {p.lastPrice ? ` · ${formatPrice(p.lastPrice)}` : ""}
-                    </span>
-                  </span>
-                  <span className="ar-row__end">
-                    <span className="ar-row__value">
-                      <Money value={p.marketValue} />
-                    </span>
-                    <PriceChange amount={p.unrealizedPnl} />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <section aria-label="Watchlist">
+      <section aria-labelledby="watchlist-heading">
         <div className="ar-section">
-          <h2 className="ar-heading">Watchlist</h2>
+          <h2 id="watchlist-heading" className="ar-heading">
+            Watchlist
+          </h2>
+          {watchlist && watchlist.items.length > 0 ? (
+            <WatchlistFreshnessChip items={watchlist.items} />
+          ) : null}
         </div>
-        {!watchlist || watchlist.items.length === 0 ? (
-          <div className="ar-card">
-            <div className="ar-empty">
-              <span className="ar-empty__text">
-                Add symbols from an <Link href="/markets">instrument page</Link> to track them here.
-              </span>
-            </div>
-          </div>
+        {showError(watchlistQuery) ? (
+          <ErrorCard
+            message="Your watchlist couldn't be loaded."
+            onRetry={() => void watchlistQuery.refetch()}
+            retrying={watchlistQuery.isFetching}
+          />
+        ) : !watchlist ? (
+          <SkeletonRows count={2} />
+        ) : watchlist.items.length === 0 ? (
+          <EmptyCard
+            message={
+              <>
+                Add symbols from any stock&apos;s page in <Link href="/markets">Search</Link> to
+                track them here.
+              </>
+            }
+          />
         ) : (
-          <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
-            {watchlist.items.map((item) => (
-              <li key={item.id}>
-                <Link href={`/i/${item.symbol}`} className="ar-row">
-                  <SymbolLogo symbol={item.symbol} size={40} />
-                  <span className="ar-row__main">
-                    <span className="ar-row__title">
-                      {item.name === item.symbol ? item.symbol : item.name}
-                      {item.name === item.symbol ? null : (
-                        <span className="ar-ticker">{item.symbol}</span>
-                      )}
-                    </span>
-                    <span className="ar-row__sub">Last price</span>
-                  </span>
-                  <span className="ar-row__end">
-                    <span className="ar-row__value">
-                      {item.quote ? formatPrice(item.quote.last) : "—"}
-                    </span>
-                  </span>
-                </Link>
-                <button
-                  type="button"
-                  className="ar-btn ar-btn--icon ar-btn--plain"
-                  aria-label={`Remove ${item.symbol} from watchlist`}
-                  disabled={removeWatch.isPending}
-                  onClick={() => removeWatch.mutate(item.id)}
-                >
-                  <Icon name="x" size={18} />
-                </button>
-              </li>
-            ))}
-          </ul>
+          <WatchlistRows
+            items={watchlist.items}
+            pendingId={removeWatch.isPending ? removeWatch.variables.id : null}
+            onRemove={(id, symbol) => removeWatch.mutate({ id, symbol })}
+          />
         )}
         {removeWatch.isError ? (
           <p role="alert" className="field-error" style={{ margin: "8px 0 0" }}>
-            That symbol could not be removed — try again.
+            {removeWatch.variables.symbol} couldn&apos;t be removed. Try again.
           </p>
         ) : null}
       </section>
 
-      <section aria-label="Open orders">
+      <section aria-labelledby="open-orders-heading">
         <div className="ar-section">
-          <h2 className="ar-heading">Open orders</h2>
+          <h2 id="open-orders-heading" className="ar-heading">
+            Open orders
+          </h2>
         </div>
         <OrdersTable status="open" limit={5} />
       </section>

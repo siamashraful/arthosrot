@@ -10,34 +10,69 @@ import { symbolSchema } from "./market";
  * party. Unset upstream (dev/CI) or a miss -> 404 -> the UI's designed
  * monogram tile. The upstream is config, not code: swap the env var to swap
  * vendors (INTEGRATIONS.md).
+ *
+ * Served same-origin, so only inert raster types pass (never SVG — it could
+ * run script), bodies are capped, and responses carry nosniff.
  */
+
+/** Raster types only — anything else (SVG, HTML, unknown) is a miss. */
+const ALLOWED_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/gif"]);
+/** Real logos are a few KB; anything this large is not one. */
+export const MAX_LOGO_BYTES = 512 * 1024;
+
+const miss = () => new Response(null, { status: 404 });
 
 export async function getLogo(symbolRaw: string): Promise<Response> {
   const parsed = symbolSchema.safeParse(symbolRaw);
-  if (!parsed.success) return new Response(null, { status: 404 });
+  if (!parsed.success) return miss();
   const symbol = parsed.data.toUpperCase();
 
   const { LOGO_UPSTREAM } = env();
-  if (!LOGO_UPSTREAM) return new Response(null, { status: 404 });
+  if (!LOGO_UPSTREAM) return miss();
 
   const cached = await getCachedLogo(symbol);
-  if (cached) return logoResponse(cached);
+  // a row cached before the type allowlist existed is re-checked, not trusted
+  if (cached && allowedLogoType(cached.contentType)) return logoResponse(cached);
 
   const upstream = await fetch(
     LOGO_UPSTREAM.replace("{SYMBOL}", encodeURIComponent(upstreamSymbol(symbol))),
     { signal: AbortSignal.timeout(5_000) },
   ).catch(() => null);
-  if (!upstream || !upstream.ok || !upstream.headers.get("content-type")?.startsWith("image/")) {
-    return new Response(null, { status: 404 });
-  }
+  const contentType = allowedLogoType(upstream?.headers.get("content-type") ?? null);
+  if (!upstream || !upstream.ok || !contentType) return miss();
 
-  const bytes = Buffer.from(await upstream.arrayBuffer());
-  const logo: CachedLogo = {
-    b64: bytes.toString("base64"),
-    contentType: upstream.headers.get("content-type") ?? "image/png",
-  };
+  const bytes = await readCapped(upstream, MAX_LOGO_BYTES).catch(() => null);
+  if (!bytes || bytes.length === 0) return miss();
+  const logo: CachedLogo = { b64: bytes.toString("base64"), contentType };
   await putCachedLogo(symbol, logo);
   return logoResponse(logo);
+}
+
+/** The bare media type when it is an allowed raster type, else null. */
+export function allowedLogoType(header: string | null): string | null {
+  const type = header?.split(";")[0]?.trim().toLowerCase() ?? "";
+  return ALLOWED_TYPES.has(type) ? type : null;
+}
+
+/** Read a body, refusing (null) once it exceeds `max` bytes — never buffers more. */
+export async function readCapped(res: Response, max: number): Promise<Buffer | null> {
+  const declared = Number(res.headers.get("content-length") ?? "");
+  if (Number.isFinite(declared) && declared > max) return null;
+  if (!res.body) return Buffer.alloc(0);
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > max) {
+      await reader.cancel().catch(() => undefined);
+      return null;
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks);
 }
 
 /**
@@ -53,6 +88,7 @@ function logoResponse(logo: CachedLogo): Response {
     status: 200,
     headers: {
       "content-type": logo.contentType,
+      "x-content-type-options": "nosniff",
       // browser-cached per user; the DB cache covers cold serverless starts
       "cache-control": "private, max-age=86400",
     },

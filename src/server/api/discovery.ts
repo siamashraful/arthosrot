@@ -13,20 +13,23 @@ import { serializeQuote } from "./market";
  * comes back with quote:null (the row still links to its instrument page).
  */
 
-export const BROWSE_PAGE = 25;
+const BROWSE_PAGE = 25;
 
 /** Curated names read better than SEC filing names ("NVIDIA" vs "Nvidia Corp."). */
 const CURATED_NAMES = new Map(
   SECTORS.flatMap((s) => s.companies.map((c) => [c.symbol, c.name] as const)),
 );
 
-interface Top100 {
+export interface Top100 {
   asOf: string;
   entries: Array<{ rank: number; symbol: string; name: string; marketCap: string | null }>;
 }
 
-/** Newest job snapshot, or the generated seed until one exists. */
-async function top100(): Promise<Top100> {
+/**
+ * The current Top 100: newest job snapshot (curated names preferred), or the
+ * dated seed until one exists. Shared by browse and top movers.
+ */
+export async function loadTop100(): Promise<Top100> {
   // Display data must not take the Markets screen down: if the ranking store
   // is unreachable (e.g. the web deployed before its migration ran), log it
   // loudly and serve the dated seed instead.
@@ -55,7 +58,7 @@ async function top100(): Promise<Top100> {
 }
 
 export async function getBrowse(): Promise<unknown> {
-  const ranking = await top100();
+  const ranking = await loadTop100();
   return {
     top100: {
       slug: TOP100_LIST,
@@ -83,11 +86,11 @@ export async function getBrowseList(slug: string, request: Request): Promise<unk
   let rows: Array<{ rank?: number; symbol: string; name: string; marketCap?: string | null }>;
   let rankingAsOf: string | null = null;
   if (slug === TOP100_LIST) {
-    const ranking = await top100();
+    const ranking = await loadTop100();
     header = {
       slug,
       name: "Top 100",
-      blurb: "The 100 largest US companies by market value — share count × share price.",
+      blurb: "The 100 largest US companies by market value (share count × share price).",
       icon: "trophy",
     };
     rows = ranking.entries;

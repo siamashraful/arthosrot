@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
  * the sanctioned chart-rendering boundary (FINANCIAL_INVARIANTS.md): color
  * conversion only — never arithmetic on financial values.
  */
-export function normalizeColor(color: string): string {
+function normalizeColor(color: string): string {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
   const ctx = canvas.getContext("2d");

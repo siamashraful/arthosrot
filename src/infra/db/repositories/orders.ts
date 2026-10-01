@@ -7,7 +7,6 @@ import type {
   OrderState,
 } from "@/core/orders";
 import { Money, Px, Qty } from "@/core/money";
-import { invariant, type TxHandle } from "@/core/shared";
 import { schema } from "..";
 import { asDb } from "../tx";
 
@@ -229,22 +228,3 @@ export const ordersRepository: OrdersRepository = {
     }));
   },
 };
-
-/** Minimal position-quantity reader for sellable checks (full store in portfolio). */
-export async function getPositionQty(
-  tx: TxHandle,
-  accountId: string,
-  instrumentId: string,
-): Promise<Qty> {
-  const [row] = await asDb(tx)
-    .select({ qty: schema.positions.qty })
-    .from(schema.positions)
-    .where(
-      and(
-        eq(schema.positions.accountId, accountId),
-        eq(schema.positions.instrumentId, instrumentId),
-      ),
-    );
-  invariant(row === undefined || row.qty >= 0n, "negative position quantity");
-  return Qty.of(row?.qty ?? 0n);
-}

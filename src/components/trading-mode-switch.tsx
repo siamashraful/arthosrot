@@ -39,7 +39,7 @@ export function TradingModeSwitch() {
       <dialog ref={dialogRef} className="sheet" aria-label="Switch to live trading">
         <h2 className="ar-sheet__title">Switch to live trading</h2>
         <p className="ar-sheet__text" style={{ margin: "0 0 12px" }}>
-          Live mode is where real money will be traded. Real trading isn&apos;t enabled yet — this
+          Live mode is where real money will be traded. Real trading isn&apos;t enabled yet, so this
           switches Arthosrot into a visual preview of the live experience.
         </p>
         <p className="ar-sheet__text" style={{ margin: 0 }}>

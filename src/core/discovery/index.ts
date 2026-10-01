@@ -28,3 +28,5 @@ export {
   type TrailingEps,
 } from "./fundamentals";
 export type { MarketCapRankingStore, StoredRanking, StoredRankingEntry } from "./store";
+export { compareDecimal, MOVERS_LIMIT, rankMovers, type MoverCandidate } from "./movers";
+export { downsampleSeries, SPARKLINE_MAX_POINTS } from "./sparkline";

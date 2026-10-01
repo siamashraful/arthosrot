@@ -5,7 +5,8 @@ import type { OrdersService } from "../orders";
 import type { CanonicalBrokerEvent, Order } from "../orders";
 import { applyBuyFill, applySellFill, type PositionsRepository } from "../portfolio";
 import { AppError, invariant, type Clock, type TransactionRunner, type TxHandle } from "../shared";
-import type { Broker } from "./broker";
+import { describeTrade } from "./describe";
+import type { Broker, CancelResult } from "./broker";
 
 /**
  * ExecutionService (docs/architecture/EXECUTION.md): routes orders to the
@@ -140,8 +141,12 @@ export class ExecutionService {
     }
   }
 
-  /** Ask the venue to cancel; the outcome (CANCELLED or fill-won-race) arrives as events. */
-  async requestVenueCancel(orderId: string): Promise<void> {
+  /**
+   * Ask the venue to cancel; the outcome (CANCELLED or fill-won-race) arrives
+   * as events. Returns the venue's answer: a refusal (e.g. already filled)
+   * means local state is behind the venue — callers reconcile to converge.
+   */
+  async requestVenueCancel(orderId: string): Promise<CancelResult> {
     const { order, brokerAccountId } = await this.txRunner.run(async (tx) => {
       const o = await this.orders.getById(tx, orderId);
       invariant(o, `cancel: order ${orderId} not found`);
@@ -149,7 +154,7 @@ export class ExecutionService {
       invariant(ref, `cancel: no broker account`);
       return { order: o, brokerAccountId: ref.externalAccountId };
     });
-    await this.broker.cancel(brokerAccountId, order.id);
+    return this.broker.cancel(brokerAccountId, order.id);
   }
 
   /**
@@ -247,7 +252,7 @@ export class ExecutionService {
         amount: amount.negate(),
         refType: "FILL",
         refId: fillId,
-        description: `Bought ${event.fillQty.toString()} ${order.symbol} @ ${event.fillPrice.toString()}`,
+        description: describeTrade("BUY", event.fillQty, order.symbol, event.fillPrice),
       });
     } else {
       const { position: next } = applySellFill(position, event.fillQty, amount, fee);
@@ -258,7 +263,7 @@ export class ExecutionService {
         amount,
         refType: "FILL",
         refId: fillId,
-        description: `Sold ${event.fillQty.toString()} ${order.symbol} @ ${event.fillPrice.toString()}`,
+        description: describeTrade("SELL", event.fillQty, order.symbol, event.fillPrice),
       });
     }
 

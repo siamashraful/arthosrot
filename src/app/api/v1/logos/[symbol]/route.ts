@@ -1,5 +1,5 @@
 import { getLogo } from "@/server/api/logos";
-import { errorResponse } from "@/server/api/http";
+import { errorResponse, pathParam } from "@/server/api/http";
 import { getSession } from "@/server/session";
 
 /** Authed image proxy — see src/server/api/logos.ts. Not JSON, so it wraps
@@ -9,8 +9,13 @@ export async function GET(request: Request): Promise<Response> {
   try {
     const session = await getSession(request.headers);
     if (!session) return new Response(null, { status: 401 });
-    const symbol = new URL(request.url).pathname.split("/").at(-1) ?? "";
-    return await getLogo(decodeURIComponent(symbol));
+    let symbol: string;
+    try {
+      symbol = pathParam(request);
+    } catch {
+      return new Response(null, { status: 404 }); // malformed path: a miss, like a bad symbol
+    }
+    return await getLogo(symbol);
   } catch (err) {
     return errorResponse(err, requestId);
   }

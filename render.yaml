@@ -40,3 +40,9 @@ services:
         sync: false
       - key: TOP100_REFRESH_INTERVAL
         value: 24h
+      # Price alerts: checked whenever the worker runs due jobs — on every
+      # market-hours /reconcile call (every 10 min) and the hourly tick. 9m
+      # keeps the job due on each 10-minute reconcile. Users with the app open
+      # are also evaluated on every alerts read (the bell's 60s poll).
+      - key: ALERTS_CHECK_INTERVAL
+        value: 9m

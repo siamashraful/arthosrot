@@ -24,7 +24,7 @@ export function LiveDashboard() {
           <Money value="0.00" />
         </span>
         <span className="ar-hero__delta">
-          Live mode preview — real trading isn&apos;t enabled yet
+          Live mode preview: real trading isn&apos;t enabled yet
         </span>
         <div className="ar-hero__actions">
           <FundingSheet kind="deposit" />
@@ -38,8 +38,8 @@ export function LiveDashboard() {
             Your live portfolio starts after your first deposit
           </span>
           <span className="ar-empty__text">
-            Real trading is still being built. Your practice account is safe — switch back anytime
-            in <Link href="/settings">Settings</Link>.
+            Real trading is still being built. Your practice account is safe. Switch back anytime in{" "}
+            <Link href="/settings">Settings</Link>.
           </span>
         </div>
       </div>

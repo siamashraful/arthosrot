@@ -1,80 +1,104 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
-import { api, ApiError, type QuoteDto } from "@/lib/api";
-import { formatMoney, formatPrice } from "@/lib/format";
+import Link from "next/link";
+import { useId, useState } from "react";
+import { api, type OrderDto, type QuoteDto } from "@/lib/api";
+import { formatMoney, formatOrderType, formatPrice, formatShares } from "@/lib/format";
+import {
+  checkLimitPrice,
+  checkQty,
+  estimateNotional,
+  reserveWithBuffer,
+  placeOrderError,
+  referencePrice,
+  sanitizePriceInput,
+  sanitizeQtyInput,
+  ticketPrecheck,
+} from "@/lib/order-ticket";
 import { Explainer } from "../Explainer";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { FillProgress } from "./FillProgress";
+import { isOrderTerminal } from "./order-state";
+import {
+  invalidateOrderViews,
+  orderProgressSignature,
+  useRefreshOnOrderProgress,
+} from "./order-queries";
 
 /**
  * The trading ticket (docs/design/UX_PATTERNS.md): labeled Buy/Sell segmented
  * control (brand-neutral — never green/red), explicit review step showing the
  * order rows the system requires before submission, a single primary
  * confirm, and a live order chip after submission — never optimistic FILLED.
- * Estimates use ask for buys / bid for sells. Estimation only — display math
- * on numbers; all real arithmetic is server-side decimal.
+ * Estimates use ask for buys / bid for sells, computed exactly in cents
+ * (lib/order-ticket.ts); the server re-derives every reservation in decimal
+ * under the placement lock and stays the authority.
+ *
+ * One idempotency key per order intent: a double-click, or confirming again
+ * after a network/server failure, replays the same key and can never place
+ * the order twice. Editing the ticket makes a new intent with a new key.
  */
 
-const TERMINAL = new Set(["FILLED", "CANCELLED", "REJECTED", "EXPIRED", "SUBMIT_FAILED"]);
+type Side = "BUY" | "SELL";
+type OrderType = "MARKET" | "LIMIT";
 
 export function TradingTicket({
   symbol,
   quote,
   buyingPower,
   sellable,
+  buyable = true,
+  marketBuyBuffer,
 }: {
   symbol: string;
   /** null when the feed no longer quotes this instrument — LIMIT-only then. */
   quote: QuoteDto | null;
   buyingPower: string;
   sellable: string;
+  /** false for a delisted instrument: holders can still sell, nobody can buy. */
+  buyable?: boolean;
+  /** Server placement rule: market buys reserve price × qty × (1 + buffer). */
+  marketBuyBuffer?: string;
 }) {
   const queryClient = useQueryClient();
   const uid = useId();
-  const [side, setSide] = useState<"BUY" | "SELL">("BUY");
-  // No quote -> no market-order reference price: LIMIT is the only honest type.
-  const [type, setType] = useState<"MARKET" | "LIMIT">(quote ? "MARKET" : "LIMIT");
+  const [side, setSide] = useState<Side>(buyable ? "BUY" : "SELL");
+  const [chosenType, setType] = useState<OrderType>(quote ? "MARKET" : "LIMIT");
   const [qty, setQty] = useState("");
   const [limitPrice, setLimitPrice] = useState("");
   const [reviewing, setReviewing] = useState(false);
   const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
-  const [placedOrderId, setPlacedOrderId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [placed, setPlaced] = useState<OrderDto | null>(null);
+  const [error, setError] = useState<{ message: string; retryable: boolean } | null>(null);
 
-  const qtyNum = Number.parseInt(qty, 10);
-  const validQty = Number.isInteger(qtyNum) && qtyNum > 0;
-  const validLimit = type === "MARKET" || /^\d+(\.\d{1,4})?$/.test(limitPrice);
-
-  const estimate = useMemo(() => {
-    if (!validQty) return null;
-    const ref =
-      type === "LIMIT" && validLimit && limitPrice
-        ? Number(limitPrice)
-        : quote
-          ? Number((side === "BUY" ? (quote.ask ?? quote.last) : (quote.bid ?? quote.last)) ?? 0)
-          : null;
-    return ref === null ? null : (ref * qtyNum).toFixed(2);
-  }, [validQty, qtyNum, type, validLimit, limitPrice, side, quote]);
-
-  // Pre-checks for orders that are certain to be rejected, so the user learns
-  // before review rather than after submit. Advisory display comparisons on
-  // the client's own estimate — the server re-derives every reservation in
-  // decimal under the placement lock and stays the authority (market buys
-  // also reserve a price buffer, which only the server applies).
-  const sellableNum = Number.parseInt(sellable, 10) || 0;
-  const precheck: string | null = !validQty
-    ? null
-    : side === "SELL"
-      ? sellableNum === 0
-        ? `You don't hold any ${symbol} to sell.`
-        : qtyNum > sellableNum
-          ? `You can sell up to ${sellableNum} ${sellableNum === 1 ? "share" : "shares"}.`
-          : null
-      : estimate !== null && Number(estimate) > Number(buyingPower)
-        ? `Estimated cost is more than your buying power (${formatMoney(buyingPower)}).`
-        : null;
+  // No quote -> no market-order reference price: LIMIT is the only honest
+  // type, even if the quote disappeared after the user picked Market.
+  const type: OrderType = quote ? chosenType : "LIMIT";
+  const qtyCheck = checkQty(qty);
+  const limitCheck = type === "LIMIT" ? checkLimitPrice(limitPrice) : null;
+  const refPrice = referencePrice(quote, side);
+  const estimatePrice = type === "LIMIT" ? (limitCheck?.ok ? limitCheck.value : null) : refPrice;
+  const estimate =
+    qtyCheck.ok && estimatePrice ? estimateNotional(estimatePrice, qtyCheck.value) : null;
+  const buyBlocked = side === "BUY" && !buyable;
+  const precheck =
+    qtyCheck.ok && !buyBlocked
+      ? ticketPrecheck({
+          symbol,
+          side,
+          qty: qtyCheck.value,
+          estimate,
+          buyingPower,
+          sellable,
+          reserve:
+            side === "BUY" && type === "MARKET" && refPrice && marketBuyBuffer
+              ? reserveWithBuffer(refPrice, qtyCheck.value, marketBuyBuffer)
+              : null,
+          ...(marketBuyBuffer ? { buffer: marketBuyBuffer } : {}),
+        })
+      : null;
+  const ready = qtyCheck.ok && (limitCheck === null || limitCheck.ok) && !buyBlocked && !precheck;
 
   const place = useMutation({
     mutationFn: () =>
@@ -82,43 +106,47 @@ export function TradingTicket({
         symbol,
         side,
         type,
-        qty: qtyNum,
-        ...(type === "LIMIT" ? { limitPrice } : {}),
+        qty: qtyCheck.ok ? qtyCheck.value : 0,
+        ...(limitCheck?.ok ? { limitPrice: limitCheck.value } : {}),
         idempotencyKey,
       }),
     onSuccess: ({ order }) => {
-      setPlacedOrderId(order.id);
+      setPlaced(order);
       setReviewing(false);
       setQty("");
       setLimitPrice("");
       setIdempotencyKey(crypto.randomUUID());
-      void queryClient.invalidateQueries({ queryKey: ["orders"] });
+      // The placement reserved cash (buy) or shares (sell), and a market
+      // order may already have filled: every cash-derived view is stale.
+      invalidateOrderViews(queryClient, order.id);
     },
     onError: (err) => {
-      setReviewing(false);
-      setError(err instanceof ApiError ? err.message : "Order could not be placed.");
+      const failure = placeOrderError(err);
+      setError(failure);
+      // A refusal needs an edit; an uncertain outcome stays on review so the
+      // same key can be confirmed again (a replay, never a second order).
+      if (!failure.retryable) setReviewing(false);
     },
   });
 
   // The user edits the ticket -> it becomes a NEW order intent (fresh key).
-  function onEdit<T>(setter: (v: T) => void) {
-    return (v: T) => {
-      setter(v);
-      setError(null);
-      setReviewing(false);
-      setIdempotencyKey(crypto.randomUUID());
-    };
+  function edit(apply: () => void) {
+    apply();
+    setError(null);
+    setReviewing(false);
+    setIdempotencyKey(crypto.randomUUID());
   }
 
   const sideWord = side === "BUY" ? "Buy" : "Sell";
-  const typeWord = type === "MARKET" ? "Market" : `Limit ${formatPrice(limitPrice)}`;
-  const refPrice = quote
-    ? formatPrice((side === "BUY" ? quote.ask : quote.bid) ?? quote.last)
-    : "—";
+  const typeWord = formatOrderType(type, limitCheck?.ok ? limitCheck.value : null);
+  const quoteLabel = side === "BUY" ? "Ask" : "Bid";
+  const estimateLabel = `Estimated ${side === "BUY" ? "cost" : "proceeds"}`;
+  const qtyError = qtyCheck.ok ? null : qtyCheck.error;
+  const limitError = limitCheck && !limitCheck.ok ? limitCheck.error : null;
 
   return (
-    <section className="ar-card" aria-label={`Trade ${symbol}`}>
-      <h2 className="ar-heading" style={{ marginBottom: 16 }}>
+    <section className="ar-card" aria-labelledby={`${uid}-title`}>
+      <h2 className="ar-heading" id={`${uid}-title`} style={{ marginBottom: 16 }}>
         Trade {symbol}
       </h2>
 
@@ -130,28 +158,49 @@ export function TradingTicket({
               type="button"
               className={`ar-seg__item${side === s ? " is-selected" : ""}`}
               aria-pressed={side === s}
-              onClick={() => onEdit(setSide)(s)}
+              onClick={() => edit(() => setSide(s))}
             >
               {s === "BUY" ? "Buy" : "Sell"}
             </button>
           ))}
         </div>
 
+        {/* Order type: the system's SegmentedControl (two to four mutually
+            exclusive choices are never a dropdown), same as Buy | Sell. */}
         <div className="ar-field">
-          <label className="ar-field__label" htmlFor={`${uid}-type`}>
+          <span className="ar-field__label" id={`${uid}-type`}>
             Order type
-          </label>
-          <select
-            id={`${uid}-type`}
-            className="select"
-            value={type}
-            onChange={(e) => onEdit(setType)(e.target.value as "MARKET" | "LIMIT")}
+          </span>
+          <div
+            className="ar-seg ar-seg--block"
+            role="group"
+            aria-labelledby={`${uid}-type`}
+            aria-describedby={quote ? undefined : `${uid}-type-help`}
           >
-            <option value="MARKET" disabled={!quote}>
-              Market
-            </option>
-            <option value="LIMIT">Limit (day)</option>
-          </select>
+            {(
+              [
+                ["MARKET", "Market"],
+                ["LIMIT", "Limit (day)"],
+              ] as const
+            ).map(([t, label]) => (
+              <button
+                key={t}
+                type="button"
+                className={`ar-seg__item${type === t ? " is-selected" : ""}`}
+                aria-pressed={type === t}
+                // a market order needs a live quote to estimate against
+                disabled={t === "MARKET" && !quote}
+                onClick={() => edit(() => setType(t))}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {!quote ? (
+            <span id={`${uid}-type-help`} className="ar-field__help">
+              Market orders need a live quote. Use a limit order.
+            </span>
+          ) : null}
         </div>
 
         <div className="ar-field">
@@ -163,16 +212,25 @@ export function TradingTicket({
               id={`${uid}-qty`}
               className="tabular"
               inputMode="numeric"
-              pattern="[0-9]*"
+              autoComplete="off"
               value={qty}
-              onChange={(e) => onEdit(setQty)(e.target.value.replace(/[^0-9]/g, ""))}
-              aria-describedby={`${uid}-available`}
+              aria-invalid={qtyError ? true : undefined}
+              onChange={(e) => {
+                const next = sanitizeQtyInput(e.target.value);
+                edit(() => setQty(next));
+              }}
+              aria-describedby={`${uid}-available${qtyError ? ` ${uid}-qty-error` : ""}`}
             />
           </div>
+          {qtyError ? (
+            <span id={`${uid}-qty-error`} className="field-error">
+              {qtyError}
+            </span>
+          ) : null}
           <span id={`${uid}-available`} className="ar-field__help tabular">
             {side === "BUY"
               ? `Buying power ${formatMoney(buyingPower)}`
-              : `Sellable ${sellable} shares`}
+              : `Sellable ${formatShares(sellable)}`}
           </span>
           {side === "BUY" ? <Explainer topic="buying-power" /> : null}
         </div>
@@ -187,10 +245,21 @@ export function TradingTicket({
                 id={`${uid}-limit`}
                 className="tabular"
                 inputMode="decimal"
+                autoComplete="off"
                 value={limitPrice}
-                onChange={(e) => onEdit(setLimitPrice)(e.target.value.replace(/[^0-9.]/g, ""))}
+                aria-invalid={limitError ? true : undefined}
+                aria-describedby={limitError ? `${uid}-limit-error` : undefined}
+                onChange={(e) => {
+                  const next = sanitizePriceInput(e.target.value);
+                  edit(() => setLimitPrice(next));
+                }}
               />
             </div>
+            {limitError ? (
+              <span id={`${uid}-limit-error`} className="field-error">
+                {limitError}
+              </span>
+            ) : null}
             {quote ? (
               <span className="ar-field__help tabular">Last {formatPrice(quote.last)}</span>
             ) : null}
@@ -200,14 +269,16 @@ export function TradingTicket({
         {!reviewing ? (
           <div>
             <div className="ar-ticket-row">
-              <span className="ar-ticket-row__label">{side === "BUY" ? "Ask" : "Bid"}</span>
-              <span className="ar-ticket-row__value">{refPrice}</span>
+              <span className="ar-ticket-row__label">{quoteLabel}</span>
+              <span className="ar-ticket-row__value">
+                {refPrice ? formatPrice(refPrice) : "N/A"}
+              </span>
             </div>
             <div className="ar-ticket-row">
-              <span className="ar-ticket-row__label">
-                Estimated {side === "BUY" ? "cost" : "proceeds"}
+              <span className="ar-ticket-row__label">{estimateLabel}</span>
+              <span className="ar-ticket-row__value">
+                {estimate ? formatMoney(estimate) : "N/A"}
               </span>
-              <span className="ar-ticket-row__value">{estimate ? formatMoney(estimate) : "—"}</span>
             </div>
             <div className="ar-ticket-row">
               <span className="ar-ticket-row__label">Estimated fees</span>
@@ -216,14 +287,19 @@ export function TradingTicket({
           </div>
         ) : null}
 
+        {buyBlocked ? (
+          <p role="alert" className="field-error" style={{ margin: 0 }}>
+            {symbol} is no longer tradable. Shares you hold can still be sold.
+          </p>
+        ) : null}
         {precheck && !error ? (
           <p role="alert" className="field-error" style={{ margin: 0 }}>
             {precheck}
           </p>
         ) : null}
-        {error ? (
+        {error && !reviewing ? (
           <p role="alert" className="field-error" style={{ margin: 0 }}>
-            {error}
+            {error.message}
           </p>
         ) : null}
 
@@ -231,16 +307,19 @@ export function TradingTicket({
           <button
             type="button"
             className="ar-btn ar-btn--primary ar-btn--block"
-            disabled={!validQty || !validLimit || precheck !== null || place.isPending}
-            onClick={() => setReviewing(true)}
+            disabled={!ready || place.isPending}
+            onClick={() => {
+              setError(null);
+              setReviewing(true);
+            }}
           >
             Review order
           </button>
         ) : (
           <div className="review-summary">
             <p className="ar-body-strong" style={{ margin: "0 0 4px" }}>
-              {sideWord} {qtyNum} {symbol} · {typeWord} · est.{" "}
-              {estimate ? formatMoney(estimate) : "—"}
+              {sideWord} {qtyCheck.ok ? qtyCheck.value : ""} {symbol} · {typeWord} · est.{" "}
+              {estimate ? formatMoney(estimate) : "N/A"}
             </p>
             <div className="ar-ticket-row">
               <span className="ar-ticket-row__label">Order type</span>
@@ -249,30 +328,39 @@ export function TradingTicket({
             <div className="ar-ticket-row">
               <span className="ar-ticket-row__label">Quantity</span>
               <span className="ar-ticket-row__value">
-                {qtyNum} {qtyNum === 1 ? "share" : "shares"}
+                {qtyCheck.ok ? formatShares(qtyCheck.value) : "N/A"}
               </span>
             </div>
             <div className="ar-ticket-row">
-              <span className="ar-ticket-row__label">{side === "BUY" ? "Ask" : "Bid"}</span>
-              <span className="ar-ticket-row__value">{refPrice}</span>
+              <span className="ar-ticket-row__label">{quoteLabel}</span>
+              <span className="ar-ticket-row__value">
+                {refPrice ? formatPrice(refPrice) : "N/A"}
+              </span>
             </div>
             <div className="ar-ticket-row">
-              <span className="ar-ticket-row__label">
-                Estimated {side === "BUY" ? "cost" : "proceeds"}
+              <span className="ar-ticket-row__label">{estimateLabel}</span>
+              <span className="ar-ticket-row__value">
+                {estimate ? formatMoney(estimate) : "N/A"}
               </span>
-              <span className="ar-ticket-row__value">{estimate ? formatMoney(estimate) : "—"}</span>
             </div>
             <div className="ar-ticket-row">
               <span className="ar-ticket-row__label">Estimated fees</span>
               <span className="ar-ticket-row__value">$0.00</span>
             </div>
             <p className="ar-caption ar-secondary" style={{ margin: "12px 0 0" }}>
-              Paper account — simulated money. Execution price may differ from the displayed quote.
+              Practice account, simulated money. Execution price may differ from the displayed
+              quote.
             </p>
+            {error ? (
+              <p role="alert" className="field-error" style={{ margin: "12px 0 0" }}>
+                {error.message}
+              </p>
+            ) : null}
             <div className="ar-btn-row" style={{ marginTop: 16 }}>
               <button
                 type="button"
                 className="ar-btn ar-btn--secondary"
+                disabled={place.isPending}
                 onClick={() => setReviewing(false)}
               >
                 Back
@@ -280,8 +368,12 @@ export function TradingTicket({
               <button
                 type="button"
                 className="ar-btn ar-btn--primary"
-                disabled={place.isPending}
-                onClick={() => place.mutate()}
+                disabled={place.isPending || !ready}
+                onClick={() => {
+                  if (place.isPending) return; // one request per click, same key on retry
+                  setError(null);
+                  place.mutate();
+                }}
               >
                 {place.isPending ? "Placing…" : "Confirm order"}
               </button>
@@ -289,34 +381,27 @@ export function TradingTicket({
           </div>
         )}
 
-        {placedOrderId ? <PlacedOrderChip orderId={placedOrderId} /> : null}
+        {placed ? <PlacedOrderChip key={placed.id} placed={placed} /> : null}
       </div>
     </section>
   );
 }
 
 /** Live order chip: advances via polling until terminal — no manual refresh. */
-function PlacedOrderChip({ orderId }: { orderId: string }) {
-  const queryClient = useQueryClient();
+function PlacedOrderChip({ placed }: { placed: OrderDto }) {
   const { data } = useQuery({
-    queryKey: ["order", orderId],
-    queryFn: () => api.orderDetail(orderId),
+    queryKey: ["order", placed.id],
+    queryFn: () => api.orderDetail(placed.id),
     refetchInterval: (query) => {
       const state = query.state.data?.order.state;
-      if (state && TERMINAL.has(state)) {
-        // A terminal order may have moved cash and shares: refresh every
-        // view derived from them, including the net-worth series.
-        void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-        void queryClient.invalidateQueries({ queryKey: ["portfolio-history"] });
-        void queryClient.invalidateQueries({ queryKey: ["ledger"] });
-        void queryClient.invalidateQueries({ queryKey: ["orders"] });
-        return false;
-      }
-      return 1_500;
+      return state && isOrderTerminal(state) ? false : 1_500;
     },
   });
-  if (!data) return <div className="ar-skel ar-skel--text" style={{ height: 24 }} />;
-  const { order } = data;
+  const order = data?.order ?? placed;
+  // Each fill and the final state move cash and shares: refresh every view
+  // derived from them (relative to the placement response already handled).
+  useRefreshOnOrderProgress(orderProgressSignature([order]), orderProgressSignature([placed]));
+
   return (
     <div style={{ display: "grid", gap: 8 }}>
       <div
@@ -333,6 +418,13 @@ function PlacedOrderChip({ orderId }: { orderId: string }) {
         ) : null}
       </div>
       {order.state === "PARTIALLY_FILLED" ? <Explainer topic="partial-fill" /> : null}
+      <Link
+        href={`/orders/${order.id}`}
+        className="ar-link ar-caption"
+        style={{ justifySelf: "start" }}
+      >
+        View order details
+      </Link>
     </div>
   );
 }

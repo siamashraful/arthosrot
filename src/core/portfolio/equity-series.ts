@@ -25,16 +25,25 @@ import type { FillForReplay } from "./portfolio";
 export interface LedgerAmountAt {
   amount: Money;
   createdAt: Date;
-  /** Ledger entry type — DEPOSIT rows are external contributions. */
+  /**
+   * Ledger entry type — DEPOSIT (+) and WITHDRAWAL (−, signed) rows are
+   * external cash flows; everything else is the market's doing.
+   */
   entryType: string;
+}
+
+/** External cash flows: what net deposits count (withdrawals are negative). */
+function isExternalFlow(entryType: string): boolean {
+  return entryType === "DEPOSIT" || entryType === "WITHDRAWAL";
 }
 
 export interface EquityPoint {
   t: Date;
   value: Money;
   /**
-   * Cumulative external contributions (DEPOSIT entries) at this instant —
-   * the comparison line that separates market movement from money added.
+   * Cumulative net external contributions (DEPOSIT minus WITHDRAWAL entries)
+   * at this instant — the comparison line that separates market movement
+   * from money added or taken out.
    */
   netDeposits: Money;
 }
@@ -176,7 +185,7 @@ export async function equitySeries(input: EquitySeriesInput): Promise<EquitySeri
     const cutoff = gridBarMs > 0 ? barStart + gridBarMs : barStart + 1;
     while (ledgerIdx < ledger.length && ledger[ledgerIdx]!.createdAt.getTime() < cutoff) {
       cash = cash.add(ledger[ledgerIdx]!.amount);
-      if (ledger[ledgerIdx]!.entryType === "DEPOSIT") {
+      if (isExternalFlow(ledger[ledgerIdx]!.entryType)) {
         depositsCum = depositsCum.add(ledger[ledgerIdx]!.amount);
       }
       ledgerIdx += 1;
@@ -216,7 +225,7 @@ export async function equitySeries(input: EquitySeriesInput): Promise<EquitySeri
     points.pop();
   }
   const totalDeposits = Money.sum(
-    ledger.filter((e) => e.entryType === "DEPOSIT").map((e) => e.amount),
+    ledger.filter((e) => isExternalFlow(e.entryType)).map((e) => e.amount),
   );
   points.push({ t: now, value: liveEquity, netDeposits: totalDeposits });
 

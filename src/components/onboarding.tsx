@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Icon } from "@/components/icons/Icon";
 import { api, ApiError } from "@/lib/api";
+import { formatWholeDollars as dollars } from "@/lib/format";
+import { CASH_DERIVED_KEYS } from "@/lib/queries";
 
 /**
  * Account onboarding (FR-2): shown when the user has no usable account, on
@@ -12,9 +15,18 @@ import { api, ApiError } from "@/lib/api";
  *                         asynchronously (minutes at the real venue); the
  *                         dashboard's `me` polling flips this to ACTIVE
  *  - PROVISIONING_FAILED: plain error + retry (a fresh account row)
+ * Errors render as the system's loss Banner: its tint carries its own
+ * contrast on the black hero, where caption-size loss text would not.
  */
 
-const dollars = (n: number) => `$${n.toLocaleString("en-US")}`;
+function LossBanner({ children }: { children: React.ReactNode }) {
+  return (
+    <div role="alert" className="ar-banner ar-banner--loss">
+      <Icon name="alert" size={20} />
+      <span className="ar-banner__body">{children}</span>
+    </div>
+  );
+}
 
 export function OnboardingPanel({
   status,
@@ -28,10 +40,9 @@ export function OnboardingPanel({
 
   const provision = useMutation({
     mutationFn: () => api.provisionAccount(amount),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ["me"] });
-      void queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-    },
+    // The opening deposit changes every cash-derived view, not just `me`.
+    onSuccess: () =>
+      Promise.all(CASH_DERIVED_KEYS.map((queryKey) => queryClient.invalidateQueries({ queryKey }))),
   });
 
   if (status === "PROVISIONING") {
@@ -40,8 +51,8 @@ export function OnboardingPanel({
         <h2 className="ar-heading" style={{ marginBottom: 8 }}>
           Setting up your account
         </h2>
-        <p className="muted" style={{ margin: 0, maxWidth: "48ch" }}>
-          Your opening deposit is on its way to the trading venue — simulated bank transfers take
+        <p className="ar-body ar-secondary" style={{ margin: 0, maxWidth: "48ch" }}>
+          Your opening deposit is on its way to the trading venue. Simulated bank transfers take
           about 10–30 minutes to clear. This page updates by itself, and you can safely leave and
           come back.
         </p>
@@ -54,18 +65,17 @@ export function OnboardingPanel({
       <h2 className="ar-heading" style={{ marginBottom: 8 }}>
         Open your practice account
       </h2>
-      <p className="muted" style={{ margin: "0 0 16px", maxWidth: "52ch" }}>
-        Choose your simulated starting cash. Practice money — every trade is real order mechanics,
+      <p className="ar-body ar-secondary" style={{ margin: "0 0 16px", maxWidth: "52ch" }}>
+        Choose your simulated starting cash. Practice money: every trade is real order mechanics,
         none of it is real dollars.
       </p>
 
-      {status === "PROVISIONING_FAILED" ? (
-        <p role="alert" className="loss" style={{ margin: "0 0 12px" }}>
-          Account setup failed at the trading venue. Nothing was created — try again.
-        </p>
-      ) : null}
-
       <div style={{ display: "grid", gap: 12, maxWidth: 420 }}>
+        {status === "PROVISIONING_FAILED" && !provision.isPending ? (
+          <LossBanner>
+            Account setup failed at the trading venue. Nothing was created, so try again.
+          </LossBanner>
+        ) : null}
         <div>
           <label className="ar-hero__label" htmlFor="starting-cash">
             Starting cash
@@ -96,7 +106,7 @@ export function OnboardingPanel({
           }
         />
         <div
-          className="muted ar-caption tabular"
+          className="ar-caption ar-secondary tabular"
           style={{ display: "flex", justifyContent: "space-between" }}
         >
           <span>{dollars(bounds.minStartingCash)}</span>
@@ -113,11 +123,11 @@ export function OnboardingPanel({
           </button>
         </div>
         {provision.isError ? (
-          <p role="alert" className="loss" style={{ margin: 0 }}>
+          <LossBanner>
             {provision.error instanceof ApiError
               ? provision.error.message
-              : "Something went wrong — try again."}
-          </p>
+              : "Account setup didn't go through. Check your connection and try again."}
+          </LossBanner>
         ) : null}
       </div>
     </section>

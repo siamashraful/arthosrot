@@ -55,6 +55,46 @@ the user's own `getMe` polling and by the worker's `activatePendingAccounts`
 sweep — both idempotent under the account row lock. The onboarding UI shows an
 honest "setting up your account" state while funding settles.
 
+### Paper cash transfers over sandbox ACH (ADR-015)
+
+Deposits and withdrawals on a paper account move simulated cash at the venue
+(`CashTransferVenue` port, implemented in `src/infra/brokers/alpaca/broker.ts`
+
+- `transfers.ts`):
+
+* **Relationship:** `GET /v1/accounts/{id}/ach_relationships` and reuse the
+  account's relationship (APPROVED preferred; QUEUED/PENDING accepted; never
+  CANCELED/CANCEL_REQUESTED). Only if none is usable is a new synthetic one
+  created (`POST …/ach_relationships`, the same synthetic bank as provisioning).
+* **Initiate:** `POST /v1/accounts/{id}/transfers` `{transfer_type: "ach",
+relationship_id, amount: "500.00", direction: "INCOMING" | "OUTGOING"}`. A
+  4xx response is a **definitive rejection** (e.g. `40010001 maximum total
+daily transfer allowed is $50000`) → the transfer is FAILED with the venue's
+  message. A 5xx/timeout is **ambiguous** → the transfer stays PENDING and the
+  sweep later matches the venue transfer (same direction + amount, unlinked,
+  created in the window) or fails it after a 10-minute grace.
+* **Status:** the Broker API documents a transfers **list**
+  (`GET /v1/accounts/{id}/transfers?limit&offset`), not get-by-id, so the
+  adapter pages the list to find a transfer; "not found" is only reported
+  after every page was read (any HTTP error throws). Mapping: `COMPLETE` →
+  SETTLED (the only status that posts money); `QUEUED`, `APPROVAL_PENDING`,
+  `PENDING`, `SENT_TO_CLEARING`, `APPROVED` and unknown statuses → PENDING;
+  `REJECTED`, `CANCELED`, `RETURNED` → FAILED with `reason`. Amounts parse as
+  decimals (sub-cent precision is refused, never rounded).
+* **Cap:** Arthosrot enforces ≤ $50,000 deposited per account per trailing
+  24 h (opening deposit included) before calling the venue, mirroring the
+  verified per-account daily cap above. Whether the venue's cap also counts
+  OUTGOING transfers is unverified — if it does, the venue's 4xx surfaces as
+  a FAILED withdrawal (hold released, nothing posted).
+* **Unverified — outgoing ACH.** No write call was made against the sandbox
+  while building this. `tests/external/alpaca-transfers.smoke.test.ts`
+  (`SMOKE_TRANSFERS=1`, ~70 min) runs a $1 deposit and withdrawal end to end;
+  record the outcome here. Until then, treat withdrawals on the Alpaca venue
+  as best-effort: the failure mode is safe (FAILED, nothing posted) but
+  unhelpful.
+* **ACH returns** after `COMPLETE` are not re-polled (settled is terminal
+  locally); an operator ADJUSTMENT entry would be the correction.
+
 ## Stock logos — keyless CDN via LOGO_UPSTREAM
 
 Alpaca's logo API is **subscription-gated** on both broker and data keys
@@ -73,7 +113,9 @@ hyphenated at the CDN (`BRK-B`) — the proxy maps `.` → `-`. Some marks are a
 light glyph on transparency (drawn for dark grounds); `SymbolLogo` samples the
 loaded image once on a 16px canvas and sets an ink backdrop for those, and
 falls back to the monogram for an effectively empty image. SVG is never
-proxied: served same-origin it could run script.
+proxied: served same-origin it could run script — the proxy passes only
+PNG/JPEG/WebP/GIF, caps bodies at 512 KB, sends `nosniff`, and re-checks the
+type of rows already in the cache.
 
 ## Alpaca Market Data — free IEX feed (display data)
 

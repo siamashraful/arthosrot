@@ -85,9 +85,7 @@ a {
 .ar-tab,
 .ar-tile,
 .nav-link,
-.list-row,
 a.ar-btn,
-a.btn,
 .data-table a {
   text-decoration: none;
 }
@@ -119,10 +117,6 @@ a.btn,
   clip: rect(0 0 0 0);
   white-space: nowrap;
   border: 0;
-}
-
-.muted {
-  color: var(--text-secondary);
 }
 
 /* semantic financial colour — text-size variants (≥4.5:1 on surface); never
@@ -454,9 +448,12 @@ a.btn,
   .data-table.collapsible thead {
     display: none;
   }
+  /* two lines, filled column by column: [primary · secondary] | [value · change] */
   .data-table.collapsible tr {
     display: grid;
     grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    grid-auto-flow: column;
     gap: 0 var(--space-12);
     padding: var(--space-12) 0;
     border-bottom: 1px solid var(--divider);
@@ -473,6 +470,13 @@ a.btn,
     font-size: var(--caption-size);
     line-height: var(--caption-lh);
     color: var(--text-tertiary);
+  }
+  .data-table.collapsible td.num[data-cell="secondary"] {
+    text-align: left; /* sits under the symbol */
+  }
+  /* detail columns the two-line row has no room for */
+  .data-table.collapsible td[data-cell="wide"] {
+    display: none;
   }
   .data-table.collapsible td.num {
     text-align: right;
@@ -534,8 +538,7 @@ dialog.sheet::backdrop {
   }
 }
 /* a ticket opened inside a sheet is the sheet's content, not a card in a card */
-dialog.sheet .ar-card,
-dialog.sheet .card {
+dialog.sheet .ar-card {
   background: transparent;
   padding: 0;
 }
@@ -582,9 +585,7 @@ dialog.sheet .card {
 /* Touch targets: 44px minimum on coarse pointers */
 @media (pointer: coarse) {
   .ar-btn,
-  .btn,
   .ar-input,
-  .input,
   .select,
   .ar-seg__item,
   .ar-chip,
@@ -744,9 +745,7 @@ dialog.sheet .card {
 .ar-insight-row,
 .ar-tile-grid,
 .ar-list,
-.ar-row,
-.card,
-.hero-card {
+.ar-row {
   min-width: 0;
 }
 
@@ -786,115 +785,71 @@ li.ar-row {
   border-bottom: 0;
 }
 
-/* ================================================== legacy class aliases */
+/* ================================================== app-level controls */
 
-/* App class names that tests or untouched components still use, mapped onto
-   the design system's rules (below). Prefer the ar- names in new markup. */
-.card {
-  background: var(--surface);
-  border-radius: var(--radius-card);
-  padding: var(--card-padding);
-}
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  height: 48px;
-  padding: 0 20px;
-  border-radius: var(--radius-pill);
-  border: 1px solid transparent;
-  font: inherit;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 600;
-  cursor: pointer;
-  white-space: nowrap;
-  transition:
-    background-color var(--duration-fast) var(--ease-out-expo),
-    transform var(--duration-fast) var(--ease-out-expo),
-    opacity var(--duration-fast);
-}
-.btn:active:not(:disabled) {
-  transform: scale(0.98);
-}
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-.btn-primary {
-  background: var(--primary);
-  color: var(--on-primary);
-}
-.btn-primary:hover:not(:disabled) {
-  opacity: 0.85;
-}
-.btn-ghost {
-  background: var(--surface);
-  color: var(--text);
-  border-color: var(--divider);
-}
-.btn-ghost:hover:not(:disabled) {
-  background: var(--pressed);
-}
-/* cancel / reset: a secondary button whose label is the loss text colour —
-   the filled destructive variant is reserved for a final confirmation */
-.btn-danger {
-  background: var(--surface);
-  color: var(--loss-text);
-  border-color: var(--divider);
-}
-.btn-danger:hover:not(:disabled) {
-  border-color: var(--loss);
-}
-.ar-hero .btn-primary,
 .ar-hero .ar-btn--primary {
   background: var(--on-hero);
   color: var(--hero);
 }
-.ar-hero .btn-ghost,
 .ar-hero .ar-btn--secondary {
   background: var(--hero-pill);
   color: var(--on-hero);
   border-color: transparent;
 }
 
-.input,
+/* A native dropdown, in the system's Input language (surface, 1px divider,
+   radius-input, 48px, lime focus) with the system's chevron-down glyph —
+   never the browser's default control. Only for 5+ options: two to four
+   mutually exclusive choices are a SegmentedControl (.ar-seg). The chevron
+   is a data-URI (CSS vars can't reach it), so its colour is set per theme
+   to text-tertiary. */
 .select {
   display: block;
   height: 48px;
-  padding: 0 14px;
-  background: var(--surface);
+  padding: 0 44px 0 14px;
+  background-color: var(--surface);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%23666d7a' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 20px 20px;
   border: 1px solid var(--divider);
   border-radius: var(--radius-input);
   font: inherit;
   font-size: 16px;
   color: var(--text);
   width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  transition: border-color var(--duration-fast, 150ms) var(--ease-out-expo, ease-out);
 }
-.input:focus-visible,
+.select:hover {
+  border-color: var(--text-tertiary);
+}
+.select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+[data-theme="dark"] .select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%238e96a3' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%238e96a3' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
+/* a choice that isn't available right now (e.g. Market without a quote) */
+.ar-seg__item:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 .select:focus-visible {
   border-color: var(--text);
   outline: var(--focus-ring) solid var(--focus);
   outline-offset: 2px;
 }
-.input::placeholder {
-  color: var(--text-tertiary);
-}
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.field-label {
-  font-size: var(--label-size);
-  line-height: var(--label-lh);
-  font-weight: var(--label-wght);
-}
-.ar-hero .field-label {
-  color: var(--on-hero-secondary);
-}
-.ar-hero .muted {
+.ar-hero .ar-secondary,
+.ar-hero .ar-tertiary {
   color: var(--on-hero-secondary);
 }
 .field-error {
@@ -903,38 +858,7 @@ li.ar-row {
   color: var(--loss-text);
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 24px;
-  padding: 0 8px;
-  border-radius: var(--radius-pill);
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  white-space: nowrap;
-  background: var(--bg);
-  color: var(--text-secondary);
-}
-.badge-accent {
-  background: var(--info-tint);
-  color: var(--info-text);
-}
-.badge-gain {
-  background: var(--gain-tint);
-  color: var(--gain-text);
-}
-.badge-loss {
-  background: var(--loss-tint);
-  color: var(--loss-text);
-}
-.badge-warning {
-  background: var(--warning-tint);
-  color: var(--warning-text);
-}
-.badge-beat {
+.ar-tag--beat {
   animation: pulse-in var(--duration-fast) var(--ease-out-expo);
 }
 @keyframes pulse-in {
@@ -949,73 +873,6 @@ li.ar-row {
   }
 }
 
-.segmented {
-  display: flex;
-  padding: 3px;
-  gap: 2px;
-  background: var(--bg);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius-input);
-}
-.segmented button {
-  flex: 1;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 9px;
-  border: 0;
-  background: transparent;
-  font: inherit;
-  font-size: var(--label-size);
-  line-height: var(--label-lh);
-  font-weight: var(--label-wght);
-  color: var(--text-secondary);
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: background-color var(--duration-fast) var(--ease-out-expo);
-}
-.segmented button[aria-pressed="true"],
-.segmented button[aria-selected="true"] {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: 0 0 0 1px var(--divider);
-}
-[data-theme="dark"] .segmented button[aria-pressed="true"],
-[data-theme="dark"] .segmented button[aria-selected="true"] {
-  background: var(--raised);
-}
-/* the period selector: pills, selected is primary */
-.segmented--pills {
-  background: transparent;
-  border: 0;
-  padding: 0;
-  gap: 4px;
-}
-.segmented--pills button {
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--radius-pill);
-  font-size: var(--caption-size);
-}
-.segmented--pills button[aria-pressed="true"],
-.segmented--pills button[aria-selected="true"] {
-  background: var(--primary);
-  color: var(--on-primary);
-  box-shadow: none;
-}
-
-.hero-card {
-  background: var(--hero);
-  color: var(--on-hero);
-  border-radius: var(--radius-hero);
-  padding: var(--card-padding);
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  position: relative;
-  overflow: hidden;
-}
-.hero-card::after,
 .ar-hero::after {
   /* the practice grain — account-mode signal 1 */
   content: "";
@@ -1029,70 +886,9 @@ li.ar-row {
   );
   pointer-events: none;
 }
-.hero-card > *,
 .ar-hero > * {
   position: relative;
 }
-.hero-value {
-  font-size: var(--display-size);
-  line-height: var(--display-lh);
-  font-weight: var(--display-wght);
-  letter-spacing: var(--display-ls);
-  font-variant-numeric: tabular-nums;
-}
-
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 12px;
-  padding: 24px 20px;
-  background: var(--surface);
-  border-radius: var(--radius-card);
-  color: var(--text-secondary);
-}
-.empty-state::before {
-  content: "";
-  display: block;
-  width: 28px;
-  height: 28px;
-  margin-bottom: 12px;
-  background-color: var(--text-tertiary);
-  mask: url("/brand/mark-compact.svg") no-repeat center / contain;
-}
-.empty-state p {
-  margin: 0;
-  max-width: 300px;
-}
-
-.skeleton {
-  background: var(--divider);
-  border-radius: 8px;
-  color: transparent;
-  user-select: none;
-}
-.ar-hero .skeleton,
-.hero-card .skeleton {
-  background: var(--hero-pill);
-}
-
-.list-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 64px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--divider);
-  color: inherit;
-}
-.list-row:last-child {
-  border-bottom: 0;
-}
-a.list-row:hover {
-  background: var(--pressed);
-}
-
 .fill-progress {
   display: inline-block;
   width: 72px;
@@ -1840,6 +1636,9 @@ a.list-row:hover {
 .ar-list {
   display: flex;
   flex-direction: column;
+  /* rendered as <ul>/<ol>: no bullets, no UA margin (padding stays the card's) */
+  list-style: none;
+  margin: 0;
 }
 .ar-row {
   display: flex;
@@ -2436,6 +2235,30 @@ a.list-row:hover {
     transition: none;
   }
 }
+/* A list section's head row: heading (or caption) on the left, the list's
+   one freshness chip on the right; wraps under the heading on phones.
+   TopMovers. */
+.list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+/* The holding-row sparkline slot (Sparkline, 56×20): fixed width so end
+   columns line up whether or not a row has a line; hidden on phones (as the
+   browse rows' logo peek), where the symbol, name and price win. */
+.ar-row__spark {
+  flex: none;
+  width: 56px;
+  display: flex;
+  align-items: center;
+}
+@media (max-width: 479px) {
+  .ar-row__spark {
+    display: none;
+  }
+}
 
 /* Scrub charts (chart-scrub.ts): a fixed-height readout above, then a strip
    for the floating date/time label over the scrubbed bar, then the canvas. */
@@ -2790,6 +2613,16 @@ a.list-row:hover {
   background: var(--divider);
   margin: 0 auto 16px;
 }
+/* SheetHeader: title left, close icon button right (alone → right-aligned) */
+.ar-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+.ar-sheet__header .ar-sheet__title {
+  margin: 0 auto 0 0;
+}
 .ar-sheet__title {
   font-size: 20px;
   line-height: 26px;
@@ -2844,4 +2677,36 @@ a.list-row:hover {
 /* ---------- Illustration ---------- */
 .ar-illo {
   display: block;
+}
+
+/* ------------------------------------------------------------ price alerts */
+
+/* The alerts bell (ADR-016): a <button> wearing the nav-link look, both in
+   the phone top bar (40px icon button) and as a desktop sidebar row. */
+.alerts-bell {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.alerts-bell__glyph {
+  position: relative;
+  display: inline-flex;
+}
+/* unread = a small dot, never a count (the system has no count badges);
+   --info is an informational state, not money. The 2px ring is the button's
+   own surface, as on the logo stack. */
+.alerts-bell__dot {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--info);
+  border: 2px solid var(--surface);
+  box-sizing: content-box;
+  transform: translate(25%, -15%);
 }

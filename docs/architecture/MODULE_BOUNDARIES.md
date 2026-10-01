@@ -29,12 +29,14 @@ core       → core only        (NOTHING external: no next, react, drizzle, vend
    - `discovery → market-data, money, shared` (browse catalog, Top 100 ranking rules, key-stats math — trailing EPS, P/E, 52-week range; defines the SharesOutstandingSource, MarketCapRankingStore and EarningsSource ports)
    - `accounts → ledger` (opening-deposit posting; implements CashProjection — lazy-injected to avoid a cycle)
    - `brokers/deterministic → execution (Broker port), orders, accounts, market-data, money, shared` (the offline venue implementing the same contract)
+   - `cash-transfers → accounts (repository + broker-account types), ledger, money, shared` (paper deposits/withdrawals, ADR-015; defines the CashTransfersRepository, BuyReservationReader and CashTransferVenue ports; registered as an `accounts` archive hook — lazy-injected, no import cycle). `orders` and `portfolio` read withdrawal holds through their own `CashHoldReader` / `WithdrawalHoldReader` ports, implemented by the cash-transfers repository — never its table. `brokers/deterministic → cash-transfers` (implements CashTransferVenue)
+   - `alerts → market-data (port + freshness), money, shared` (price alerts, ADR-016; defines the PriceAlertsRepository and AlertQuoteSource ports; reads quotes through the market-data port only and never touches orders, ledger or accounts)
    - `funding → money, shared` (FundingProvider port only — no implementation; ADR-011); `watchlists` is a placeholder — watchlist storage lives in `infra/db/repositories/watchlists.ts`
    - everything may use `money` and `shared`
 4. **Vendor confinement.** Alpaca request/response/status types exist only inside `infra/brokers/alpaca` and `infra/market-data/alpaca.ts`; SEC EDGAR shapes only inside `infra/sec-edgar`. The two adapters share nothing except (optionally) a low-level credential helper — Broker and MarketDataProvider stay independently swappable.
 5. **Environment** is read only via `src/env.ts` (lint: `no-restricted-properties` on `process.env`).
 6. **Transactions** are owned by application services (e.g., ExecutionService), not repositories; repositories accept a `tx` handle. Exception: display-data stores outside any financial transaction (market-data cache, market-cap rankings, company fundamentals, job runs) use the pool directly.
-7. **Lock ordering** (deadlock prevention): **account → order → position**, always.
+7. **Lock ordering** (deadlock prevention): **account → order → position**, always; paper cash transfers lock **account → transfer** (ADR-015).
 
 ## Verification
 

@@ -1,4 +1,11 @@
 import type { BrokerAccountRef } from "../../accounts";
+import {
+  TransferRejectedError,
+  type CashTransferDirection,
+  type CashTransferVenue,
+  type VenueTransfer,
+  type VenueTransferListing,
+} from "../../cash-transfers";
 import type {
   Broker,
   BrokerAccountSnapshot,
@@ -68,8 +75,19 @@ function nextId(prefix: string): string {
   return `${prefix}-${instanceNonce}-${String(sequence).padStart(6, "0")}`;
 }
 
-export class DeterministicPaperBroker implements Broker {
+interface VenueTransferRecord extends VenueTransfer {
+  externalAccountId: string;
+}
+
+export class DeterministicPaperBroker implements Broker, CashTransferVenue {
   readonly kind = "DETERMINISTIC" as const;
+
+  private readonly transfers = new Map<string, VenueTransferRecord>();
+  private holdTransfersFlag = false;
+  private nextTransferFault: "reject" | "timeout" | null = null;
+  private refuseTransferCancelsFlag = false;
+  private failNextCancelFlag = false;
+  private incompleteListingsFlag = false;
 
   private readonly resting = new Map<string, RestingOrder>();
   private readonly submitted = new Map<string, string>(); // clientOrderId -> brokerOrderId
@@ -129,6 +147,129 @@ export class DeterministicPaperBroker implements Broker {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // CashTransferVenue (ADR-015): paper deposits/withdrawals settle
+  // SYNCHRONOUSLY by default — CI, E2E and local development depend on it.
+  // Test hooks simulate the asynchronous real venue and its failure modes.
+  // -------------------------------------------------------------------------
+
+  async initiate(
+    ref: BrokerAccountRef,
+    req: { transferId: string; direction: CashTransferDirection; amount: Money },
+  ): Promise<VenueTransfer> {
+    const fault = this.nextTransferFault;
+    this.nextTransferFault = null;
+    if (fault === "reject") throw new TransferRejectedError("simulated venue rejection");
+    if (fault === "timeout") throw new Error("simulated venue timeout");
+
+    const record: VenueTransferRecord = {
+      venueTransferId: nextId("det-xfer"),
+      externalAccountId: ref.externalAccountId,
+      direction: req.direction,
+      amount: req.amount,
+      state: "PENDING",
+      failureReason: null,
+      createdAt: this.clock.now(),
+    };
+    this.transfers.set(record.venueTransferId, record);
+    if (!this.holdTransfersFlag) this.completeTransfer(record.venueTransferId);
+    return this.publicTransfer(record);
+  }
+
+  async getTransfer(
+    _ref: BrokerAccountRef,
+    venueTransferId: string,
+  ): Promise<VenueTransfer | null> {
+    const record = this.transfers.get(venueTransferId);
+    return record ? this.publicTransfer(record) : null;
+  }
+
+  async listTransfers(ref: BrokerAccountRef, since: Date): Promise<VenueTransferListing> {
+    // Opening funding is not a transfer record here, so it is never listed.
+    const transfers = [...this.transfers.values()]
+      .filter(
+        (t) =>
+          t.externalAccountId === ref.externalAccountId && t.createdAt.getTime() >= since.getTime(),
+      )
+      .map((t) => this.publicTransfer(t));
+    return { transfers, complete: !this.incompleteListingsFlag };
+  }
+
+  async cancelTransfer(_ref: BrokerAccountRef, venueTransferId: string): Promise<boolean> {
+    const record = this.transfers.get(venueTransferId);
+    if (!record || record.state !== "PENDING" || this.refuseTransferCancelsFlag) return false;
+    record.state = "FAILED";
+    record.failureReason = "Canceled at the venue";
+    return true;
+  }
+
+  /** Test hook: the venue refuses transfer cancels (e.g. the ACH already left). */
+  refuseTransferCancels(refuse: boolean): void {
+    this.refuseTransferCancelsFlag = refuse;
+  }
+
+  /** Test hook: listings report unreadable rows (complete: false). */
+  incompleteListings(incomplete: boolean): void {
+    this.incompleteListingsFlag = incomplete;
+  }
+
+  /** Test hook: move a venue transfer's created_at into the past. */
+  backdateTransfer(venueTransferId: string, ms: number): void {
+    const record = this.transfers.get(venueTransferId);
+    if (record) record.createdAt = new Date(record.createdAt.getTime() - ms);
+  }
+
+  /** Test hook: the NEXT order cancel request fails in transport (never reaches the venue). */
+  failNextCancel(): void {
+    this.failNextCancelFlag = true;
+  }
+
+  /** Test hook: subsequent transfers stay PENDING until completeTransfer/failTransfer. */
+  holdTransfers(hold: boolean): void {
+    this.holdTransfersFlag = hold;
+  }
+
+  /** Test hook: make the NEXT initiate a definitive rejection or an ambiguous timeout. */
+  failNextTransfer(mode: "reject" | "timeout"): void {
+    this.nextTransferFault = mode;
+  }
+
+  /** Test hook / sync path: the "ACH lands" moment for one held transfer. */
+  completeTransfer(venueTransferId: string): void {
+    const record = this.transfers.get(venueTransferId);
+    if (!record || record.state !== "PENDING") return;
+    record.state = "SETTLED";
+    const cash = this.accountCash.get(record.externalAccountId) ?? Money.zero();
+    this.accountCash.set(
+      record.externalAccountId,
+      record.direction === "DEPOSIT" ? cash.add(record.amount) : cash.subtract(record.amount),
+    );
+  }
+
+  /** Test hook: the venue fails/returns a held transfer. */
+  failTransfer(venueTransferId: string, reason: string): void {
+    const record = this.transfers.get(venueTransferId);
+    if (!record || record.state !== "PENDING") return;
+    record.state = "FAILED";
+    record.failureReason = reason;
+  }
+
+  /** Test hook: the venue loses its in-memory records (process restart). */
+  forgetTransfers(): void {
+    this.transfers.clear();
+  }
+
+  private publicTransfer(record: VenueTransferRecord): VenueTransfer {
+    return {
+      venueTransferId: record.venueTransferId,
+      direction: record.direction,
+      amount: record.amount,
+      state: record.state,
+      failureReason: record.failureReason,
+      createdAt: record.createdAt,
+    };
+  }
+
   async submit(req: BrokerOrderRequest): Promise<SubmitResult> {
     const existing = this.submitted.get(req.clientOrderId);
     if (existing) return { brokerOrderId: existing, duplicate: true };
@@ -168,6 +309,10 @@ export class DeterministicPaperBroker implements Broker {
   }
 
   async cancel(_brokerAccountId: string, clientOrderId: string): Promise<CancelResult> {
+    if (this.failNextCancelFlag) {
+      this.failNextCancelFlag = false;
+      throw new Error("simulated venue timeout on cancel");
+    }
     const order = this.resting.get(clientOrderId);
     if (!order || order.status === "terminal") {
       return { accepted: false, reason: "order not cancellable" };

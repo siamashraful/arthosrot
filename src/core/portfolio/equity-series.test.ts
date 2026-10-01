@@ -223,3 +223,39 @@ describe("percentChange", () => {
     expect(percentChange(Money.fromString("10000.00"), Money.fromString("10412.50"))).toBe("4.12"); // 4.125 HALF_EVEN
   });
 });
+
+describe("equitySeries net deposits with paper cash transfers (ADR-015)", () => {
+  it("WITHDRAWAL entries reduce net deposits; trades never move the line", async () => {
+    const now = new Date(T0 + 4 * DAY);
+    const result = await equitySeries({
+      range: "1M",
+      fills: [],
+      ledger: [
+        deposit("10000.00", T0),
+        deposit("2500.00", T0 + DAY, "DEPOSIT"),
+        deposit("-4000.00", T0 + 2 * DAY, "WITHDRAWAL"),
+        deposit("-100.00", T0 + 3 * DAY, "FEE"),
+      ],
+      accountCreatedAt: new Date(T0),
+      now,
+      liveEquity: Money.fromString("8400.00"),
+      getCandles: () => Promise.reject(new Error("must not fetch for cash-only")),
+    });
+    // event grid: one point per ledger event, then the live tail
+    expect(result.points.map((p) => p.netDeposits.toString())).toEqual([
+      "10000.00",
+      "12500.00",
+      "8500.00",
+      "8500.00", // the FEE is not an external flow
+      "8500.00",
+    ]);
+    // value tracks cash including the withdrawal
+    expect(result.points.map((p) => p.value.toString())).toEqual([
+      "10000.00",
+      "12500.00",
+      "8500.00",
+      "8400.00",
+      "8400.00",
+    ]);
+  });
+});

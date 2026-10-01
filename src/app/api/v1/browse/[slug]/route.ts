@@ -1,8 +1,6 @@
-import { jsonResponse, withAuth } from "@/server/api/http";
+import { jsonResponse, pathParam, withAuth } from "@/server/api/http";
 import { getBrowseList } from "@/server/api/discovery";
 
-export const GET = withAuth(async (request) => {
-  const segments = new URL(request.url).pathname.split("/");
-  const slug = decodeURIComponent(segments[segments.length - 1] ?? "");
-  return jsonResponse(await getBrowseList(slug, request));
-});
+export const GET = withAuth(async (request) =>
+  jsonResponse(await getBrowseList(pathParam(request), request)),
+);

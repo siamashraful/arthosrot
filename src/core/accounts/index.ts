@@ -4,6 +4,7 @@
 export {
   AccountService,
   type Account,
+  type AccountArchiveHook,
   type AccountProvisioner,
   type AccountsRepository,
   type AccountStatus,

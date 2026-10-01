@@ -201,11 +201,11 @@ The system's `bundle.css` (verbatim in `globals.css`, prefix `ar-`; states `.is-
 
 ## Iconography
 
-**One set: the system's own** — the `ICONS` map in `components/bundle.js`, copied verbatim into `src/components/icons/Icon.tsx` and rendered as `<Icon name="…" size={…} />`: 24px viewBox, `currentColor`, stroke `--icon-stroke` (1.75), round caps and joins, `aria-hidden` by default (an icon-only button carries the `aria-label`). No other icon library, no emoji, no redrawn copy of a system glyph.
+**One set: Phosphor, duotone** (ADR-014 — a deliberate, owner-approved deviation from the system's own Lucide-style set, which read as generic). Rendered only through `src/components/icons/Icon.tsx` as `<Icon name="…" size={…} />` with semantic names; `currentColor`; `aria-hidden` by default (an icon-only button carries the `aria-label`). No other icon library, no emoji, no hand-drawn glyphs.
 
-- **System glyphs:** `home` `invest` `trade` `spend` `discover` `bell` `search` `plus` `minus` `arrow-down-left` `arrow-up-right` `arrow-up` `arrow-down` `arrow-right` `chevron-right` `chevron-left` `chevron-down` `check` `x` `info` `alert` `trending-up` `stocks` `etf` `options` `crypto` `cash` `banknote` `dividend` `repeat` `calendar` `clock` `backspace` `filter` `news` `shield` `pie` `percent` `settings` `user` `more` `star` `lock` `eye` `eye-off` `transfer` `hand`.
-- **App extensions** (same file, same idiom: 24 grid, strokes only, no fills, no detail finer than the stroke): `orders` `activity` `layers` `receipt` `trending-down` · sectors `technology` `communication` `consumer-discretionary` `consumer-staples` `health-care` `financials` `industrials` `energy` `materials` `real-estate` `utilities` · `trophy` `sun` `moon` `monitor` `logout` `external`.
-- **Rule:** a system glyph when one exists; an extension only when none does; never another library.
+- **Weights:** duotone for pictorial glyphs (navigation places, money, asset classes, sectors, trophy) · regular for controls (`chevron-*`, `arrow-*`, `x`, `check`, `plus`, `minus`, `more`) · bold for small typographic glyphs ≤ 16px (delta arrows, status tags) · fill for an on-state (`star` when watching).
+- **Names → glyphs** live in `Icon.tsx` (`GLYPHS`); add a concept there, never import a Phosphor component at a call site.
+- Sizes and chip rules below are the system's and are unchanged.
 
 | Context                                                   | Size | Stroke |
 | --------------------------------------------------------- | ---- | ------ |
@@ -228,8 +228,8 @@ The system's `bundle.css` (verbatim in `globals.css`, prefix `ar-`; states `.is-
 
 The system's Refuse list: gradients (including gradient text) · glass or blur as decoration · coloured left or right stripes on cards · nested cards · same-size icon-heading-text card grids as page structure · eyebrows or kicker labels · section numbering in the UI · emoji as icons · a second typeface · monospace for "technical" flavour · hard offset shadows · halo shadows · sparklines as decoration · full-screen colour tinting by portfolio direction · dark-first by default · streaks, badges, confetti, countdown pressure.
 
-Plus, from the system's iconography rule: a second icon library, mixed icon styles, or a hand-drawn copy of a glyph the system provides.
+Plus, from the iconography rule (ADR-014): a second icon library, mixed icon styles or weights outside the documented weight rules, a Phosphor component imported outside `Icon.tsx`, or a hand-drawn glyph.
 
 Plus the app's own: **no white text on mustard, blush or tangerine** (the axe gate, not the system, decides) · **no entrance animation on data** — nothing staggers in, nothing moves when a value refreshes · raw colour/spacing/z literals in components · gain/loss colour on a control · celebratory motion on any financial outcome or on the paper→live switch · any change that removes one of the three mode signals.
 
-Financial components under `src/components/finance` (`Money`, `Percentage`, `PriceChange`, `OrderStatusBadge`, `FreshnessChip`, `NetWorthChart`, `TradingTicket`, `PositionsTable`, `LedgerList`, `FillProgress`) are the only path for rendering financial values. Every interactive component implements default/hover/focus-visible/active/disabled/loading; skeletons over spinners; empty states teach; one icon set (the system's, via `Icon`).
+Financial components under `src/components/finance` (`Money`, `Percentage`, `PriceChange`, `OrderStatusBadge`, `FreshnessChip`, `SymbolRow`, `NetWorthChart`, `TradingTicket`, `PositionsTable`, `LedgerList`, `FillProgress`) are the only path for rendering financial values. Every interactive component implements default/hover/focus-visible/active/disabled/loading; skeletons over spinners; empty states teach; one icon set (Phosphor duotone, via `Icon` — ADR-014).

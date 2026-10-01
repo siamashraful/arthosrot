@@ -5,9 +5,9 @@
  *
  * Semantic, never decorative: it renders only real filledQty/qty and is
  * aria-hidden — the adjacent "n/n" text remains the accessible carrier.
- * Colour comes from the .fill-progress CSS (ink on surfaces, on-hero inside
- * .hero-card); never gain/loss (structure is not a verdict). No motion on
- * fill — a fill is a fact, not a celebration.
+ * Colour comes from the .fill-progress CSS (the text ink on a divider
+ * track); never gain/loss (structure is not a verdict). The bar's width
+ * eases toward the new fact; nothing celebrates a fill.
  *
  * The percentage is a display number at the rendering boundary: no money
  * arithmetic happens here, so Number() on the DTO strings is acceptable.

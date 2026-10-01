@@ -21,6 +21,8 @@ const Dec = Decimal.clone({ precision: 40, rounding: Decimal.ROUND_HALF_EVEN });
 const MONEY_RE = /^-?\d+(\.\d{1,2})?$/;
 const PX_RE = /^\d+(\.\d{1,4})?$/;
 const BASIS_RE = /^\d+(\.\d{1,4})?$/;
+const VENDOR_DECIMAL_RE = /^\d+(\.\d+)?$/;
+const SIGNED_VENDOR_DECIMAL_RE = /^-?\d+(\.\d+)?$/;
 
 export class Money {
   private constructor(private readonly d: InstanceType<typeof Dec>) {}
@@ -32,6 +34,20 @@ export class Money {
 
   static zero(): Money {
     return new Money(new Dec(0));
+  }
+
+  /**
+   * A vendor decimal string of any precision (e.g. a venue cash balance) →
+   * Money, rounded HALF_EVEN to cents exactly once — never via a JS number,
+   * and never silently zero: "", null-ish or non-decimal input is refused.
+   */
+  static fromVendorDecimal(value: string): Money {
+    invariant(
+      typeof value === "string" && SIGNED_VENDOR_DECIMAL_RE.test(value),
+      `invalid vendor amount: ${JSON.stringify(value)}`,
+    );
+    const d = new Dec(value).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
+    return new Money(d.isZero() ? new Dec(0) : d); // never "-0.00"
   }
 
   /** Internal factory for derivation helpers — input must already be 2dp-exact. */
@@ -116,6 +132,18 @@ export class Px {
   static fromString(value: string): Px {
     invariant(PX_RE.test(value), `invalid Px string: ${JSON.stringify(value)}`);
     const d = new Dec(value);
+    invariant(d.gt(0), `Px must be positive, got ${value}`);
+    return new Px(d);
+  }
+
+  /**
+   * A vendor decimal string of any precision (e.g. a venue fill price) → Px,
+   * rounded HALF_EVEN to 4dp exactly once — never via a JS number. Refuses
+   * non-decimal input and prices that round to zero.
+   */
+  static fromVendorDecimal(value: string): Px {
+    invariant(VENDOR_DECIMAL_RE.test(value), `invalid vendor price: ${JSON.stringify(value)}`);
+    const d = new Dec(value).toDecimalPlaces(4, Decimal.ROUND_HALF_EVEN);
     invariant(d.gt(0), `Px must be positive, got ${value}`);
     return new Px(d);
   }

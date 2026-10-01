@@ -3,9 +3,9 @@ import { ModeRibbon } from "@/components/mode-ribbon";
 import "@/styles/globals.css";
 
 export const metadata: Metadata = {
-  title: "Arthosrot — paper trading",
+  title: "Arthosrot: paper trading",
   description:
-    "Paper-trading platform. Simulated money only — not real trading or investment advice.",
+    "Paper-trading platform. Simulated money only. Not real trading or investment advice.",
 };
 
 export const viewport: Viewport = {

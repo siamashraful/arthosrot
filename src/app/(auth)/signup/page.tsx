@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 
@@ -16,13 +17,22 @@ export default function SignUpPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: err } = await authClient.signUp.email({ name, email, password });
-    setBusy(false);
-    if (err) {
-      setError(err.message ?? "Sign up failed.");
+    try {
+      const { error: err } = await authClient.signUp.email({ name, email, password });
+      if (err) {
+        setError(err.message ?? "Sign up failed. Try again.");
+        setBusy(false);
+        return;
+      }
+    } catch {
+      // A network failure throws instead of returning an error: never leave
+      // the button stuck on its busy label.
+      setError("Sign up failed. Check your connection and try again.");
+      setBusy(false);
       return;
     }
-    router.push("/");
+    // Stay busy through the navigation so the form can't be submitted twice.
+    router.replace("/");
     router.refresh();
   }
 
@@ -30,8 +40,8 @@ export default function SignUpPage() {
     <main className="auth-card">
       <h1 className="ar-title">Create account</h1>
       <p className="ar-body ar-secondary">
-        Arthosrot is a paper-trading platform. Accounts hold <strong>simulated money only</strong> —
-        nothing here is real trading or investment advice.
+        Arthosrot is a paper-trading platform. Accounts hold <strong>simulated money only</strong>.
+        Nothing here is real trading or investment advice.
       </p>
       <form onSubmit={onSubmit}>
         <div className="ar-field">
@@ -93,7 +103,7 @@ export default function SignUpPage() {
         </button>
       </form>
       <p className="ar-body ar-secondary">
-        Already have an account? <a href="/signin">Sign in</a>
+        Already have an account? <Link href="/signin">Sign in</Link>
       </p>
     </main>
   );

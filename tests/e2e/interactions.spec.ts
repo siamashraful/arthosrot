@@ -1,4 +1,5 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { openTicket, signUp } from "./helpers";
 
 /**
  * Interaction coverage (deterministic broker + fixtures): every user action
@@ -7,32 +8,8 @@ import { expect, test, type Page } from "@playwright/test";
  * signed-in redirect away from the auth pages. Both viewport projects run it.
  */
 
-const email = () => `e2e-ix-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-
-async function signUpWithAccount(page: Page) {
-  await page.goto("/signup");
-  await page.getByLabel("Name").fill("E2E Interactions");
-  await page.getByLabel("Email").fill(email());
-  await page.getByLabel("Password", { exact: false }).fill("correct horse battery 9");
-  await page.getByRole("button", { name: "Create account" }).click();
-  await page.getByRole("button", { name: "Open practice account" }).click();
-  await expect(page.getByText("Portfolio value")).toBeVisible({ timeout: 15_000 });
-}
-
-/** The ticket is docked >= lg and a bottom sheet below — return its scope. */
-async function openTicket(page: Page) {
-  const trigger = page.locator(".ticket-mobile").getByRole("button", { name: /^Trade / });
-  const docked = page.locator(".ticket-docked").getByRole("heading", { name: /^Trade / });
-  await expect(trigger.or(docked).first()).toBeVisible({ timeout: 15_000 });
-  if (await trigger.isVisible()) {
-    await trigger.click();
-    return page.locator("dialog.sheet[open]");
-  }
-  return page.locator(".ticket-docked");
-}
-
 test("watchlist: add from the instrument page, remove from the dashboard", async ({ page }) => {
-  await signUpWithAccount(page);
+  await signUp(page, { tag: "e2e-ix" });
 
   await page.goto("/i/AAPL");
   const add = page.getByRole("button", { name: "Add to watchlist" });
@@ -59,7 +36,7 @@ test("watchlist: add from the instrument page, remove from the dashboard", async
 test("ticket pre-checks: selling unheld shares and over-spending are caught before review", async ({
   page,
 }) => {
-  await signUpWithAccount(page);
+  await signUp(page, { tag: "e2e-ix" });
   await page.goto("/i/AAPL");
   const ticket = await openTicket(page);
 
@@ -81,10 +58,13 @@ test("ticket pre-checks: selling unheld shares and over-spending are caught befo
 });
 
 test("a resting limit order can be cancelled from its detail page", async ({ page }) => {
-  await signUpWithAccount(page);
+  await signUp(page, { tag: "e2e-ix" });
   await page.goto("/i/AAPL");
   const ticket = await openTicket(page);
-  await ticket.getByLabel("Order type").selectOption("LIMIT");
+  await ticket
+    .getByRole("group", { name: "Order type" })
+    .getByRole("button", { name: "Limit (day)" })
+    .click();
   await ticket.getByLabel("Quantity (whole shares)").fill("3");
   await ticket.getByLabel("Limit price").fill("150");
   await ticket.getByRole("button", { name: "Review order" }).click();
@@ -97,7 +77,7 @@ test("a resting limit order can be cancelled from its detail page", async ({ pag
   await page.getByRole("link", { name: "Buy 3 AAPL" }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Buy 3 AAPL" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel order" }).click();
-  await expect(page.locator(".badge", { hasText: "Cancelled" }).first()).toBeVisible({
+  await expect(page.locator(".ar-tag", { hasText: "Cancelled" }).first()).toBeVisible({
     timeout: 15_000,
   });
   // Terminal: the action is gone, not left dangling.
@@ -105,14 +85,14 @@ test("a resting limit order can be cancelled from its detail page", async ({ pag
 });
 
 test("signed-in visitors to the auth pages land on the dashboard", async ({ page }) => {
-  await signUpWithAccount(page);
+  await signUp(page, { tag: "e2e-ix" });
   await page.goto("/signin");
   await expect(page).toHaveURL(/\/$/);
   await expect(page.getByText("Portfolio value")).toBeVisible({ timeout: 15_000 });
 });
 
 test("price chart: fixed window, scrub reads out price, change and date/time", async ({ page }) => {
-  await signUpWithAccount(page);
+  await signUp(page, { tag: "e2e-ix" });
   await page.goto("/i/AAPL");
   const chart = page.getByRole("region", { name: "AAPL price chart" });
   const canvas = chart.locator(".chart-scrub__canvas");

@@ -21,6 +21,8 @@ export interface ReconciliationResult {
   ordersChecked: number;
   eventsReplayed: number;
   submitFailures: number;
+  /** CANCEL_PENDING orders whose venue cancel was re-sent (lost or failed request). */
+  cancelsResent: number;
   driftDetected: string[]; // account ids with cash-projection drift
   errors: string[];
   durationMs: number;
@@ -41,6 +43,17 @@ export interface ReconciliationReads {
  *  declares it SUBMIT_FAILED (crash between local commit and submit). */
 const PENDING_SUBMISSION_GRACE_MS = 60_000;
 
+/** How long an order may sit in CANCEL_PENDING before the venue cancel is
+ *  re-sent (the original request failed or was lost; cancel is idempotent
+ *  at the venue — the outcome still arrives only as a canonical event). */
+export const CANCEL_RESEND_AFTER_MS = 60_000;
+
+/** Pre-cancel lifecycle statuses: they cannot follow a local CANCEL_PENDING. */
+const PRE_CANCEL_EVENTS: ReadonlySet<CanonicalBrokerEvent["type"]> = new Set([
+  "ORDER_ACKNOWLEDGED",
+  "ORDER_ACCEPTED",
+]);
+
 export class ReconciliationService {
   constructor(
     private readonly broker: Broker,
@@ -60,6 +73,7 @@ export class ReconciliationService {
       ordersChecked: 0,
       eventsReplayed: 0,
       submitFailures: 0,
+      cancelsResent: 0,
       driftDetected: [],
       errors: [],
       durationMs: 0,
@@ -81,6 +95,64 @@ export class ReconciliationService {
     result.durationMs = Date.now() - startedAt;
     console.log(JSON.stringify({ level: "info", msg: "reconciliation", ...result }));
     return result;
+  }
+
+  /**
+   * Reconcile ONE account now (same rules as reconcileAll) — used when a
+   * live action learns local state is behind the venue (e.g. a cancel the
+   * venue refused because the order already filled), so the user sees the
+   * truth immediately instead of at the next scheduled pass.
+   */
+  async reconcileAccountNow(accountId: string): Promise<ReconciliationResult> {
+    const startedAt = Date.now();
+    const result: ReconciliationResult = {
+      accountsChecked: 0,
+      ordersChecked: 0,
+      eventsReplayed: 0,
+      submitFailures: 0,
+      cancelsResent: 0,
+      driftDetected: [],
+      errors: [],
+      durationMs: 0,
+    };
+    try {
+      await this.reconcileAccount(accountId, result);
+      result.accountsChecked = 1;
+    } catch (err) {
+      result.errors.push(`${accountId}: ${String(err)}`);
+      await this.txRunner.run((tx) =>
+        this.reads.setReconciliationStatus(tx, accountId, "ERROR", this.clock.now()),
+      );
+    }
+    result.durationMs = Date.now() - startedAt;
+    return result;
+  }
+
+  /**
+   * A local cancel intent the venue never acted on (request failed or lost)
+   * would leave the order CANCEL_PENDING forever: past the threshold, ask
+   * the venue again. Never changes state itself.
+   */
+  private async resendCancelIfStuck(
+    orderId: string,
+    brokerAccountId: string,
+    result: ReconciliationResult,
+  ): Promise<void> {
+    const current = await this.txRunner.run((tx) => this.orders.getById(tx, orderId));
+    if (current?.state !== "CANCEL_PENDING") return; // replay resolved it
+    const age = this.clock.now().getTime() - current.updatedAt.getTime();
+    if (age <= CANCEL_RESEND_AFTER_MS) return;
+    const outcome = await this.broker.cancel(brokerAccountId, orderId);
+    result.cancelsResent += 1;
+    console.log(
+      JSON.stringify({
+        level: "warn",
+        msg: "re-sent venue cancel for a stuck CANCEL_PENDING order",
+        orderId,
+        accepted: outcome.accepted,
+        ...(outcome.reason ? { reason: outcome.reason } : {}),
+      }),
+    );
   }
 
   private async reconcileAccount(accountId: string, result: ReconciliationResult): Promise<void> {
@@ -116,11 +188,19 @@ export class ReconciliationService {
       }
 
       // Replay venue events through the idempotent apply path — already-seen
-      // executions/events commit as no-ops (invariants 10/15).
+      // executions/events commit as no-ops (invariants 10/15). While we are
+      // CANCEL_PENDING, a venue status that still says "new/accepted" is not
+      // a transition (it cannot legally follow our cancel intent): it means
+      // the venue has not seen the cancel — handled by the re-send below.
+      // Fills and terminal outcomes always apply.
+      const cancelling = order.state === "CANCEL_PENDING";
       for (const event of snapshot.events) {
+        if (cancelling && PRE_CANCEL_EVENTS.has(event.type)) continue;
         await this.applyEvent(event);
         result.eventsReplayed += 1;
       }
+
+      if (cancelling) await this.resendCancelIfStuck(order.id, ref.externalAccountId, result);
     }
 
     // Invariant 6: cash projection vs ledger. Snapshot comparison is a

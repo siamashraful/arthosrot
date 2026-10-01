@@ -109,8 +109,9 @@ export const ledgerEntryType = pgEnum("ledger_entry_type", [
   "TRADE",
   "FEE",
   "ADJUSTMENT",
-  // reserved for the future; do not use at MVP:
+  // written by settled paper cash withdrawals (ADR-015; negative amount):
   "WITHDRAWAL",
+  // reserved for the future; do not use at MVP:
   "DIVIDEND",
   "CORPORATE_ACTION",
   "RECONCILIATION_ADJUSTMENT",
@@ -224,6 +225,66 @@ export const ledgerEntries = pgTable(
   (t) => [
     check("ledger_entries_amount_nonzero", sql`${t.amount} <> 0`),
     index("ledger_entries_account_created_idx").on(t.accountId, t.createdAt.desc()),
+    // A paper cash transfer posts AT MOST ONE ledger entry (ADR-015): the
+    // structural backstop behind the locked PENDING → SETTLED transition.
+    uniqueIndex("ledger_entries_cash_transfer_once")
+      .on(t.refId)
+      .where(sql`${t.refType} = 'CASH_TRANSFER'`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Paper cash transfers (ADR-015) — simulated deposits/withdrawals
+// ---------------------------------------------------------------------------
+
+export const cashTransferDirection = pgEnum("cash_transfer_direction", ["DEPOSIT", "WITHDRAWAL"]);
+
+export const cashTransferState = pgEnum("cash_transfer_state", [
+  "PENDING",
+  "SETTLED",
+  "FAILED",
+  "CANCELED",
+]);
+
+/**
+ * One row per paper deposit/withdrawal request. PENDING withdrawals HOLD
+ * their amount (subtracted from buying power and withdrawable); the ledger
+ * entry posts only at SETTLED (ref_type 'CASH_TRANSFER', ref_id = id).
+ * Mutable state row (not append-only): PENDING → SETTLED | FAILED | CANCELED.
+ */
+export const cashTransfers = pgTable(
+  "cash_transfers",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "restrict" }),
+    direction: cashTransferDirection("direction").notNull(),
+    amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+    state: cashTransferState("state").notNull().default("PENDING"),
+    venueTransferId: text("venue_transfer_id").unique("cash_transfers_venue_transfer_unique"),
+    idempotencyKey: text("idempotency_key").notNull(),
+    // Canonical request fingerprint ("DIRECTION:amount"): same key + same
+    // fingerprint = safe replay; same key + different body = 409.
+    requestHash: text("request_hash").notNull(),
+    failureReason: text("failure_reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    settledAt: timestamp("settled_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check("cash_transfers_amount_positive", sql`${t.amount} > 0`),
+    check(
+      "cash_transfers_settled_at_iff_settled",
+      sql`(${t.state} = 'SETTLED') = (${t.settledAt} IS NOT NULL)`,
+    ),
+    uniqueIndex("cash_transfers_idempotency_unique").on(t.accountId, t.idempotencyKey),
+    index("cash_transfers_account_created_idx").on(t.accountId, t.createdAt.desc()),
+    index("cash_transfers_pending_idx")
+      .on(t.accountId)
+      .where(sql`${t.state} = 'PENDING'`),
   ],
 );
 
@@ -504,4 +565,79 @@ export const companyFundamentals = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("company_fundamentals_cik").on(t.cik)],
+);
+
+// ---------------------------------------------------------------------------
+// Price alerts (ADR-016)
+// ---------------------------------------------------------------------------
+
+/**
+ * Per-user, one-shot price alerts: ACTIVE → TRIGGERED | CANCELED (soft
+ * delete), TRIGGERED → CANCELED. Mutable state row; the trigger facts
+ * (triggered_at, trigger_price, trigger_quote_at) are written once by a
+ * conditional ACTIVE → TRIGGERED update and never recomputed. Notification
+ * data only — never an input to execution, reservations or the ledger.
+ * No FK to instruments: the symbol is validated at creation (core/instruments)
+ * and alerts outlive account resets (they belong to the user).
+ */
+export const priceAlerts = pgTable(
+  "price_alerts",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    userId: text("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    symbol: text("symbol").notNull(),
+    direction: text("direction").$type<"ABOVE" | "BELOW">().notNull(),
+    threshold: numeric("threshold", { precision: 18, scale: 4 }).notNull(),
+    state: text("state").$type<"ACTIVE" | "TRIGGERED" | "CANCELED">().notNull().default("ACTIVE"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    triggeredAt: timestamp("triggered_at", { withTimezone: true }),
+    triggerPrice: numeric("trigger_price", { precision: 18, scale: 4 }),
+    // the triggering quote's own observation time (shown as "· 10:42 ET")
+    triggerQuoteAt: timestamp("trigger_quote_at", { withTimezone: true }),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    canceledAt: timestamp("canceled_at", { withTimezone: true }),
+  },
+  (t) => [
+    check("price_alerts_direction", sql`${t.direction} IN ('ABOVE', 'BELOW')`),
+    check("price_alerts_state", sql`${t.state} IN ('ACTIVE', 'TRIGGERED', 'CANCELED')`),
+    check("price_alerts_threshold_positive", sql`${t.threshold} > 0`),
+    check("price_alerts_symbol_uppercase", sql`${t.symbol} = upper(${t.symbol})`),
+    // trigger facts are all-or-nothing, exist once triggered, and survive a later delete
+    check(
+      "price_alerts_trigger_facts",
+      sql`(${t.triggeredAt} IS NULL) = (${t.triggerPrice} IS NULL) AND (${t.triggeredAt} IS NULL) = (${t.triggerQuoteAt} IS NULL)`,
+    ),
+    check(
+      "price_alerts_triggered_has_facts",
+      sql`${t.state} <> 'TRIGGERED' OR ${t.triggeredAt} IS NOT NULL`,
+    ),
+    check(
+      "price_alerts_active_untriggered",
+      sql`${t.state} <> 'ACTIVE' OR ${t.triggeredAt} IS NULL`,
+    ),
+    check(
+      "price_alerts_trigger_price_positive",
+      sql`${t.triggerPrice} IS NULL OR ${t.triggerPrice} > 0`,
+    ),
+    check(
+      "price_alerts_read_after_trigger",
+      sql`${t.readAt} IS NULL OR ${t.triggeredAt} IS NOT NULL`,
+    ),
+    check(
+      "price_alerts_canceled_at_iff_canceled",
+      sql`(${t.state} = 'CANCELED') = (${t.canceledAt} IS NOT NULL)`,
+    ),
+    // the job's scan: ACTIVE alerts by symbol
+    index("price_alerts_state_symbol_idx").on(t.state, t.symbol),
+    // the user's list, newest first
+    index("price_alerts_user_created_idx").on(t.userId, t.createdAt.desc()),
+    // duplicate ACTIVE alerts are impossible (create is idempotent on these terms)
+    uniqueIndex("price_alerts_active_unique")
+      .on(t.userId, t.symbol, t.direction, t.threshold)
+      .where(sql`${t.state} = 'ACTIVE'`),
+  ],
 );

@@ -153,6 +153,61 @@ describe("Qty", () => {
   });
 });
 
+describe("Money.fromVendorDecimal", () => {
+  it("rounds HALF_EVEN to cents once, keeping the sign", () => {
+    expect(Money.fromVendorDecimal("10000").toString()).toBe("10000.00");
+    expect(Money.fromVendorDecimal("10000.5").toString()).toBe("10000.50");
+    expect(Money.fromVendorDecimal("0.125").toString()).toBe("0.12");
+    expect(Money.fromVendorDecimal("0.135").toString()).toBe("0.14");
+    expect(Money.fromVendorDecimal("-12.345").toString()).toBe("-12.34");
+    expect(Money.fromVendorDecimal("-0.001").toString()).toBe("0.00");
+  });
+
+  it("is lossless for a 2dp string", () => {
+    fc.assert(
+      fc.property(moneyArb, (m) => {
+        expect(Money.fromVendorDecimal(m.toString()).toString()).toBe(m.toString());
+      }),
+    );
+  });
+
+  it("never reads a missing or malformed amount as zero", () => {
+    for (const bad of ["", " ", "abc", "1e3", "+1", "1.", "NaN", null, undefined]) {
+      expect(() => Money.fromVendorDecimal(bad as unknown as string), String(bad)).toThrow();
+    }
+  });
+});
+
+describe("Px.fromVendorDecimal", () => {
+  it("accepts vendor decimals of any precision and pads to 4dp", () => {
+    expect(Px.fromVendorDecimal("200.1").toString()).toBe("200.1000");
+    expect(Px.fromVendorDecimal("1").toString()).toBe("1.0000");
+    expect(Px.fromVendorDecimal("324.850000").toString()).toBe("324.8500");
+  });
+
+  it("rounds HALF_EVEN exactly once, on the decimal string (no float)", () => {
+    // as a JS number 0.12345 is 0.123450000000000004…, so Number().toFixed(4)
+    // gives 0.1235; the exact decimal tie rounds to even
+    expect(Px.fromVendorDecimal("0.12345").toString()).toBe("0.1234");
+    expect(Px.fromVendorDecimal("0.12355").toString()).toBe("0.1236");
+    expect(Px.fromVendorDecimal("1.00004999").toString()).toBe("1.0000");
+  });
+
+  it("is lossless for a 4dp string (same as fromString)", () => {
+    fc.assert(
+      fc.property(pxArb, (p) => {
+        expect(Px.fromVendorDecimal(p.toString()).toString()).toBe(p.toString());
+      }),
+    );
+  });
+
+  it("refuses garbage, signs, exponents and prices that round to zero", () => {
+    for (const bad of ["", "abc", "-1", "1e3", "1.", ".5", " 1", "NaN", "0", "0.00004"]) {
+      expect(() => Px.fromVendorDecimal(bad), bad).toThrow();
+    }
+  });
+});
+
 describe("priceDelta", () => {
   it("is exact and rounds once, half-even", () => {
     const d = priceDelta(Px.fromString("329.5800"), Px.fromString("333.0500"));

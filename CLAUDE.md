@@ -43,34 +43,6 @@ Paper-trading platform with external broker-managed execution. Financial correct
 
 <!-- BEGIN:nextjs-agent-rules -->
 
-## Design consistency
-
-The existing design system is the source of truth for all UI work.
-
-Before introducing new visual styling, inspect existing components, tokens, and patterns and reuse them whenever possible. Before designing a new component, search the codebase for the closest existing visual pattern and extend it where reasonable.
-
-Maintain consistency across:
-
-- iconography
-- spacing
-- typography
-- radii
-- surfaces
-- borders
-- semantic colors
-- interaction states
-- visual density
-
-Do not create page-specific visual conventions unless they represent a genuinely new reusable pattern.
-
-Icons should share a consistent visual weight, size system, and style. Color must communicate semantic meaning rather than decoration.
-
-When a UI pattern appears more than once, consider promoting it into a reusable design-system component or variant instead of duplicating its styling.
-
-New UI should look like it was designed at the same time as the existing product, not appended later.
-
-Favor restraint. Financial information should remain the strongest visual element, while icons, colors, and decorative treatments support hierarchy rather than compete with it.
-
 # This is NOT the Next.js you know
 
 This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.

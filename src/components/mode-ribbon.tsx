@@ -18,13 +18,13 @@ export function ModeRibbon() {
   if (mode === "live") {
     return (
       <div className="mode-ribbon" role="note" aria-label="Live trading notice">
-        <span>Live preview — real trading isn&apos;t available yet</span>
+        <span>Live preview: real trading isn&apos;t available yet</span>
       </div>
     );
   }
   return (
     <div className="mode-ribbon" role="note" aria-label="Simulation notice">
-      <span>Practice — simulated money</span>
+      <span>Practice: simulated money</span>
     </div>
   );
 }

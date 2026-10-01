@@ -1,17 +1,28 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { AreaSeries, createChart, type IChartApi, type ISeriesApi } from "lightweight-charts";
+import {
+  AreaSeries,
+  createChart,
+  type IChartApi,
+  type ISeriesApi,
+  type UTCTimestamp,
+} from "lightweight-charts";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import { formatScrubTime, priceChange, type ChartRange } from "@/lib/chart-format";
+import { showError } from "@/components/states";
 import { formatPrice } from "@/lib/format";
 import { chartTokens, useThemeVersion } from "./chart-theme";
 import { attachScrub, placeScrubLabel, scrubChartOptions } from "./chart-scrub";
 import { PriceChange } from "./PriceChange";
 
-const RANGES = ["1D", "1W", "1M", "3M", "1Y", "5Y"] as const;
+const RANGES = ["1D", "1W", "1M", "3M", "1Y", "5Y"] as const satisfies readonly ChartRange[];
 type Range = (typeof RANGES)[number];
+
+function isRange(value: string): value is Range {
+  return (RANGES as readonly string[]).includes(value);
+}
 
 const RANGE_LABEL: Record<ChartRange, string> = {
   "1D": "last session",
@@ -24,7 +35,7 @@ const RANGE_LABEL: Record<ChartRange, string> = {
 
 interface Plotted {
   range: ChartRange;
-  points: Array<{ time: number; iso: string; close: string }>;
+  points: Array<{ time: UTCTimestamp; iso: string; close: string }>;
 }
 
 /**
@@ -46,13 +57,14 @@ export function CandleChart({ symbol }: { symbol: string }) {
   const [scrub, setScrub] = useState<{ i: number; x: number } | null>(null);
   const themeVersion = useThemeVersion();
 
-  const { data, isPending, isError, isPlaceholderData } = useQuery({
+  const candles = useQuery({
     queryKey: ["candles", symbol, range],
     queryFn: () => api.candles(symbol, range),
     // Switching range keeps the current line up until the new one arrives —
     // no skeleton flash between pills. Never across symbols.
     placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === symbol ? prev : undefined),
   });
+  const { data, isPending, isPlaceholderData } = candles;
 
   // The chart itself: built once per container/theme, never per data change,
   // so a refetch or range switch swaps the line without tearing down the
@@ -85,9 +97,10 @@ export function CandleChart({ symbol }: { symbol: string }) {
     chartRef.current = { chart, series };
     const detach = attachScrub(el, chart, series, {
       count: () => plottedRef.current?.points.length ?? 0,
+      // attachScrub only asks for i < count(), so a point always exists
       pointAt: (i) => {
-        const p = plottedRef.current!.points[i]!;
-        return { value: Number(p.close), time: p.time as never };
+        const p = plottedRef.current?.points[i];
+        return { value: p ? Number(p.close) : 0, time: p?.time ?? (0 as UTCTimestamp) };
       },
       onScrub: (i, x) => setScrub(i === null ? null : { i, x }),
     });
@@ -100,11 +113,11 @@ export function CandleChart({ symbol }: { symbol: string }) {
 
   const plotted = useMemo<Plotted | null>(
     () =>
-      data?.candles.length
+      data?.candles.length && isRange(data.range)
         ? {
-            range: data.range as ChartRange,
+            range: data.range,
             points: data.candles.map((c) => ({
-              time: Math.floor(Date.parse(c.time) / 1000),
+              time: Math.floor(Date.parse(c.time) / 1000) as UTCTimestamp,
               iso: c.time,
               close: c.close,
             })),
@@ -119,12 +132,15 @@ export function CandleChart({ symbol }: { symbol: string }) {
     plottedRef.current = plotted;
     if (!el || !target || !plotted) return;
     const { points } = plotted;
+    const first = points[0];
+    const last = points.at(-1);
+    if (!first || !last) return;
     const t = chartTokens(el, { gainFill: "--gain-tint", lossFill: "--loss-tint" });
-    const down = priceChange(points[0]!.close, points.at(-1)!.close).direction < 0;
+    const down = priceChange(first.close, last.close).direction < 0;
     const fill = down ? t.lossFill : t.gainFill;
     target.series.applyOptions({ topColor: fill, bottomColor: fill });
     // rendering boundary: string → number for plotting only, no arithmetic
-    target.series.setData(points.map((p) => ({ time: p.time as never, value: Number(p.close) })));
+    target.series.setData(points.map((p) => ({ time: p.time, value: Number(p.close) })));
     // intraday ranges label the axis with times, the rest with dates
     target.chart.applyOptions({
       timeScale: { timeVisible: plotted.range === "1D" || plotted.range === "1W" },
@@ -140,9 +156,10 @@ export function CandleChart({ symbol }: { symbol: string }) {
   const points = plotted?.points ?? [];
   const first = points[0];
   const scrubbed = scrub ? points[scrub.i] : undefined;
-  const last = points.at(-1);
-  const change =
-    first && (scrubbed ?? last) ? priceChange(first.close, (scrubbed ?? last)!.close) : null;
+  const shown = scrubbed ?? points.at(-1);
+  const change = first && shown ? priceChange(first.close, shown.close) : null;
+  const shownRange = plotted?.range ?? range;
+  const empty = !isPending && data !== undefined && data.candles.length === 0;
 
   return (
     <section aria-label={`${symbol} price chart`}>
@@ -152,24 +169,36 @@ export function CandleChart({ symbol }: { symbol: string }) {
         {scrubbed && change ? (
           <>
             <span className="tabular chart-readout__price">{formatPrice(scrubbed.close)}</span>
-            <PriceChange amount={change.absolute} percent={pctNumber(change.percent)} />
+            <PriceChange amount={change.absolute} percent={change.percent} />
           </>
         ) : change ? (
           <>
-            <PriceChange amount={change.absolute} percent={pctNumber(change.percent)} />
-            <span>{RANGE_LABEL[plotted!.range]}</span>
+            <PriceChange amount={change.absolute} percent={change.percent} />
+            <span>{RANGE_LABEL[shownRange]}</span>
           </>
         ) : null}
       </p>
 
-      {isError && !data ? (
-        <div className="ar-empty">
+      {showError(candles) ? (
+        <div className="ar-empty" role="alert">
           <span className="ar-empty__text">Chart data is unavailable right now.</span>
+          <button
+            type="button"
+            className="ar-btn ar-btn--secondary ar-btn--compact"
+            onClick={() => void candles.refetch()}
+            disabled={candles.isFetching}
+          >
+            {candles.isFetching ? "Retrying…" : "Try again"}
+          </button>
+        </div>
+      ) : empty ? (
+        <div className="ar-empty">
+          <span className="ar-empty__text">No price history for the {RANGE_LABEL[range]}.</span>
         </div>
       ) : (
         <div className="chart-scrub">
           <span ref={labelRef} className="chart-scrub__label ar-caption tabular" hidden={!scrubbed}>
-            {scrubbed ? formatScrubTime(scrubbed.iso, plotted!.range) : ""}
+            {scrubbed ? formatScrubTime(scrubbed.iso, shownRange) : ""}
           </span>
           <div
             ref={setEl}
@@ -199,7 +228,7 @@ export function CandleChart({ symbol }: { symbol: string }) {
         </summary>
         <table className="data-table" style={{ marginTop: 8 }}>
           <caption className="sr-only">
-            {symbol} closing prices, {plotted?.range ?? range}
+            {symbol} closing prices, {shownRange}
           </caption>
           <thead>
             <tr>
@@ -212,7 +241,7 @@ export function CandleChart({ symbol }: { symbol: string }) {
           <tbody>
             {points.slice(-20).map((p) => (
               <tr key={p.iso}>
-                <td>{formatScrubTime(p.iso, plotted!.range)}</td>
+                <td>{formatScrubTime(p.iso, shownRange)}</td>
                 <td className="num tabular">{formatPrice(p.close)}</td>
               </tr>
             ))}
@@ -221,9 +250,4 @@ export function CandleChart({ symbol }: { symbol: string }) {
       </details>
     </section>
   );
-}
-
-/** PriceChange takes a number percent; display-only conversion of a 2dp string. */
-function pctNumber(percent: string | null): number | undefined {
-  return percent === null ? undefined : Number(percent);
 }

@@ -21,10 +21,15 @@ export async function getCachedLogo(symbol: string): Promise<CachedLogo | null> 
       .select()
       .from(schema.marketDataCache)
       .where(eq(schema.marketDataCache.cacheKey, `logo:${symbol}`));
-    return row && row.staleAfter.getTime() > Date.now()
-      ? (row.payload as unknown as CachedLogo)
-      : null;
+    if (!row || row.staleAfter.getTime() <= Date.now()) return null;
+    return isCachedLogo(row.payload) ? row.payload : null; // malformed row = miss
   });
+}
+
+function isCachedLogo(value: unknown): value is CachedLogo {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return typeof v.b64 === "string" && typeof v.contentType === "string";
 }
 
 export async function putCachedLogo(symbol: string, logo: CachedLogo): Promise<void> {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/icons/Icon";
+import { SheetHeader } from "@/components/sheet-header";
 
 /**
  * Deposit / withdraw sheet for live mode — visually complete, deliberately
@@ -34,30 +35,12 @@ export function FundingSheet({
 
   const title = kind === "deposit" ? "Deposit" : "Withdraw";
   const inputId = `funding-amount-${kind}`;
+  const titleId = useId();
   const triggerIcon = kind === "deposit" ? "arrow-down-left" : "arrow-up-right";
 
   const sheet = (
-    <dialog ref={dialogRef} className="sheet" aria-label={title}>
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 12,
-        }}
-      >
-        <h2 className="ar-sheet__title" style={{ margin: 0 }}>
-          {title}
-        </h2>
-        <button
-          type="button"
-          className="ar-btn ar-btn--icon"
-          aria-label="Close"
-          onClick={() => dialogRef.current?.close()}
-        >
-          <Icon name="x" size={20} />
-        </button>
-      </div>
+    <dialog ref={dialogRef} className="sheet" aria-labelledby={titleId}>
+      <SheetHeader title={title} titleId={titleId} onClose={() => dialogRef.current?.close()} />
 
       <div style={{ display: "grid", gap: 16, marginTop: 12 }}>
         <div className="ar-field">
@@ -80,7 +63,7 @@ export function FundingSheet({
         <div className="ar-field">
           <span className="ar-field__label">Funding source</span>
           <button type="button" className="ar-btn ar-btn--secondary ar-btn--block" disabled>
-            Link a bank account — available at launch
+            Link a bank account (available at launch)
           </button>
         </div>
 
@@ -92,8 +75,8 @@ export function FundingSheet({
         ) : null}
 
         <p className="ar-sheet__text" style={{ margin: 0 }}>
-          Live funding isn&apos;t available yet. This is a preview of the {title.toLowerCase()} flow
-          — no money moves.
+          Live funding isn&apos;t available yet. This is a preview of the {title.toLowerCase()}{" "}
+          flow, and no money moves.
         </p>
       </div>
 

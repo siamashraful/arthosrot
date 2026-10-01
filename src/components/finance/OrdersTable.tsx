@@ -2,80 +2,66 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { Icon, type IconName } from "@/components/icons/Icon";
+import { Icon } from "@/components/icons/Icon";
+import { EmptyCard, ErrorCard, SkeletonRows, showError } from "@/components/states";
 import { api, type OrderDto } from "@/lib/api";
-import { formatDateTime, formatPrice } from "@/lib/format";
+import { formatDateTime, formatOrderType } from "@/lib/format";
 import { OrderStatusBadge } from "./OrderStatusBadge";
 import { FillProgress } from "./FillProgress";
+import { isCancellable, isOrderOpen, orderStateChip } from "./order-state";
+import {
+  isNoActiveAccount,
+  orderProgressSignature,
+  useRefreshOnOrderProgress,
+} from "./order-queries";
 import { useCancelOrder } from "./useCancelOrder";
-
-const OPEN = new Set([
-  "PENDING_SUBMISSION",
-  "ACKNOWLEDGED",
-  "ACCEPTED",
-  "PARTIALLY_FILLED",
-  "CANCEL_PENDING",
-]);
-
-/** Semantic chip for an order's state: icon plus tint, mirrored by the status tag's word. */
-function stateChip(state: string): { cls: string; icon: IconName } {
-  if (state === "FILLED") return { cls: "ar-chipicon--gain", icon: "check" };
-  if (state === "REJECTED" || state === "SUBMIT_FAILED")
-    return { cls: "ar-chipicon--loss", icon: "alert" };
-  if (OPEN.has(state)) return { cls: "ar-chipicon--warning", icon: "clock" };
-  return { cls: "ar-chipicon--neutral", icon: "x" };
-}
 
 /**
  * Orders list with adaptive polling (ADR-010): 2s while any order is open,
  * paused otherwise — order status advances without manual refresh. Rendered
- * as the system's activity rows on a list card.
+ * as the system's activity rows on a list card. A fill or state change seen
+ * here refreshes every cash-derived view (order-queries.ts).
  */
 export function OrdersTable({ status, limit }: { status: "open" | "all"; limit?: number }) {
-  const { data, isPending, isError } = useQuery({
+  const query = useQuery({
     queryKey: ["orders", status],
     queryFn: () => api.orders(status),
-    refetchInterval: (query) => {
-      const orders = query.state.data?.orders ?? [];
-      return orders.some((o) => OPEN.has(o.state)) ? 2_000 : false;
-    },
+    refetchInterval: (q) =>
+      q.state.data?.orders.some((o) => isOrderOpen(o.state)) ? 2_000 : false,
   });
+  useRefreshOnOrderProgress(orderProgressSignature(query.data?.orders));
 
   const cancel = useCancelOrder();
 
-  if (isPending) {
+  if (query.isPending) return <SkeletonRows count={2} />;
+  if (showError(query)) {
+    if (isNoActiveAccount(query.error)) {
+      return (
+        <EmptyCard
+          message="Open your practice account to place orders."
+          action={
+            <Link href="/" className="ar-btn ar-btn--primary ar-btn--compact">
+              Go to dashboard
+            </Link>
+          }
+        />
+      );
+    }
     return (
-      <div className="ar-card ar-card--list" aria-busy="true">
-        <div className="ar-skel-row">
-          <span className="ar-skel ar-skel--chip" />
-          <div className="ar-skel-row__main">
-            <span className="ar-skel ar-skel--text" style={{ width: "40%" }} />
-            <span className="ar-skel ar-skel--text" style={{ width: "60%" }} />
-          </div>
-        </div>
-      </div>
-    );
-  }
-  if (isError) {
-    return (
-      <div className="ar-card">
-        <div className="ar-empty">
-          <span className="ar-empty__text">Orders could not be loaded. Retry shortly.</span>
-        </div>
-      </div>
+      <ErrorCard
+        message="Orders couldn't be loaded."
+        onRetry={() => void query.refetch()}
+        retrying={query.isFetching}
+      />
     );
   }
 
-  const orders = (data?.orders ?? []).slice(0, limit);
+  const orders = (query.data?.orders ?? []).slice(0, limit);
   if (orders.length === 0) {
     return (
-      <div className="ar-card">
-        <div className="ar-empty">
-          <span className="ar-empty__text">
-            {status === "open" ? "No open orders." : "No orders yet — search a symbol to trade."}
-          </span>
-        </div>
-      </div>
+      <EmptyCard
+        message={status === "open" ? "No open orders." : "No orders yet. Search a symbol to trade."}
+      />
     );
   }
 
@@ -99,11 +85,6 @@ export function OrdersTable({ status, limit }: { status: "open" | "all"; limit?:
   );
 }
 
-/** Orders the venue will still accept a cancel for (already-pending cancels excluded). */
-export function isCancellable(state: string): boolean {
-  return OPEN.has(state) && state !== "PENDING_SUBMISSION" && state !== "CANCEL_PENDING";
-}
-
 function OrderRow({
   order,
   onCancel,
@@ -115,8 +96,8 @@ function OrderRow({
   cancelling: boolean;
   cancelError: string | null;
 }) {
-  const cancellable = isCancellable(order.state);
-  const { cls, icon } = stateChip(order.state);
+  const { cls, icon } = orderStateChip(order.state);
+  const sideWord = order.side === "BUY" ? "Buy" : "Sell";
   return (
     <li className="ar-row">
       <span className={`ar-chipicon ${cls}`} aria-hidden>
@@ -125,12 +106,11 @@ function OrderRow({
       <div className="ar-row__main">
         <span className="ar-row__title">
           <Link href={`/orders/${order.id}`}>
-            {order.side === "BUY" ? "Buy" : "Sell"} {order.qty} {order.symbol}
+            {sideWord} {order.qty} {order.symbol}
           </Link>
         </span>
         <span className="ar-row__sub">
-          {order.type === "MARKET" ? "Market" : `Limit ${formatPrice(order.limitPrice ?? "")}`} ·{" "}
-          {formatDateTime(order.createdAt)}
+          {formatOrderType(order.type, order.limitPrice)} · {formatDateTime(order.createdAt)}
         </span>
         <span>
           <OrderStatusBadge state={order.state} display={order.stateDisplay} />
@@ -145,13 +125,13 @@ function OrderRow({
         <span className="ar-row__value">
           <FillProgress filledQty={order.filledQty} qty={order.qty} /> {order.filledQty}/{order.qty}
         </span>
-        {cancellable ? (
+        {isCancellable(order.state) ? (
           <button
             type="button"
-            className="btn btn-danger ar-btn--compact"
+            className="ar-btn ar-btn--secondary ar-btn--compact"
             onClick={() => onCancel(order.id)}
             disabled={cancelling}
-            aria-label={`Cancel ${order.side === "BUY" ? "buy" : "sell"} ${order.qty} ${order.symbol}`}
+            aria-label={`Cancel ${sideWord.toLowerCase()} ${order.qty} ${order.symbol}`}
           >
             {cancelling ? "Cancelling…" : "Cancel"}
           </button>

@@ -28,6 +28,11 @@ export interface OpenSellReader {
   sumOpenBuyReservations(tx: TxHandle, accountId: string): Promise<Money>;
 }
 
+/** Σ PENDING withdrawal holds (implemented by the cash-transfers repository). */
+export interface WithdrawalHoldReader {
+  sumPendingWithdrawals(tx: TxHandle, accountId: string): Promise<Money>;
+}
+
 export interface PositionView {
   symbol: string;
   qty: string;
@@ -56,6 +61,7 @@ export class PortfolioService {
     private readonly positions: PositionsRepository,
     private readonly fills: FillsReplaySource,
     private readonly orders: OpenSellReader,
+    private readonly withdrawalHolds: WithdrawalHoldReader,
     private readonly txRunner: TransactionRunner,
     private readonly marketData: MarketDataProvider,
   ) {}
@@ -117,6 +123,7 @@ export class PortfolioService {
       }
 
       const reserved = await this.orders.sumOpenBuyReservations(tx, accountId);
+      const heldForWithdrawals = await this.withdrawalHolds.sumPendingWithdrawals(tx, accountId);
       const realized = await this.realizedPnl(tx, accountId);
 
       return {
@@ -124,7 +131,9 @@ export class PortfolioService {
         summary: {
           equity: cash.add(positionsValue).toString(),
           cash: cash.toString(),
-          buyingPower: cash.subtract(reserved).toString(),
+          // Same formula as placement (FINANCIAL_INVARIANTS.md): pending
+          // withdrawals hold their cash until they settle or fail.
+          buyingPower: cash.subtract(reserved).subtract(heldForWithdrawals).toString(),
           positionsValue: positionsValue.toString(),
           realizedPnl: realized.toString(),
           asOf: now.toISOString(),

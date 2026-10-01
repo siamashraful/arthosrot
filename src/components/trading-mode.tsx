@@ -33,12 +33,15 @@ function subscribe(onChange: () => void): () => void {
 }
 
 export function setTradingMode(mode: TradingMode): void {
-  if (mode === "live") {
-    document.documentElement.setAttribute("data-mode", "live");
-    window.localStorage.setItem(STORAGE_KEY, "live");
-  } else {
-    document.documentElement.removeAttribute("data-mode");
-    window.localStorage.removeItem(STORAGE_KEY);
+  // The attribute flips first: it is what every surface reads, so the switch
+  // works for this page even where storage is unavailable (private mode).
+  if (mode === "live") document.documentElement.setAttribute("data-mode", "live");
+  else document.documentElement.removeAttribute("data-mode");
+  try {
+    if (mode === "live") window.localStorage.setItem(STORAGE_KEY, "live");
+    else window.localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Not persisted — the next load starts in practice, the safe default.
   }
 }
 

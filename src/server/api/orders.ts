@@ -7,6 +7,7 @@ import { pgTransactionRunner } from "@/infra/db/tx";
 import type { SessionInfo } from "../session";
 import { requireActiveAccount } from "./portfolio";
 import { symbolSchema } from "./market";
+import { readJson } from "./http";
 import { enforceRateLimit } from "./rate-limit";
 import { getContainer } from "../container";
 
@@ -15,14 +16,19 @@ const placeOrderSchema = z.object({
   side: z.enum(["BUY", "SELL"]),
   type: z.enum(["MARKET", "LIMIT"]),
   qty: z.number().int().positive().max(1_000_000),
+  // ≤4dp (Px precision) and ≤10 integer digits, so it always fits
+  // limit_price NUMERIC(18,4); zero is refused here — Px is strictly positive.
   limitPrice: z
     .string()
-    .regex(/^\d+(\.\d{1,4})?$/)
+    .regex(/^\d{1,10}(\.\d{1,4})?$/, "Limit price must be a decimal with at most 4 places")
+    .refine((s) => /[1-9]/.test(s), "Limit price must be greater than zero")
     .optional(),
   idempotencyKey: z.string().uuid(),
 });
 
-export function serializeOrder(order: Order) {
+const listOrdersQuerySchema = z.object({ status: z.enum(["all", "open"]).default("all") });
+
+function serializeOrder(order: Order) {
   return {
     id: order.id,
     accountId: order.accountId,
@@ -40,6 +46,10 @@ export function serializeOrder(order: Order) {
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
   };
+}
+
+function logAfterCommit(msg: string, orderId: string, err: unknown): void {
+  console.error(JSON.stringify({ level: "error", msg, orderId, err: String(err) }));
 }
 
 /** Ownership guard: the order's account must belong to the session user (else 404). */
@@ -62,7 +72,7 @@ export async function placeOrder(
   session: SessionInfo,
 ): Promise<{ body: unknown; status: number }> {
   enforceRateLimit(`orders:${session.userId}`, 60, 60_000);
-  const input = placeOrderSchema.parse(await request.json());
+  const input = placeOrderSchema.parse(await readJson(request));
   const { instrumentService, marketData, ordersService } = getContainer();
 
   const account = await requireActiveAccount(session);
@@ -88,7 +98,15 @@ export async function placeOrder(
   // Submission to the broker happens via ExecutionService (async lifecycle);
   // a replay returns the original resource with 200.
   if (!placed.replayed) {
-    await getContainer().executionService.submit(placed.order.id);
+    // The order is committed: from here the response must describe it, not
+    // a transport error. A submit that throws (the venue has the order but
+    // our call failed) converges through events/reconciliation; the order is
+    // returned in its real current state.
+    await getContainer()
+      .executionService.submit(placed.order.id)
+      .catch((err: unknown) =>
+        logAfterCommit("order submit failed after commit", placed.order.id, err),
+      );
   }
 
   const current = await pgTransactionRunner.run((tx) =>
@@ -101,8 +119,9 @@ export async function placeOrder(
 }
 
 export async function listOrders(request: Request, session: SessionInfo): Promise<unknown> {
-  const url = new URL(request.url);
-  const status = url.searchParams.get("status") ?? "all";
+  const { status } = listOrdersQuerySchema.parse({
+    status: new URL(request.url).searchParams.get("status") ?? undefined,
+  });
   const account = await requireActiveAccount(session);
   // Deterministic mode: polling doubles as the venue tick, so resting limit
   // orders progress during local development without a separate scheduler.
@@ -115,6 +134,10 @@ export async function listOrders(request: Request, session: SessionInfo): Promis
 }
 
 export async function getOrderDetail(orderId: string, session: SessionInfo): Promise<unknown> {
+  // Deterministic mode: the detail page's polling is a venue tick too (as in
+  // listOrders), so a resting order watched only here still progresses.
+  const det = getContainer().deterministicBroker;
+  if (det) await det.tick();
   const order = await requireOwnedOrder(session, orderId);
   const events = await pgTransactionRunner.run((tx) =>
     getContainer().ordersService.listEvents(tx, order.id),
@@ -138,8 +161,22 @@ export async function cancelOrder(orderId: string, session: SessionInfo): Promis
   const cancelled = await pgTransactionRunner.run((tx) =>
     getContainer().ordersService.requestCancel(tx, order.id, systemClock.now()),
   );
-  // Ask the venue to cancel (outcome arrives as a canonical event).
-  await getContainer().executionService.requestVenueCancel(cancelled.id);
+  // Ask the venue to cancel (outcome arrives as a canonical event). The
+  // local CANCEL_PENDING is committed; if the request fails, the order is
+  // returned as it is and reconciliation re-sends the cancel.
+  const outcome = await getContainer()
+    .executionService.requestVenueCancel(cancelled.id)
+    .catch((err: unknown) => {
+      logAfterCommit("venue cancel failed after commit", cancelled.id, err);
+      return null;
+    });
+  // The venue refused (e.g. the order already filled): local state is behind
+  // the venue. Reconcile this account now so the response carries the truth.
+  if (outcome && !outcome.accepted) {
+    await getContainer()
+      .reconciliationService.reconcileAccountNow(cancelled.accountId)
+      .catch((err: unknown) => logAfterCommit("reconcile after refused cancel", cancelled.id, err));
+  }
   const current = await pgTransactionRunner.run((tx) =>
     getContainer().ordersService.getById(tx, cancelled.id),
   );

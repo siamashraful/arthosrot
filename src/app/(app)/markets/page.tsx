@@ -1,12 +1,15 @@
 "use client";
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import Link from "next/link";
 import { useEffect, useState } from "react";
 import { BrowseGrid } from "@/components/finance/BrowseGrid";
-import { SymbolLogo } from "@/components/finance/SymbolLogo";
+import { SymbolRow } from "@/components/finance/SymbolRow";
 import { Icon } from "@/components/icons/Icon";
+import { EmptyCard, ErrorCard, SkeletonRows, showError } from "@/components/states";
 import { api } from "@/lib/api";
+
+/** The server's search-query limit (searchSchema) — longer input can never match. */
+const MAX_QUERY = 40;
 
 /** One request per pause in typing, not one per keystroke. */
 function useDebounced(value: string, delayMs: number): string {
@@ -20,18 +23,26 @@ function useDebounced(value: string, delayMs: number): string {
 
 export default function MarketsPage() {
   const [query, setQuery] = useState("");
-  const debouncedQuery = useDebounced(query.trim(), 300);
-  const { data, isFetching } = useQuery({
+  const typed = query.trim();
+  const debouncedQuery = useDebounced(typed, 300);
+  const search = useQuery({
     queryKey: ["instrument-search", debouncedQuery],
     queryFn: () => api.searchInstruments(debouncedQuery),
     enabled: debouncedQuery.length > 0,
     placeholderData: keepPreviousData,
   });
+  // Results on screen answer what is typed only once the debounce has caught
+  // up AND the fetch for it has landed — until then they are the previous
+  // query's, so "No matches" must wait.
+  const settled = debouncedQuery === typed && !search.isFetching && !search.isPlaceholderData;
+  const results = search.data?.instruments ?? [];
 
   return (
-    <div style={{ display: "grid", gap: 16, maxWidth: "56rem" }}>
+    <div
+      style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 16, maxWidth: "56rem" }}
+    >
       <div className="ar-appbar">
-        <h1 className="ar-appbar__title">Markets</h1>
+        <h1 className="ar-appbar__title">Search</h1>
       </div>
 
       <div className="ar-field">
@@ -42,51 +53,68 @@ export default function MarketsPage() {
           <Icon name="search" size={20} />
           <input
             id="market-search"
-            placeholder="Symbol or company name — e.g. AAPL"
+            placeholder="Symbol or company name, e.g. AAPL"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            maxLength={MAX_QUERY}
             autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            enterKeyHint="search"
+            aria-describedby={typed ? "market-search-status" : undefined}
           />
         </div>
       </div>
 
-      {query.trim().length === 0 ? (
+      {typed.length === 0 ? (
         <BrowseGrid />
-      ) : isFetching && !data ? (
-        <div className="ar-card ar-card--list" aria-busy="true">
-          {[0, 1].map((i) => (
-            <div key={i} className="ar-skel-row">
-              <span className="ar-skel ar-skel--chip" />
-              <div className="ar-skel-row__main">
-                <span className="ar-skel ar-skel--text" style={{ width: "30%" }} />
-                <span className="ar-skel ar-skel--text" style={{ width: "55%" }} />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (data?.instruments ?? []).length === 0 ? (
-        <div className="ar-card">
-          <div className="ar-empty">
-            <span className="ar-empty__text">No matches for “{query.trim()}”.</span>
-          </div>
-        </div>
       ) : (
-        <ul className="ar-card ar-card--list ar-list" style={{ listStyle: "none", margin: 0 }}>
-          {(data?.instruments ?? []).map((i) => (
-            <li key={i.symbol}>
-              <Link href={`/i/${i.symbol}`} className="ar-row">
-                <SymbolLogo symbol={i.symbol} size={40} />
-                <span className="ar-row__main">
-                  <span className="ar-row__title">{i.symbol}</span>
-                  <span className="ar-row__sub">{i.name}</span>
-                </span>
-                <span className="ar-row__end">
-                  <span className="ar-tag ar-tag--sky">{i.exchange}</span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <section
+          aria-label="Search results"
+          style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr)", gap: 8 }}
+        >
+          <p
+            id="market-search-status"
+            className="ar-caption ar-secondary"
+            role="status"
+            style={{ margin: 0 }}
+          >
+            {!settled
+              ? "Searching…"
+              : showError(search)
+                ? ""
+                : results.length === 0
+                  ? ""
+                  : `${results.length} ${results.length === 1 ? "result" : "results"}`}
+          </p>
+          {settled && showError(search) ? (
+            <ErrorCard
+              message="Search isn't available right now."
+              onRetry={() => void search.refetch()}
+              retrying={search.isFetching}
+            />
+          ) : !settled && results.length === 0 ? (
+            <SkeletonRows count={2} />
+          ) : results.length === 0 ? (
+            <EmptyCard
+              title={`No matches for “${typed}”`}
+              message="Try a ticker such as AAPL, or part of a company name."
+            />
+          ) : (
+            <ul className="ar-card ar-card--list ar-list" aria-busy={!settled}>
+              {results.map((i) => (
+                <li key={i.symbol}>
+                  <SymbolRow
+                    symbol={i.symbol}
+                    title={i.symbol}
+                    sub={i.name}
+                    end={<span className="ar-tag ar-tag--sky">{i.exchange}</span>}
+                  />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </div>
   );

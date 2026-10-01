@@ -5,9 +5,9 @@ import { getDb } from "@/infra/db";
 export async function truncateAll(): Promise<void> {
   await getDb().execute(sql`
     TRUNCATE TABLE
-      watchlist_items, watchlists,
+      watchlist_items, watchlists, price_alerts,
       fills, order_events, orders,
-      positions, ledger_entries,
+      positions, ledger_entries, cash_transfers,
       broker_accounts, stream_cursors, accounts,
       market_data_cache, instruments,
       market_cap_entries, market_cap_snapshots, job_runs, company_fundamentals,

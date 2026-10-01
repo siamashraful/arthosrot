@@ -55,6 +55,34 @@ export function errorResponse(err: unknown, requestId: string): Response {
   return res;
 }
 
+/**
+ * The request body as JSON. A malformed or empty body is the client's
+ * mistake (422 VALIDATION), never an INTERNAL error; the caller still
+ * Zod-validates the shape.
+ */
+export async function readJson(request: Request): Promise<unknown> {
+  try {
+    return await request.json();
+  } catch {
+    throw new AppError("VALIDATION", "Request body must be JSON");
+  }
+}
+
+/**
+ * A dynamic path segment, counted from the end of the path (0 = last), URI-
+ * decoded. Malformed percent-encoding is a VALIDATION error — a bare
+ * decodeURIComponent would throw URIError and surface as a 500.
+ */
+export function pathParam(request: Request, fromEnd = 0): string {
+  const segments = new URL(request.url).pathname.split("/");
+  const raw = segments[segments.length - 1 - fromEnd] ?? "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    throw new AppError("VALIDATION", "Malformed URL path");
+  }
+}
+
 type AuthedHandler = (request: Request, session: SessionInfo) => Promise<Response>;
 
 /** Auth-guarded handler with the standard envelope on every failure path. */

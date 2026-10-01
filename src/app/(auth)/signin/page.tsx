@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
+import { safeReturnPath } from "@/lib/return-path";
 
 export default function SignInPage() {
   const router = useRouter();
@@ -15,13 +17,22 @@ export default function SignInPage() {
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const { error: err } = await authClient.signIn.email({ email, password });
-    setBusy(false);
-    if (err) {
-      setError(err.message ?? "Sign in failed.");
+    try {
+      const { error: err } = await authClient.signIn.email({ email, password });
+      if (err) {
+        setError(err.message ?? "Sign in failed. Try again.");
+        setBusy(false);
+        return;
+      }
+    } catch {
+      // A network failure throws instead of returning an error: never leave
+      // the button stuck on its busy label.
+      setError("Sign in failed. Check your connection and try again.");
+      setBusy(false);
       return;
     }
-    router.push("/");
+    // Stay busy through the navigation so the form can't be submitted twice.
+    router.replace(safeReturnPath(new URLSearchParams(window.location.search).get("next")));
     router.refresh();
   }
 
@@ -69,7 +80,7 @@ export default function SignInPage() {
         </button>
       </form>
       <p className="ar-body ar-secondary">
-        New here? <a href="/signup">Create an account</a>
+        New here? <Link href="/signup">Create an account</Link>
       </p>
     </main>
   );

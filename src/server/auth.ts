@@ -3,10 +3,10 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError, createAuthMiddleware } from "better-auth/api";
 import { ZxcvbnFactory } from "@zxcvbn-ts/core";
 import { adjacencyGraphs, dictionary } from "@zxcvbn-ts/language-common";
-
-const passwordStrength = new ZxcvbnFactory({ dictionary, graphs: adjacencyGraphs });
 import { env } from "@/env";
 import { getDb, schema } from "@/infra/db";
+
+const passwordStrength = new ZxcvbnFactory({ dictionary, graphs: adjacencyGraphs });
 
 /**
  * Authentication (docs/architecture/adr/ADR-009-auth.md).

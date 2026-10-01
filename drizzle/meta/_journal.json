@@ -43,6 +43,20 @@
       "when": 1790822068588,
       "tag": "0005_company-fundamentals",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790825583115,
+      "tag": "0006_paper-cash-transfers",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790827465129,
+      "tag": "0007_price-alerts",
+      "breakpoints": true
     }
   ]
 }

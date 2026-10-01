@@ -1,8 +1,10 @@
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { Px, Qty } from "@/core/money";
 import { closeDb, getDb, schema } from "@/infra/db";
 import { asTx } from "@/infra/db/tx";
+import { CANCEL_RESEND_AFTER_MS } from "@/core/reconciliation";
+import { cancelOrder, placeOrder } from "@/server/api/orders";
 import { getContainer, resetContainerForTests } from "@/server/container";
 import { signupWithAccount, truncateAll } from "./helpers";
 
@@ -123,6 +125,94 @@ describe("reconciliation engine", () => {
     const after = await orderState(placed.order.id);
     expect(after.state).toBe("SUBMIT_FAILED");
     expect(after.reservedCash).toBe("0.00");
+  });
+
+  it("a lost venue cancel leaves CANCEL_PENDING (no 500); reconciliation re-sends it past the threshold", async () => {
+    const userId = await newUser("recon-cancel@example.com");
+    const c = getContainer();
+    const { placed } = await placeLimit(userId, 3, "150.0000"); // rests below the 200 market
+    await c.executionService.submit(placed.order.id);
+    expect((await orderState(placed.order.id)).state).toBe("ACCEPTED");
+
+    // The cancel request never reaches the venue; the API still answers
+    // with the committed order instead of a 500.
+    c.deterministicBroker!.failNextCancel();
+    const session = { userId, email: "recon-cancel@example.com", name: "T" };
+    const res = (await cancelOrder(placed.order.id, session)) as { order: { state: string } };
+    expect(res.order.state).toBe("CANCEL_PENDING");
+
+    // Inside the threshold: venue still says "accepted" — not applied, no re-send.
+    const early = await c.reconciliationService.reconcileAll();
+    expect(early.errors).toEqual([]);
+    expect(early.cancelsResent).toBe(0);
+    expect((await orderState(placed.order.id)).state).toBe("CANCEL_PENDING");
+
+    // Past it: the cancel is re-sent; the outcome arrives as a canonical event.
+    await getDb()
+      .update(schema.orders)
+      .set({ updatedAt: new Date(Date.now() - CANCEL_RESEND_AFTER_MS - 5_000) })
+      .where(eq(schema.orders.id, placed.order.id));
+    const late = await c.reconciliationService.reconcileAll();
+    expect(late.errors).toEqual([]);
+    expect(late.cancelsResent).toBe(1);
+    const after = await orderState(placed.order.id);
+    expect(after.state).toBe("CANCELLED");
+    expect(after.reservedCash).toBe("0.00");
+  });
+
+  it("a cancel the venue refuses (already filled) converges immediately via a single-account reconcile", async () => {
+    const userId = await newUser("recon-refused@example.com");
+    const c = getContainer();
+    const { placed } = await placeLimit(userId, 2, "190.0000");
+    await c.executionService.submit(placed.order.id);
+    expect((await orderState(placed.order.id)).state).toBe("ACCEPTED");
+
+    // The venue fills it while we're deaf; local still says ACCEPTED.
+    c.deterministicBroker!.muteEvents(true);
+    c.fixtureProvider!.setPrice("AAPL", "189.0000");
+    await c.deterministicBroker!.tick();
+    c.deterministicBroker!.muteEvents(false);
+    expect((await orderState(placed.order.id)).state).toBe("ACCEPTED");
+
+    // The user cancels: the venue refuses (nothing open to cancel) and the
+    // handler reconciles the account at once — the fill wins, exactly once.
+    const session = { userId, email: "recon-refused@example.com", name: "T" };
+    const res = (await cancelOrder(placed.order.id, session)) as { order: { state: string } };
+    expect(res.order.state).toBe("FILLED");
+    const fills = await getDb()
+      .select()
+      .from(schema.fills)
+      .where(eq(schema.fills.orderId, placed.order.id));
+    expect(fills).toHaveLength(1);
+  });
+
+  it("a submit that throws after the order is committed returns the committed order (201), not a 500", async () => {
+    const userId = await newUser("recon-submit@example.com");
+    const c = getContainer();
+    const submit = vi
+      .spyOn(c.executionService, "submit")
+      .mockRejectedValueOnce(new Error("venue accepted it but our call timed out"));
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await placeOrder(
+      new Request("http://test.local/api/v1/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          symbol: "AAPL",
+          side: "BUY",
+          type: "LIMIT",
+          qty: 1,
+          limitPrice: "150.00",
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      }),
+      { userId, email: "recon-submit@example.com", name: "T" },
+    );
+    errors.mockRestore();
+    submit.mockRestore();
+    expect(res.status).toBe(201);
+    const body = res.body as { order: { id: string; state: string }; replayed: boolean };
+    expect(body).toMatchObject({ replayed: false, order: { state: "PENDING_SUBMISSION" } });
+    expect((await orderState(body.order.id)).state).toBe("PENDING_SUBMISSION");
   });
 
   it("P0 regression: same execution under a different event envelope mutates NOTHING", async () => {

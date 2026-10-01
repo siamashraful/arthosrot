@@ -74,6 +74,12 @@ async function runReconciliation(): Promise<unknown> {
   if (provisioning.checked > 0) {
     console.log(JSON.stringify({ msg: "provisioning sweep", ...provisioning }));
   }
+  // Settle/fail PENDING paper cash transfers whose venue outcome is known —
+  // the fallback for users not polling GET /account/cash (ADR-015).
+  const transfers = await c.cashTransferService.sweepPending();
+  if (transfers.transfersChecked > 0) {
+    console.log(JSON.stringify({ msg: "cash transfer sweep", ...transfers }));
+  }
   const result = await c.reconciliationService.reconcileAll();
   lastReconcileAt = new Date();
   // Heartbeat row: the web app's system-status endpoint derives pipeline
@@ -81,7 +87,7 @@ async function runReconciliation(): Promise<unknown> {
   await pgTransactionRunner.run((tx) =>
     streamCursorsRepository.set(tx, c.broker.kind, "reconcile-heartbeat", new Date().toISOString()),
   );
-  return { ...(result as object), provisioning };
+  return { ...(result as object), provisioning, transfers };
 }
 
 /**
@@ -164,8 +170,23 @@ function main(): void {
         respond(401, { status: "unauthorized" });
         return;
       }
+      // The market-hours reconcile cron (every 10 min) also runs any due
+      // scheduled jobs — that's what gives price alerts a ~10-minute cadence
+      // without a second cron. A job failure never fails the reconcile call.
       runReconciliation()
-        .then((result) => respond(200, { status: "ok", result }))
+        .then(async (result) => {
+          const jobs = await runDueJobs(allJobs()).catch((err) => {
+            console.error(
+              JSON.stringify({ level: "error", msg: "jobs after reconcile", err: String(err) }),
+            );
+            return [];
+          });
+          respond(200, {
+            status: "ok",
+            result,
+            jobs: jobs.map((o) => ({ name: o.name, status: o.status })),
+          });
+        })
         .catch((err) => {
           // Details go to the log, not the wire (the caller only needs pass/fail).
           console.error(

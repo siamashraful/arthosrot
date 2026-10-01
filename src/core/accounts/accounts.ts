@@ -1,5 +1,5 @@
 import { Money } from "../money";
-import { invariant, type TransactionRunner, type TxHandle } from "../shared";
+import { AppError, invariant, type TransactionRunner, type TxHandle } from "../shared";
 import type { CashProjection, LedgerService } from "../ledger";
 
 /**
@@ -61,12 +61,21 @@ export interface AccountProvisioner {
   settledCash(ref: BrokerAccountRef): Promise<Money>;
 }
 
+/**
+ * Runs inside the archive transaction, AFTER the account row is locked
+ * (lock order account → module rows). Lets other modules release state tied
+ * to the archived account — e.g. core/cash-transfers cancels PENDING
+ * transfers so no withdrawal hold outlives its account.
+ */
+export type AccountArchiveHook = (tx: TxHandle, accountId: string) => Promise<unknown>;
+
 export class AccountService implements CashProjection {
   constructor(
     private readonly repo: AccountsRepository,
     private readonly txRunner: TransactionRunner,
     private readonly provisioner: AccountProvisioner,
     private readonly getLedger: () => LedgerService,
+    private readonly getArchiveHooks: () => AccountArchiveHook[] = () => [],
   ) {}
 
   // CashProjection port (used by LedgerService)
@@ -175,14 +184,25 @@ export class AccountService implements CashProjection {
 
   /**
    * Reset step 2..7 (docs/architecture/DATA_MODEL.md): archive the current
-   * account (history preserved — nothing deleted, invariant 14) and provision
+   * account (history preserved — nothing deleted, invariant 14; archive hooks
+   * cancel PENDING cash transfers in the same transaction) and provision
    * a fresh one with a new opening DEPOSIT. The caller (server/api/account)
    * must have cancelled eligible open orders FIRST.
    */
   async archiveAndReprovision(userId: string): Promise<Account> {
     const current = await this.txRunner.run(async (tx) => {
-      const account = await this.repo.getActiveForUser(tx, userId);
-      invariant(account, "no active account to reset");
+      // Lock first: serializes against transfer requests/settlements and
+      // placements (account → … lock order), and re-checks the status. A
+      // concurrent reset that won the lock leaves nothing ACTIVE here — that
+      // is the caller's race (CONFLICT), not a broken invariant (500).
+      const active = await this.repo.getActiveForUser(tx, userId);
+      const account = active ? await this.repo.lockForUpdate(tx, active.id) : null;
+      if (!account || account.status !== "ACTIVE") {
+        throw new AppError("CONFLICT", "This account was already reset. Refresh and try again.", {
+          subcode: "ACCOUNT_NOT_ACTIVE",
+        });
+      }
+      for (const hook of this.getArchiveHooks()) await hook(tx, account.id);
       await this.repo.archiveBrokerAccount(tx, account.id);
       await this.repo.setStatus(tx, account.id, "ARCHIVED");
       return account;

@@ -153,7 +153,10 @@ export class AlpacaMarketData implements MarketDataProvider {
       );
       for (const [symbol, snap] of Object.entries(snapshots ?? {})) {
         const trade = snap?.latestTrade;
-        if (!snap || !trade || trade.p <= 0) continue;
+        // A quote needs a positive last price AND a real timestamp (freshness
+        // is derived from it) — a malformed trade is "no quote", not a crash.
+        const ts = trade ? new Date(trade.t) : null;
+        if (!snap || !trade || !(trade.p > 0) || !ts || Number.isNaN(ts.getTime())) continue;
         const q = snap.latestQuote;
         const reference = referenceClose(snap);
         out.set(symbol, {
@@ -163,7 +166,7 @@ export class AlpacaMarketData implements MarketDataProvider {
           ask: q && q.ap > 0 ? px(q.ap) : null,
           askSize: q && q.ap > 0 ? q.as : null,
           last: px(trade.p),
-          ts: new Date(trade.t),
+          ts,
           source: "IEX via Alpaca",
           previousClose: reference !== null && reference > 0 ? px(reference) : null,
         });

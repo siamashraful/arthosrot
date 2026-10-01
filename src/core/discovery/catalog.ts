@@ -126,7 +126,7 @@ export const SECTORS: readonly Sector[] = [
     slug: "financials",
     name: "Financials",
     blurb:
-      "Banks, payment networks, insurers and investment firms — the businesses that move money.",
+      "Banks, payment networks, insurers and investment firms: the businesses that move money.",
     icon: "landmark",
     companies: [
       { symbol: "BRK.B", name: "Berkshire Hathaway" },
@@ -143,7 +143,7 @@ export const SECTORS: readonly Sector[] = [
     slug: "industrials",
     name: "Industrials",
     blurb:
-      "Planes, railroads, heavy machinery and delivery — the companies that build and move things.",
+      "Planes, railroads, heavy machinery and delivery: the companies that build and move things.",
     icon: "factory",
     companies: [
       { symbol: "GE", name: "GE Aerospace" },
@@ -175,7 +175,7 @@ export const SECTORS: readonly Sector[] = [
   {
     slug: "materials",
     name: "Materials",
-    blurb: "Chemicals, metals, mining and paint — the raw materials other industries build with.",
+    blurb: "Chemicals, metals, mining and paint: the raw materials other industries build with.",
     icon: "pickaxe",
     companies: [
       { symbol: "LIN", name: "Linde" },
@@ -207,7 +207,7 @@ export const SECTORS: readonly Sector[] = [
   {
     slug: "utilities",
     name: "Utilities",
-    blurb: "Electricity, gas and water providers — steady businesses that often pay dividends.",
+    blurb: "Electricity, gas and water providers, steady businesses that often pay dividends.",
     icon: "zap",
     companies: [
       { symbol: "NEE", name: "NextEra Energy" },

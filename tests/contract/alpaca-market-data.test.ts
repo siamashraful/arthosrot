@@ -85,6 +85,19 @@ describe("AlpacaMarketData translation (recorded responses)", () => {
     expect((await fresh.getQuote("AAPL")).previousClose).toBeNull();
   });
 
+  it("drops a snapshot whose trade is malformed instead of inventing a quote", async () => {
+    const feed = provider(async () =>
+      Response.json({
+        BADTS: { latestTrade: { p: 20, t: "not-a-time" } },
+        NOPX: { latestTrade: { t: "2026-01-06T14:59:59Z" } },
+        ZERO: { latestTrade: { p: 0, t: "2026-01-06T14:59:59Z" } },
+        OK: { latestTrade: { p: 20, t: "2026-01-06T14:59:59Z" } },
+      }),
+    );
+    const quotes = await feed.getQuotes(["BADTS", "NOPX", "ZERO", "OK"]);
+    expect([...quotes.keys()]).toEqual(["OK"]);
+  });
+
   it("asks for every symbol in one snapshot call per batch", async () => {
     const urls: string[] = [];
     const batch = provider(async (url) => {

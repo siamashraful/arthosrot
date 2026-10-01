@@ -28,7 +28,18 @@ export type DomainSubcode =
   | "ACCOUNT_NOT_ACTIVE"
   | "INVALID_STARTING_CASH"
   | "ACCOUNT_EXISTS"
-  | "INSTRUMENT_INACTIVE";
+  | "INSTRUMENT_INACTIVE"
+  // paper cash transfers (ADR-015)
+  | "NO_ACCOUNT"
+  | "INVALID_AMOUNT"
+  | "AMOUNT_TOO_SMALL"
+  | "AMOUNT_TOO_LARGE"
+  | "DEPOSIT_LIMIT"
+  | "INSUFFICIENT_WITHDRAWABLE"
+  | "IDEMPOTENCY_CONFLICT"
+  // price alerts (ADR-016)
+  | "INVALID_ALERT_PRICE"
+  | "ALERT_LIMIT_REACHED";
 
 export const ERROR_HTTP_STATUS: Record<ErrorCode, number> = {
   VALIDATION: 422,

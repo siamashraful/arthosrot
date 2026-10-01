@@ -96,10 +96,64 @@ export interface BrowseListDto {
     quote: QuoteDto | null;
   }>;
   market: { status: string; asOf: string };
-  freshness: string | null;
+  /** Display freshness of the stalest quote on the page (one chip per list). */
+  freshness: "live" | "aging" | "stale" | "at-close" | null;
   freshnessTs: string | null;
   source: string | null;
 }
+
+/** What a day change covers: the current trading day, or the last session once CLOSED. */
+export type DayChangePeriodDto = "today" | "last-session";
+
+/** GET /api/v1/browse/movers — top gainers/losers across Top 100 ∪ sectors. */
+export interface MoversDto {
+  /** At most 5 each, biggest move first; empty when nothing qualifies. */
+  gainers: MoverRowDto[];
+  losers: MoverRowDto[];
+  period: DayChangePeriodDto;
+  asOf: string;
+  market: { status: string; asOf: string };
+  /** Display freshness of the stalest quote shown (one chip per section). */
+  freshness: "live" | "aging" | "stale" | "at-close" | null;
+  freshnessTs: string | null;
+  source: string | null;
+}
+
+export interface MoverRowDto {
+  symbol: string;
+  name: string;
+  quote: QuoteDto;
+  dayChange: { absolute: string; percent: string } | null;
+}
+
+/** GET /api/v1/watchlist/quotes — the caller's watchlist quotes + sparklines. */
+export interface WatchlistQuotesDto {
+  items: Array<{
+    symbol: string;
+    /** null when the feed can't quote the symbol (e.g. delisted). */
+    quote: QuoteDto | null;
+    /** Latest session's closes (≤ 40, decimal strings); null when unavailable. */
+    sparkline: string[] | null;
+  }>;
+  period: DayChangePeriodDto;
+  market: { status: string; asOf: string };
+  freshness: "live" | "aging" | "stale" | "at-close" | null;
+  freshnessTs: string | null;
+  source: string | null;
+}
+
+/** Canonical order lifecycle states (docs/architecture/EXECUTION.md). */
+export type OrderState =
+  | "PENDING_SUBMISSION"
+  | "ACKNOWLEDGED"
+  | "ACCEPTED"
+  | "PARTIALLY_FILLED"
+  | "FILLED"
+  | "CANCEL_PENDING"
+  | "CANCELLED"
+  | "REJECTED"
+  | "EXPIRED"
+  | "SUBMIT_FAILED";
 
 export interface OrderDto {
   id: string;
@@ -108,7 +162,7 @@ export interface OrderDto {
   type: "MARKET" | "LIMIT";
   qty: string;
   limitPrice: string | null;
-  state: string;
+  state: OrderState;
   stateDisplay: string;
   filledQty: string;
   reservedCash: string;
@@ -118,11 +172,14 @@ export interface OrderDto {
 }
 
 interface InstrumentDetailDto {
-  instrument: { symbol: string; name: string; exchange: string };
+  /** status "ACTIVE" is buyable; any other status (delisted) accepts sells only. */
+  instrument: { symbol: string; name: string; exchange: string; status: string };
   /** null when the feed no longer quotes a known instrument (delisting). */
   quote: QuoteDto | null;
   market: { status: string; asOf: string };
   freshness: "live" | "aging" | "stale" | "at-close" | null;
+  /** Placement rules the ticket mirrors: market buys reserve price × qty × (1 + buffer). */
+  trading: { marketBuyBuffer: string };
 }
 
 interface PortfolioDto {
@@ -163,6 +220,34 @@ interface WatchlistItemDto {
   quote: QuoteDto | null;
 }
 
+/** One row of GET /api/v1/watchlist (the ["watchlist"] query). */
+export type WatchlistItem = WatchlistItemDto;
+
+export type TransferDirectionDto = "DEPOSIT" | "WITHDRAWAL";
+
+export interface CashTransferDto {
+  id: string;
+  direction: TransferDirectionDto;
+  amount: string;
+  state: "PENDING" | "SETTLED" | "FAILED" | "CANCELED";
+  createdAt: string;
+  settledAt: string | null;
+  failureReason: string | null;
+}
+
+/** GET /api/v1/account/cash — the read also settles due pending transfers. */
+export interface AccountCashDto {
+  status: string;
+  cash: string;
+  reservedForOrders: string;
+  pendingDeposits: string;
+  pendingWithdrawals: string;
+  /** cash − cash reserved for open buy orders − pending withdrawals. */
+  withdrawable: string;
+  limits: { minAmount: string; maxPerTransfer: string; depositRemainingToday: string };
+  transfers: CashTransferDto[];
+}
+
 interface CandleDto {
   time: string;
   open: string;
@@ -193,6 +278,8 @@ export const api = {
   browse: () => request<BrowseDto>("/api/v1/browse"),
   browseList: (slug: string, page: number) =>
     request<BrowseListDto>(`/api/v1/browse/${encodeURIComponent(slug)}?page=${page}`),
+  movers: () => request<MoversDto>("/api/v1/browse/movers"),
+  watchlistQuotes: () => request<WatchlistQuotesDto>("/api/v1/watchlist/quotes"),
   searchInstruments: (query: string) =>
     request<{ instruments: Array<{ symbol: string; name: string; exchange: string }> }>(
       `/api/v1/instruments?query=${encodeURIComponent(query)}`,
@@ -251,9 +338,57 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ confirm: "RESET" }),
     }),
+  accountCash: () => request<AccountCashDto>("/api/v1/account/cash"),
+  /** Paper deposit / withdrawal. Reuse `idempotencyKey` for retries of the same submission. */
+  createTransfer: (direction: TransferDirectionDto, amount: string, idempotencyKey: string) =>
+    request<{ transfer: CashTransferDto; cash: AccountCashDto }>("/api/v1/account/transfers", {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body: JSON.stringify({ direction, amount }),
+    }),
   systemStatus: () =>
     request<{
       market: { status: string; asOf: string };
       broker: { pipeline: string; lastSyncAt: string | null };
     }>("/api/v1/system/status"),
+  // Price alerts (ADR-016)
+  /** The user's alerts, newest first (also evaluates their active alerts). */
+  alerts: () => request<{ alerts: PriceAlertDto[]; unreadCount: number }>("/api/v1/alerts"),
+  /** 201 for a new alert; 200 (`created: false`) when an identical active alert exists. */
+  createAlert: (input: { symbol: string; direction: AlertDirectionDto; price: string }) =>
+    request<{ alert: PriceAlertDto; created: boolean }>("/api/v1/alerts", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  deleteAlert: (id: string) =>
+    request<{ alert: PriceAlertDto }>(`/api/v1/alerts/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    }),
+  /** Mark triggered alerts read: all of them, or only `ids`. */
+  markAlertsRead: (ids?: string[]) =>
+    request<{ updated: number; unreadCount: number }>("/api/v1/alerts/read", {
+      method: "POST",
+      body: JSON.stringify(ids ? { ids } : {}),
+    }),
+  alertsUnreadCount: () => request<{ unreadCount: number }>("/api/v1/alerts/unread-count"),
 };
+
+// ---------------------------------------------------------------- price alerts
+
+export type AlertDirectionDto = "ABOVE" | "BELOW";
+
+/** A price alert (ADR-016). Prices are canonical 4dp strings. */
+export interface PriceAlertDto {
+  id: string;
+  symbol: string;
+  direction: AlertDirectionDto;
+  threshold: string;
+  state: "ACTIVE" | "TRIGGERED" | "CANCELED";
+  createdAt: string;
+  triggeredAt: string | null;
+  /** The observed last price that triggered it (may be beyond the threshold on a gap). */
+  triggerPrice: string | null;
+  /** The triggering quote's own observation time. */
+  triggerQuoteAt: string | null;
+  readAt: string | null;
+}

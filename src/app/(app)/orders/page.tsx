@@ -14,13 +14,13 @@ export default function OrdersPage() {
     return (
       <LiveEmptyState
         heading="Orders"
-        body="No live orders — real order placement isn't available yet."
+        body="No live orders. Real order placement isn't available yet."
       />
     );
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
+    <div style={{ display: "grid", gap: 16, gridTemplateColumns: "minmax(0, 1fr)" }}>
       <div className="ar-appbar">
         <h1 className="ar-appbar__title">Orders</h1>
       </div>

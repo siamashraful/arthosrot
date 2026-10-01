@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { dayChange, displayFreshness, UnknownSymbolError, type Quote } from "@/core/market-data";
 import { systemClock } from "@/core/shared";
+import { env } from "@/env";
 import { getContainer } from "../container";
 
 /** Serialization for /api/v1 market surfaces — money/prices as strings. */
@@ -65,6 +66,9 @@ export async function getInstrumentDetail(symbolRaw: string): Promise<unknown> {
     quote: quote ? serializeQuote(quote) : null,
     market: { status: market.status, asOf: market.asOf.toISOString() },
     freshness: quote ? displayFreshness(quote, systemClock.now(), market.status) : null,
+    // The placement rule the ticket must mirror: market buys reserve
+    // price × qty × (1 + buffer) (core/money reserveWithBuffer).
+    trading: { marketBuyBuffer: String(env().MARKET_BUY_BUFFER) },
   };
 }
 

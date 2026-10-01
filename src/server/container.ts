@@ -1,5 +1,11 @@
 import { AccountService, type AccountProvisioner } from "@/core/accounts";
+import { PriceAlertService } from "@/core/alerts";
 import { DeterministicPaperBroker } from "@/core/brokers/deterministic";
+import {
+  CashTransferService,
+  DEFAULT_TRANSFER_LIMITS,
+  type CashTransferVenue,
+} from "@/core/cash-transfers";
 import { ExecutionService, type Broker } from "@/core/execution";
 import { InstrumentService } from "@/core/instruments";
 import { LedgerService } from "@/core/ledger";
@@ -10,11 +16,13 @@ import { ReconciliationService } from "@/core/reconciliation";
 import { systemClock } from "@/core/shared";
 import { env } from "@/env";
 import { accountsRepository } from "@/infra/db/repositories/accounts";
+import { cashTransfersRepository } from "@/infra/db/repositories/cash-transfers";
 import { fillsReplaySource, fillsRepository } from "@/infra/db/repositories/fills";
 import { instrumentsRepository } from "@/infra/db/repositories/instruments";
 import { ledgerRepository } from "@/infra/db/repositories/ledger";
 import { ordersRepository } from "@/infra/db/repositories/orders";
 import { positionsRepository } from "@/infra/db/repositories/positions";
+import { priceAlertsRepository } from "@/infra/db/repositories/price-alerts";
 import { reconciliationReads } from "@/infra/db/repositories/reconciliation";
 import { pgTransactionRunner } from "@/infra/db/tx";
 import { AlpacaPaperBroker } from "@/infra/brokers/alpaca";
@@ -43,6 +51,9 @@ export interface Container {
   executionService: ExecutionService;
   portfolioService: PortfolioService;
   reconciliationService: ReconciliationService;
+  cashTransferService: CashTransferService;
+  /** Price alerts (ADR-016): display-data notifications, never execution. */
+  priceAlertService: PriceAlertService;
   broker: Broker;
   fillsReader: { listForOrder(orderId: string): Promise<SerializedFill[]> };
   /** Deterministic-mode test/dev hooks; null in alpaca-paper mode. */
@@ -81,9 +92,12 @@ function build(): Container {
 
   let deterministicBroker: DeterministicPaperBroker | null = null;
   let broker: Broker;
+  // The paper venue also moves simulated cash (ADR-015) — same instance.
+  let transferVenue: CashTransferVenue;
   if (BROKER_PROVIDER === "deterministic") {
     deterministicBroker = new DeterministicPaperBroker(systemClock, marketData);
     broker = deterministicBroker;
+    transferVenue = deterministicBroker;
   } else {
     const { ALPACA_BROKER_KEY, ALPACA_BROKER_SECRET } = env();
     if (!ALPACA_BROKER_KEY || !ALPACA_BROKER_SECRET) {
@@ -91,7 +105,9 @@ function build(): Container {
     }
     // Web process: submit/cancel/provision only. Event ingestion + cursor
     // management belong to the WORKER (src/worker/main.ts, ADR-010).
-    broker = new AlpacaPaperBroker(ALPACA_BROKER_KEY, ALPACA_BROKER_SECRET);
+    const alpaca = new AlpacaPaperBroker(ALPACA_BROKER_KEY, ALPACA_BROKER_SECRET);
+    broker = alpaca;
+    transferVenue = alpaca;
   }
 
   const provisioner: AccountProvisioner = {
@@ -106,13 +122,26 @@ function build(): Container {
 
   /* eslint-disable prefer-const */
   let ledgerService: LedgerService;
+  let cashTransferService: CashTransferService;
   const accountService = new AccountService(
     accountsRepository,
     pgTransactionRunner,
     provisioner,
     () => ledgerService,
+    // Reset: cancel PENDING transfers inside the archive tx (no orphaned holds).
+    () => [(tx, accountId) => cashTransferService.cancelPendingForAccount(tx, accountId)],
   );
   ledgerService = new LedgerService(ledgerRepository, accountService);
+  cashTransferService = new CashTransferService(
+    cashTransfersRepository,
+    accountsRepository,
+    ordersRepository,
+    () => ledgerService,
+    transferVenue,
+    pgTransactionRunner,
+    systemClock,
+    { limits: DEFAULT_TRANSFER_LIMITS, venueGraceMs: 10 * 60_000, historyLimit: 20 },
+  );
   /* eslint-enable prefer-const */
 
   const instrumentService = new InstrumentService(
@@ -125,6 +154,7 @@ function build(): Container {
     ordersRepository,
     accountsRepository,
     positionsRepository,
+    cashTransfersRepository,
     pgTransactionRunner,
     { marketBuyBuffer: MARKET_BUY_BUFFER },
   );
@@ -158,6 +188,7 @@ function build(): Container {
     positionsRepository,
     fillsReplaySource,
     ordersRepository,
+    cashTransfersRepository,
     pgTransactionRunner,
     marketData,
   );
@@ -178,6 +209,14 @@ function build(): Container {
     },
   };
 
+  // Alerts read the same (cached) quotes the UI shows (ADR-016).
+  const priceAlertService = new PriceAlertService(
+    priceAlertsRepository,
+    marketData,
+    pgTransactionRunner,
+    systemClock,
+  );
+
   return {
     accountService,
     ledgerService,
@@ -187,6 +226,8 @@ function build(): Container {
     executionService,
     portfolioService,
     reconciliationService,
+    cashTransferService,
+    priceAlertService,
     broker,
     fillsReader,
     fixtureProvider,
@@ -194,11 +235,23 @@ function build(): Container {
   };
 }
 
+/**
+ * In development, park the container on globalThis: Next's dev server
+ * re-evaluates server modules on every edit, and a fresh container would
+ * forget the deterministic venue's in-memory resting orders (later cancels
+ * would be refused). Production builds evaluate the module once.
+ */
+const devStore = globalThis as typeof globalThis & { __arthosrotContainer?: Container };
+
 export function getContainer(): Container {
+  if (env().NODE_ENV === "development") {
+    return (devStore.__arthosrotContainer ??= build());
+  }
   return (cached ??= build());
 }
 
 /** Test-only: reset the container (fresh broker/event log between scenarios). */
 export function resetContainerForTests(): void {
   cached = undefined;
+  devStore.__arthosrotContainer = undefined;
 }

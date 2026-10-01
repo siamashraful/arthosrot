@@ -85,6 +85,15 @@ export interface PositionReader {
   getQty(tx: TxHandle, accountId: string, instrumentId: string): Promise<Qty>;
 }
 
+/**
+ * Read port implemented by core/cash-transfers' repository: Σ PENDING
+ * withdrawal amounts. A pending withdrawal HOLDS its cash, so buying power
+ * must exclude it (FINANCIAL_INVARIANTS.md invariant 5/17).
+ */
+export interface CashHoldReader {
+  sumPendingWithdrawals(tx: TxHandle, accountId: string): Promise<Money>;
+}
+
 export interface OrdersConfig {
   marketBuyBuffer: number;
 }
@@ -94,6 +103,7 @@ export class OrdersService {
     private readonly repo: OrdersRepository,
     private readonly accounts: AccountsRepository,
     private readonly positions: PositionReader,
+    private readonly cashHolds: CashHoldReader,
     private readonly txRunner: TransactionRunner,
     private readonly config: OrdersConfig,
   ) {}
@@ -130,8 +140,12 @@ export class OrdersService {
       const reservedCash = input.side === "BUY" ? this.buyReservation(input) : Money.zero();
 
       if (input.side === "BUY") {
+        // Buying power = cash − open BUY reservations − PENDING withdrawal
+        // holds, all read under the account lock (a racing withdrawal
+        // request serializes on the same row — lock order account → order).
         const alreadyReserved = await this.repo.sumOpenBuyReservations(tx, account.id);
-        const buyingPower = account.cashBalance.subtract(alreadyReserved);
+        const withdrawalHolds = await this.cashHolds.sumPendingWithdrawals(tx, account.id);
+        const buyingPower = account.cashBalance.subtract(alreadyReserved).subtract(withdrawalHolds);
         if (reservedCash.toDecimal().gt(buyingPower.toDecimal())) {
           throw new AppError(
             "DOMAIN_RULE",
@@ -280,7 +294,7 @@ export class OrdersService {
     if (!order) throw new AppError("NOT_FOUND", "Order not found");
     if (isTerminal(order.state) || order.state === "CANCEL_PENDING") return order;
     if (order.state === "PENDING_SUBMISSION") {
-      throw new AppError("DOMAIN_RULE", "Order is still being submitted — try again in a moment", {
+      throw new AppError("DOMAIN_RULE", "Order is still being submitted. Try again in a moment.", {
         subcode: "ORDER_NOT_CANCELLABLE",
       });
     }

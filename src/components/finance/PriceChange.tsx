@@ -14,17 +14,22 @@ export function PriceChange({
 }: {
   /** Signed canonical money string, e.g. "-12.34". */
   amount: string;
-  percent?: number;
+  /**
+   * The move as a percent: the server's exact decimal string ("-1.68") or a
+   * number; null/undefined renders the amount alone (e.g. a zero base).
+   */
+  percent?: number | string | null;
   chip?: boolean;
 }) {
-  if (!amount) return <span className="muted">—</span>;
+  if (!amount) return <span className="ar-tertiary">N/A</span>;
   const sign = signOf(amount);
+  const pct = percent === undefined || percent === null ? null : formatSignedPercent(percent);
   if (sign === 0) {
     return (
-      <span className="tabular muted">
+      <span className="tabular ar-secondary">
         <span className="sr-only">unchanged </span>
         {formatSignedMoney(amount).replace("+", "")}
-        {percent !== undefined ? ` (${formatSignedPercent(percent)})` : null}
+        {pct !== null ? ` (${pct.replace(/^[+−]/, "")})` : null}
       </span>
     );
   }
@@ -39,7 +44,7 @@ export function PriceChange({
       <span className="sr-only">{sign > 0 ? "up" : "down"} </span>
       <span>
         {formatSignedMoney(amount)}
-        {percent !== undefined ? ` (${formatSignedPercent(percent)})` : null}
+        {pct !== null ? ` (${pct})` : null}
       </span>
     </span>
   );

@@ -39,10 +39,31 @@ const EVENT_MAP: Record<string, CanonicalEventType> = {
   done_for_day: "ORDER_EXPIRED",
 };
 
+/**
+ * The event's own timestamp, or — when it is missing or unparseable — the
+ * received-at time, logged. An Invalid Date would fail the apply and, with
+ * the stream cursor never advancing past it, block every later event (a
+ * poison message). Reconciliation stays the authority on order state.
+ */
+function eventTime(raw: AlpacaTradeEvent): Date {
+  const stamp = raw.timestamp ?? raw.at;
+  const at = typeof stamp === "string" ? new Date(stamp) : null;
+  if (at && !Number.isNaN(at.getTime())) return at;
+  console.error(
+    JSON.stringify({
+      level: "warn",
+      msg: "alpaca trade event without a valid timestamp; using received-at time",
+      eventId: raw.event_id,
+      stamp: stamp ?? null,
+    }),
+  );
+  return new Date();
+}
+
 export function translateTradeEvent(raw: AlpacaTradeEvent): CanonicalBrokerEvent {
   const type = EVENT_MAP[raw.event] ?? "UNKNOWN_VENDOR_STATUS";
   const isFill = type === "ORDER_PARTIALLY_FILLED" || type === "ORDER_FILLED";
-  const occurredAt = new Date(raw.timestamp ?? raw.at ?? Date.now());
+  const occurredAt = eventTime(raw);
   return {
     type,
     broker: "ALPACA_PAPER",
@@ -56,7 +77,7 @@ export function translateTradeEvent(raw: AlpacaTradeEvent): CanonicalBrokerEvent
       ? {
           executionId: raw.execution_id,
           fillQty: Qty.of(raw.qty),
-          fillPrice: Px.fromString(Number(raw.price).toFixed(4)),
+          fillPrice: Px.fromVendorDecimal(raw.price),
           fee: Money.zero(), // commission-free paper venue; fees stay configurable locally
         }
       : {}),
@@ -156,7 +177,7 @@ export function eventsFromSnapshot(
       externalEventId: `recon-${executionId}`,
       executionId,
       fillQty: Qty.of(fill.qty),
-      fillPrice: Px.fromString(Number(fill.price).toFixed(4)),
+      fillPrice: Px.fromVendorDecimal(fill.price),
       fee: Money.zero(),
       occurredAt: new Date(fill.transaction_time),
       raw: fill,
