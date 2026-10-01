@@ -11,10 +11,20 @@ import { signInHref } from "@/lib/return-path";
  * go to sign-in once — carrying this page as the return path — and drop the
  * signed-out user's cached data on the way.
  */
+let signingOut = false;
+
+/**
+ * A deliberate sign-out is not a lost session: its in-flight refetches 401
+ * too, and must not win the race and send the user to /signin?next=… .
+ */
+export function beginSignOut(): void {
+  signingOut = true;
+}
+
 function onAuthLost(client: () => QueryClient) {
   let redirecting = false;
   return (error: unknown) => {
-    if (redirecting || !(error instanceof ApiError) || error.status !== 401) return;
+    if (redirecting || signingOut || !(error instanceof ApiError) || error.status !== 401) return;
     redirecting = true;
     client().clear();
     window.location.assign(signInHref(window.location.pathname + window.location.search));

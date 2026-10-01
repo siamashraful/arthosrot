@@ -11,6 +11,7 @@ import { ErrorCard } from "@/components/states";
 import { api, ApiError } from "@/lib/api";
 import { queries } from "@/lib/queries";
 import { authClient } from "@/lib/auth-client";
+import { beginSignOut } from "@/components/providers";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
@@ -184,6 +185,7 @@ export default function SettingsPage() {
                 disabled={signingOut}
                 onClick={() => {
                   setSigningOut(true);
+                  beginSignOut();
                   // Leave for /signin even if the call fails: a dead session
                   // lands there anyway, and a live one is re-checked on arrival.
                   void authClient.signOut().finally(() => {

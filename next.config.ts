@@ -12,6 +12,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // The dev badge sits bottom-left, over the phone tab bar's first tab: it
+  // swallows taps in mobile-viewport E2E runs (and local phone testing).
+  devIndicators: false,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
