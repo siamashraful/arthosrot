@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { Basis, Money, notional, Px, Qty, reserveWithBuffer } from "./money";
+import { Basis, Money, notional, priceDelta, Px, Qty, reserveWithBuffer } from "./money";
 
 const centsArb = fc.integer({ min: -1_000_000_000, max: 1_000_000_000 });
 const moneyArb = centsArb.map((c) => {
@@ -150,5 +150,32 @@ describe("Qty", () => {
 
   it("subtraction underflow throws (invariant 3 guard)", () => {
     expect(() => Qty.of(5).subtract(Qty.of(6))).toThrow();
+  });
+});
+
+describe("priceDelta", () => {
+  it("is exact and rounds once, half-even", () => {
+    const d = priceDelta(Px.fromString("329.5800"), Px.fromString("333.0500"));
+    expect(d.absolute.toString()).toBe("3.47");
+    expect(d.percent).toBe("1.05");
+    // 0.0050 → 0.00 (half to even); 0.0150 → 0.02
+    expect(priceDelta(Px.fromString("10"), Px.fromString("10.005")).absolute.toString()).toBe(
+      "0.00",
+    );
+    expect(priceDelta(Px.fromString("10"), Px.fromString("10.015")).absolute.toString()).toBe(
+      "0.02",
+    );
+  });
+
+  it("never prints a negative zero", () => {
+    const d = priceDelta(Px.fromString("100"), Px.fromString("99.9990"));
+    expect(d.absolute.toString()).toBe("0.00");
+    expect(d.percent).toBe("0.00");
+  });
+
+  it("signs a fall", () => {
+    const d = priceDelta(Px.fromString("100"), Px.fromString("99.55"));
+    expect(d.absolute.toString()).toBe("-0.45");
+    expect(d.percent).toBe("-0.45");
   });
 });

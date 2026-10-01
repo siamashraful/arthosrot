@@ -6,6 +6,7 @@ import Link from "next/link";
 import { use } from "react";
 import { CandleChart } from "@/components/finance/CandleChart";
 import { FreshnessChip } from "@/components/finance/FreshnessChip";
+import { PriceChange } from "@/components/finance/PriceChange";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { TicketPanel } from "@/components/finance/TicketPanel";
 import { useTradingMode } from "@/components/trading-mode";
@@ -107,6 +108,17 @@ export default function InstrumentPage({ params }: { params: Promise<{ symbol: s
         {data.quote ? (
           <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
             <span className="ar-title tabular">{formatPrice(data.quote.last)}</span>
+            {data.quote.dayChange ? (
+              <span className="ar-label">
+                <PriceChange
+                  amount={data.quote.dayChange.absolute}
+                  percent={Number(data.quote.dayChange.percent)}
+                />
+                <span className="sr-only">
+                  {data.market.status === "CLOSED" ? " last session" : " today"}
+                </span>
+              </span>
+            ) : null}
             <FreshnessChip
               ts={data.quote.ts}
               source={data.quote.source}

@@ -12,6 +12,7 @@ export {
   type MarketStatus,
   type Quote,
 } from "./types";
+export { dayChange } from "./day-change";
 export {
   DISPLAY_AGING_MS,
   DISPLAY_STALE_MS,

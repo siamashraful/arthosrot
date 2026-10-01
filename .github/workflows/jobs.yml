@@ -1,0 +1,35 @@
+name: Scheduled jobs (tick)
+
+# Asks the worker to run whatever scheduled jobs are due (src/worker/jobs).
+# This cron is only the heartbeat: each job owns its interval (e.g. the Top 100
+# ranking every TOP100_REFRESH_INTERVAL, default 24h), so changing a frequency
+# never touches this file — the tick just bounds granularity to ~1 hour.
+# Best-effort by design: GitHub schedules can be late; a late tick runs the
+# job late, never twice (the worker holds a per-job lease).
+
+on:
+  schedule:
+    - cron: "17 * * * *" # hourly, off the top of the hour (GitHub's busiest minute)
+  workflow_dispatch:
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Tick the worker's job scheduler
+        run: |
+          if [ -z "${{ secrets.WORKER_URL }}" ]; then
+            echo "WORKER_URL secret not configured — skipping (pre-deployment)"; exit 0
+          fi
+          # free-tier instances sleep: allow time to wake + a full run. Retries
+          # cover reaching the worker only — a job failure comes back as 200
+          # with per-job statuses, so it is never re-run by a retry.
+          body=$(curl --fail-with-body -sS -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            --retry 3 --retry-delay 30 --retry-all-errors \
+            --max-time 600 \
+            "${{ secrets.WORKER_URL }}/jobs/tick")
+          echo "$body"
+          if echo "$body" | jq -e '.jobs[] | select(.status == "failed")' > /dev/null; then
+            echo "::error::a scheduled job failed — see the worker log and /healthz"; exit 1
+          fi

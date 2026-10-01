@@ -13,12 +13,12 @@
 
 ## Live deployment (2026-08-27)
 
-| Piece      | Where                                                                                                                                                      |
-| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Web        | https://arthosrot.vercel.app (Vercel project `arthosrot`, CLI-deployed; Git integration optional later)                                                    |
-| Worker     | https://arthosrot-worker.onrender.com (Render `arthosrot-worker`, virginia, deployed by CI after `main` passes)                                            |
-| DB         | Neon project `arthosrot` (us-east-2), pooled URL at runtime, unpooled for migrations                                                                       |
-| GH secrets | `CRON_SECRET`, `WORKER_URL`, `PRODUCTION_DATABASE_URL`, `ALPACA_BROKER_KEY/SECRET`, `RENDER_API_KEY` set; `production` environment created for migrate.yml |
+| Piece      | Where                                                                                                                                                                                                       |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Web        | https://arthosrot.vercel.app (Vercel project `arthosrot`, CLI-deployed; Git integration optional later)                                                                                                     |
+| Worker     | https://arthosrot-worker.onrender.com (Render `arthosrot-worker`, virginia, deployed by CI after `main` passes)                                                                                             |
+| DB         | Neon project `arthosrot` (us-east-2), pooled URL at runtime, unpooled for migrations                                                                                                                        |
+| GH secrets | `CRON_SECRET`, `WORKER_URL`, `PRODUCTION_DATABASE_URL`, `ALPACA_BROKER_KEY/SECRET`, `RENDER_API_KEY` set (`jobs.yml` reuses `CRON_SECRET` + `WORKER_URL`); `production` environment created for migrate.yml |
 
 ## One-time setup (production)
 
@@ -26,7 +26,7 @@
 2. **Neon:** create project; `main` branch = prod DB; enable the GitHub integration for preview branches. No keep-alive pings — Neon is allowed to sleep; cold starts are absorbed by loading states.
 3. **Alpaca:** create the free Broker Dashboard sandbox team (broker-app.alpaca.markets/sign-up) → sandbox key/secret. Separately create a free Trading API account → market-data key/secret (IEX feed).
 4. **Vercel:** import repo (Hobby). Env vars: `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (the canonical https origin — pins auth origin checks), `ALPACA_BROKER_KEY/SECRET`, `ALPACA_DATA_KEY/SECRET`, `BROKER_PROVIDER=alpaca-paper`, `MARKET_DATA_PROVIDER=alpaca`, `STARTING_CASH_MIN=1000`, `STARTING_CASH_MAX=25000`, `STARTING_CASH_DEFAULT=10000`, `MARKET_BUY_BUFFER=0.025`, `CRON_SECRET`.
-5. **Render:** create the worker from `render.yaml` (free plan); set the `sync: false` env vars (same values as Vercel where shared).
+5. **Render:** create the worker from `render.yaml` (free plan); set the `sync: false` env vars (same values as Vercel where shared). `SEC_USER_AGENT` (e.g. `Arthosrot you@yourdomain.com`) turns on the Top 100 ranking job.
 6. **GitHub Actions secrets:** `WORKER_URL`, `CRON_SECRET` (for reconcile.yml); `RENDER_API_KEY` (for ci.yml's `deploy-worker`); Alpaca sandbox creds for external-smoke.yml.
 7. **Instrument catalog:** run `DATABASE_URL=<prod-unpooled> pnpm db:sync-instruments` (needs `ALPACA_BROKER_KEY/SECRET`). Search is DB-backed — the alpaca data provider has no name-search — so without this step the platform searches only the 30-symbol bootstrap seed. Re-run occasionally (listings change); the script refuses degraded venue responses rather than mass-delisting.
 8. Verify this document from scratch — if a step surprised you, fix the doc in the same PR.
@@ -40,6 +40,9 @@
 ## Scheduled operations
 
 - `reconcile.yml`: `*/10 13:25–21:05 UTC, Mon–Fri` (≈ US market hours incl. pre-open warmup) → `POST $WORKER_URL/reconcile` with `CRON_SECRET`. This performs **genuine reconciliation** and, as a side effect, wakes a slept Render instance before the open. GitHub schedules are best-effort (≥5 min, can be delayed) — acceptable because replayable SSE cursors make catch-up exactly-once; the schedule is a bound on staleness, not the delivery mechanism.
+- `jobs.yml`: hourly (`17 * * * *`) → `POST $WORKER_URL/jobs/tick` with `CRON_SECRET`. The worker runs whatever **scheduled jobs** are due (`src/worker/jobs`, also on worker startup). Each job owns its interval — the tick only bounds granularity to ~1 hour — and a per-job lease in `job_runs` means a late or doubled tick runs a job late, never twice. The tick answers 200 with per-job statuses even when a job fails (so curl's retries can't re-run it); the workflow fails the run when any job reports `failed`, and `/healthz` shows each job's last success and error (overdue = no success within 2× its interval → `degraded`).
+  - **Top 100 ranking** (`top-100-market-cap`): every `TOP100_REFRESH_INTERVAL` (default `24h`; `<n>m|h|d`). Needs `SEC_USER_AGENT` (name + contact email — SEC rejects anonymous agents) and the Alpaca data keys; without them it reports `disabled`. **Change the frequency** by setting `TOP100_REFRESH_INTERVAL` on Render — no code or cron change. **Add a job**: one `defineJob({ name, intervalMs, run })` in `src/worker/jobs/index.ts`.
+  - Manual run: `pnpm jobs:run [name] [--force]` with the worker's env, or dispatch `jobs.yml`.
 - `external-smoke.yml`: manual dispatch (optionally weekly) — runs `tests/external` against the real sandbox.
 
 ## Operational endpoints
@@ -48,7 +51,8 @@
 | --------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `GET /api/health/live`      | web    | Process responds; no dependency checks                                                                                                                                                                                                                                                                               |
 | `GET /api/health/ready`     | web    | DB reachable                                                                                                                                                                                                                                                                                                         |
-| `GET /healthz`              | worker | DB reachable (503 otherwise); stale event/reconcile activity degrades status                                                                                                                                                                                                                                         |
+| `GET /healthz`              | worker | DB reachable (503 otherwise); stale event/reconcile activity or an overdue scheduled job degrades status; lists each job's last success/error                                                                                                                                                                        |
+| `POST /jobs/tick`           | worker | CRON_SECRET-guarded: run due scheduled jobs; 200 + per-job statuses (`ran`/`not-due`/`disabled`/`failed`)                                                                                                                                                                                                            |
 | `POST /reconcile`           | worker | CRON_SECRET-guarded reconciliation trigger                                                                                                                                                                                                                                                                           |
 | `GET /api/v1/system/status` | web    | Cached pipeline/provider health for the UI banner — never spends vendor calls. Pipeline health derives from the worker's reconcile-heartbeat row (`stream_cursors`, stream `reconcile-heartbeat`): fresh within 30 min while the market is OPEN ⇒ LIVE; a stale beat off-hours is normal (the cron sleeps by design) |
 

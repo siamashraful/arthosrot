@@ -14,6 +14,11 @@ export interface Quote {
   ts: Date;
   /** Feed identity for disclosure, e.g. "IEX via Alpaca" or "fixture". */
   source: string;
+  /**
+   * Close of the session BEFORE the one `last` belongs to — the reference for
+   * "day change". null when the feed has no prior session for the symbol.
+   */
+  previousClose: Px | null;
 }
 
 export interface Candle {

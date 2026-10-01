@@ -37,6 +37,8 @@ interface SerializedQuote {
   last: string;
   ts: string;
   source: string;
+  /** Absent on rows cached before day change existed — read as null. */
+  previousClose?: string | null;
 }
 
 function serializeQuote(q: Quote): SerializedQuote {
@@ -49,6 +51,7 @@ function serializeQuote(q: Quote): SerializedQuote {
     last: q.last.toString(),
     ts: q.ts.toISOString(),
     source: q.source,
+    previousClose: q.previousClose?.toString() ?? null,
   };
 }
 
@@ -62,6 +65,7 @@ function deserializeQuote(s: SerializedQuote): Quote {
     last: Px.fromString(s.last),
     ts: new Date(s.ts),
     source: s.source,
+    previousClose: s.previousClose ? Px.fromString(s.previousClose) : null,
   };
 }
 

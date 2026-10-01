@@ -428,3 +428,56 @@ export const watchlistItems = pgTable(
   },
   (t) => [uniqueIndex("watchlist_items_unique").on(t.watchlistId, t.instrumentId)],
 );
+
+// ---------------------------------------------------------------------------
+// Discovery & scheduled jobs
+// ---------------------------------------------------------------------------
+
+/**
+ * Top-100-by-market-value snapshots, written by the worker's ranking job.
+ * Append-only: each run adds a snapshot; readers take the newest per list.
+ * Display data — never an input to execution or the ledger.
+ */
+export const marketCapSnapshots = pgTable(
+  "market_cap_snapshots",
+  {
+    id: text("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
+    list: text("list").notNull(),
+    asOf: timestamp("as_of", { withTimezone: true }).notNull(),
+    source: text("source").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("market_cap_snapshots_latest").on(t.list, t.createdAt)],
+);
+
+export const marketCapEntries = pgTable(
+  "market_cap_entries",
+  {
+    snapshotId: text("snapshot_id")
+      .notNull()
+      .references(() => marketCapSnapshots.id, { onDelete: "cascade" }),
+    rank: bigint("rank", { mode: "number" }).notNull(),
+    cik: text("cik").notNull(),
+    symbol: text("symbol").notNull(),
+    name: text("name").notNull(),
+    shares: bigint("shares", { mode: "bigint" }).notNull(),
+    price: numeric("price", { precision: 18, scale: 4 }).notNull(),
+    // trillions of dollars: wider than the 18,2 money convention
+    marketCap: numeric("market_cap", { precision: 24, scale: 2 }).notNull(),
+  },
+  (t) => [uniqueIndex("market_cap_entries_rank").on(t.snapshotId, t.rank)],
+);
+
+/**
+ * Scheduled-job bookkeeping (src/worker/jobs): when each job last ran and a
+ * lease so two triggers never run the same job at once.
+ */
+export const jobRuns = pgTable("job_runs", {
+  name: text("name").primaryKey(),
+  lastStartedAt: timestamp("last_started_at", { withTimezone: true }),
+  lastSucceededAt: timestamp("last_succeeded_at", { withTimezone: true }),
+  lastError: text("last_error"),
+  leaseUntil: timestamp("lease_until", { withTimezone: true }),
+});

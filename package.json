@@ -27,7 +27,8 @@
     "db:seed": "tsx scripts/seed.ts",
     "test:int": "TEST_DB=1 vitest run tests/integration",
     "check:contrast": "tsx scripts/check-contrast.ts",
-    "db:sync-instruments": "tsx scripts/sync-instruments.ts"
+    "db:sync-instruments": "tsx scripts/sync-instruments.ts",
+    "jobs:run": "tsx scripts/jobs-run.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.101.4",

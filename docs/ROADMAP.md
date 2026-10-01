@@ -26,6 +26,10 @@ Review gates: **hard gate** = Fable (architecture-model) review required before 
 | 17  | Hardening                                   | ✅ done     | Security + a11y checklists green                                                                                                                                                                             | **Security gate**              |
 | 18  | Free-tier deployment                        | 🟡 deployed | Public URL at $0 ✅ (arthosrot.vercel.app; web+worker+DB healthy; signup→provisioning verified in prod). OPEN: order slices vs sandbox during market hours — venue returns 500 after hours (INTEGRATIONS.md) | Verification                   |
 
+## Shipped since the phase plan
+
+- **Markets discovery (2026-09-30):** Browse on the empty Markets screen — a Top 100 by market value and 11 curated sectors — with list pages, day change vs the previous close on lists and the instrument header, and a scheduled-jobs runner in the worker (hourly tick, per-job interval and lease). The Top 100 recomputes daily from SEC EDGAR share counts × IEX prices (INTEGRATIONS.md). Follow-ups: "Top movers" (day change now available), sector lists sorted by market value from the same snapshot, and an automated check of the share-override table.
+
 ## Vertical slices (standing acceptance)
 
 - **A — Market order:** BUY 10 AAPL MARKET → broker ack → fill event → canonical apply (once) → fill + TRADE −2,000.00 + cash 8,000.00 + position 10 @ 200.00 → portfolio API correct → idempotent replay returns same order → UI advances to Filled without refresh. Runs vs deterministic (CI), sandbox (smoke), later Playwright.

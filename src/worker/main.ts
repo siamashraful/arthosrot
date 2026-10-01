@@ -5,6 +5,8 @@ import { streamCursorsRepository } from "@/infra/db/repositories/reconciliation"
 import { pgTransactionRunner } from "@/infra/db/tx";
 import { env } from "@/env";
 import { getContainer } from "@/server/container";
+import { jobRunsRepository } from "@/infra/db/repositories/job-runs";
+import { allJobs, runDueJobs } from "./jobs";
 
 /**
  * Arthosrot event/reconciliation worker (ADR-010, EXECUTION.md).
@@ -15,7 +17,10 @@ import { getContainer } from "@/server/container";
  * - Runs reconciliation on startup and on POST /reconcile (CRON_SECRET-guarded;
  *   the GitHub Actions market-hours schedule calls it — genuine work that also
  *   wakes a slept free-tier instance).
- * - /healthz reports process + last-event/cursor freshness.
+ * - Runs scheduled jobs (src/worker/jobs) that are due — on startup and on
+ *   POST /jobs/tick (CRON_SECRET-guarded; an hourly GitHub Actions cron
+ *   calls it). Each job owns its interval; the tick only asks "anything due?".
+ * - /healthz reports process + last-event/cursor freshness + job status.
  *
  * Deterministic mode: events are in-process (no stream to consume); the worker
  * still serves /healthz and /reconcile so the deployment topology can be
@@ -79,6 +84,26 @@ async function runReconciliation(): Promise<unknown> {
   return { ...(result as object), provisioning };
 }
 
+/**
+ * Per-job health: last success, last error, and overdue = enabled and not
+ * successful within 2× its interval (a tick or two can be missed safely).
+ */
+async function jobHealth() {
+  const rows = new Map((await jobRunsRepository.list()).map((r) => [r.name, r]));
+  return allJobs().map((job) => {
+    const row = rows.get(job.name);
+    const last = row?.lastSucceededAt?.getTime() ?? null;
+    const enabled = job.enabled();
+    return {
+      name: job.name,
+      enabled,
+      lastSucceededAt: row?.lastSucceededAt?.toISOString() ?? null,
+      lastError: row?.lastError ?? null,
+      overdue: enabled && (last === null || Date.now() - last > 2 * job.intervalMs),
+    };
+  });
+}
+
 function main(): void {
   const { PORT, CRON_SECRET } = env();
 
@@ -89,22 +114,49 @@ function main(): void {
     };
 
     if (req.url === "/healthz") {
-      // Readiness = DB reachable; cursor/reconcile freshness degrades the
-      // status without failing it (DEPLOYMENT.md operational endpoints).
+      // Readiness = DB reachable; cursor/reconcile freshness and overdue
+      // jobs degrade the status without failing it (DEPLOYMENT.md).
       void (async () => {
         const dbOk = await pgTransactionRunner.run(async () => true).catch(() => false);
         const lastActivity = Math.max(lastEventAt?.getTime() ?? 0, lastReconcileAt?.getTime() ?? 0);
         const staleMs = lastActivity ? Date.now() - lastActivity : null;
+        const jobs = dbOk ? await jobHealth().catch(() => []) : [];
         const degraded =
-          !getContainer().deterministicBroker && (staleMs === null || staleMs > 30 * 60_000);
+          (!getContainer().deterministicBroker && (staleMs === null || staleMs > 30 * 60_000)) ||
+          jobs.some((j) => j.overdue);
         respond(dbOk ? 200 : 503, {
           status: !dbOk ? "not-ready" : degraded ? "degraded" : "ok",
           role: "worker",
           db: dbOk,
           lastEventAt: lastEventAt?.toISOString() ?? null,
           lastReconcileAt: lastReconcileAt?.toISOString() ?? null,
+          jobs,
         });
       })();
+      return;
+    }
+    if (req.url === "/jobs/tick" && req.method === "POST") {
+      if (!CRON_SECRET || !bearerMatches(req.headers.authorization, CRON_SECRET)) {
+        respond(401, { status: "unauthorized" });
+        return;
+      }
+      runDueJobs(allJobs())
+        .then((outcomes) =>
+          // 200 even when a job failed: the tick itself worked, and a non-2xx
+          // would make the caller's retries re-run the failed job at once.
+          // The workflow reads the statuses; /healthz shows the error.
+          respond(200, {
+            status: "ok",
+            // names + statuses only: errors stay in the log, not on the wire
+            jobs: outcomes.map((o) => ({ name: o.name, status: o.status })),
+          }),
+        )
+        .catch((err) => {
+          console.error(
+            JSON.stringify({ level: "error", msg: "jobs tick failed", err: String(err) }),
+          );
+          respond(500, { status: "error" });
+        });
       return;
     }
     if (req.url === "/reconcile" && req.method === "POST") {
@@ -154,6 +206,17 @@ function main(): void {
       ),
     )
     .then(() => startIngestion())
+    // due scheduled jobs run after the stream is up; a slept instance that
+    // wakes for /reconcile catches up on them too
+    .then(() => runDueJobs(allJobs()))
+    .then((outcomes) =>
+      console.log(
+        JSON.stringify({
+          msg: "startup jobs",
+          outcomes: outcomes.map((o) => ({ name: o.name, status: o.status })),
+        }),
+      ),
+    )
     .catch((err) =>
       console.error(JSON.stringify({ level: "error", msg: "stream startup", err: String(err) })),
     );

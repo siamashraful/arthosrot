@@ -2296,6 +2296,119 @@ a.list-row:hover {
   justify-content: space-between;
   margin-top: 12px;
 }
+/* Markets browse (BrowseGrid + the list page). Every card is the Stocks
+   chip on a surface card: bloom colour is asset class, so sectors are told
+   apart by icon and name, never by hue. */
+.browse-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (min-width: 768px) {
+  .browse-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.browse-grid > li {
+  min-width: 0;
+}
+.browse-grid__featured {
+  grid-column: 1 / -1;
+}
+.browse-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  height: 100%;
+  min-height: 132px;
+  box-sizing: border-box;
+  color: inherit;
+  text-decoration: none;
+  /* a hairline on hover/press, not elevation (no card shadows) */
+  box-shadow: inset 0 0 0 1px transparent;
+  transition: box-shadow var(--dur-fast, 120ms) ease-out;
+}
+.browse-card:hover {
+  box-shadow: inset 0 0 0 1px var(--divider);
+}
+.browse-card:active {
+  background: var(--pressed);
+}
+.browse-card--featured {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 0;
+}
+.browse-card__lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.browse-card__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.browse-card__name {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  text-wrap: balance;
+}
+.browse-card__meta {
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--text-tertiary);
+}
+.browse-card .logo-stack {
+  margin-top: auto;
+}
+.browse-card--featured .logo-stack {
+  margin-top: 0;
+}
+.logo-stack {
+  display: inline-flex;
+  padding-left: 6px;
+}
+.logo-stack > * {
+  margin-left: -6px;
+  /* a surface ring separates overlapping logos */
+  box-shadow: 0 0 0 2px var(--surface);
+}
+.browse-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.browse-intro__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+.browse-rank {
+  flex: none;
+  min-width: 2ch;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+@media (prefers-reduced-motion: reduce) {
+  .browse-card {
+    transition: none;
+  }
+}
+
 /* Scrub charts (chart-scrub.ts): a fixed-height readout above, then a strip
    for the floating date/time label over the scrubbed bar, then the canvas. */
 .chart-readout {

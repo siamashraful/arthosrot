@@ -1,6 +1,6 @@
 # Arthosrot
 
-A paper-trading platform for US equities that behaves like a credible modern brokerage: users open an isolated simulated brokerage account with starting cash they choose ($1,000–$25,000), search instruments, view bid/ask/last quotes and charts, place **market and limit orders** with a real asynchronous order lifecycle (acknowledgement, fills, partial fills, cancellation, expiration), and track positions, P&L, a net-worth curve derived from the immutable ledger, and the full transaction history. Simulated money only — the UI says so persistently via the mode ribbon. The UI implements the **Arthosrot Design System** (Claude Design) — colour-block clarity on a neutral ground, green/red reserved for financial meaning, no celebratory mechanics ([docs/design/DESIGN.md](docs/design/DESIGN.md)). A Settings switch previews the future **live-trading mode** (distinct visual identity, own empty states, designed deposit/withdraw flows) — presentation only, with the backend seams and remaining work documented in [docs/LIVE_TRADING_TODO.md](docs/LIVE_TRADING_TODO.md) (ADR-011).
+A paper-trading platform for US equities that behaves like a credible modern brokerage: users open an isolated simulated brokerage account with starting cash they choose ($1,000–$25,000), browse the 100 largest US companies and 11 sectors or search any instrument, view bid/ask/last quotes with day change and charts, place **market and limit orders** with a real asynchronous order lifecycle (acknowledgement, fills, partial fills, cancellation, expiration), and track positions, P&L, a net-worth curve derived from the immutable ledger, and the full transaction history. Simulated money only — the UI says so persistently via the mode ribbon. The UI implements the **Arthosrot Design System** (Claude Design) — colour-block clarity on a neutral ground, green/red reserved for financial meaning, no celebratory mechanics ([docs/design/DESIGN.md](docs/design/DESIGN.md)). A Settings switch previews the future **live-trading mode** (distinct visual identity, own empty states, designed deposit/withdraw flows) — presentation only, with the backend seams and remaining work documented in [docs/LIVE_TRADING_TODO.md](docs/LIVE_TRADING_TODO.md) (ADR-011).
 
 **Status: deployed at $0/month — [arthosrot.vercel.app](https://arthosrot.vercel.app).** All application phases through hardening are implemented with passing unit, integration, and E2E suites, and the platform runs in production (Vercel web + Render worker + Neon Postgres + Alpaca sandbox venue). One verification remains open: the order slices against the live venue during market hours (docs/ROADMAP.md Phase 18). Deliberately deferred UI niceties are tracked in [docs/ROADMAP.md](docs/ROADMAP.md). Realism and data limitations are documented honestly in [docs/LIMITATIONS.md](docs/LIMITATIONS.md).
 
@@ -10,6 +10,7 @@ A paper-trading platform for US equities that behaves like a credible modern bro
 - All business logic lives in framework-free [`src/core`](src/core) behind explicit module boundaries (lint-enforced). PostgreSQL is Arthosrot's system of record.
 - Execution goes through a canonical **Broker port**: deployed venue is the **Alpaca Broker API Sandbox** (one isolated sandbox brokerage account per user; broker-managed limit matching and fills), while tests/CI/local use a **DeterministicPaperBroker** implementing the identical contract.
 - The worker consumes the broker's **replayable SSE event stream**, translates vendor events into canonical BrokerEvents, and applies them transactionally (order state, fills, ledger, positions, cash). A REST **reconciliation engine** heals missed events exactly-once.
+- The worker also runs **scheduled jobs** (hourly tick, per-job interval + lease): the daily **Top 100 by market value** ranks SEC EDGAR share counts × IEX prices ([INTEGRATIONS.md](docs/architecture/INTEGRATIONS.md)).
 - Market data is a separate **MarketDataProvider port** (free Alpaca IEX feed + deterministic fixtures). The broker is authoritative for execution facts; Arthosrot's append-only ledger is the authoritative financial history.
 
 ```
@@ -53,21 +54,21 @@ The defaults run **fully offline**: `BROKER_PROVIDER=deterministic` and `MARKET_
 
 ## Environment
 
-Instrument search is DB-backed: `pnpm db:sync-instruments` imports the venue's ~13k tradable US equities (see docs/architecture/DEPLOYMENT.md). Every variable is documented in [.env.example](.env.example). Highlights: `BROKER_PROVIDER` (`deterministic` \| `alpaca-paper`), `MARKET_DATA_PROVIDER` (`fixture` \| `alpaca`), `DATABASE_URL`, `STARTING_CASH_MIN/MAX/DEFAULT`, `MARKET_BUY_BUFFER`, `CRON_SECRET`. Secrets are never committed; deployment values are covered in [docs/architecture/DEPLOYMENT.md](docs/architecture/DEPLOYMENT.md).
+Instrument search is DB-backed: `pnpm db:sync-instruments` imports the venue's ~13k tradable US equities (see docs/architecture/DEPLOYMENT.md). Every variable is documented in [.env.example](.env.example). Highlights: `BROKER_PROVIDER` (`deterministic` \| `alpaca-paper`), `MARKET_DATA_PROVIDER` (`fixture` \| `alpaca`), `DATABASE_URL`, `STARTING_CASH_MIN/MAX/DEFAULT`, `MARKET_BUY_BUFFER`, `CRON_SECRET`, `SEC_USER_AGENT` / `TOP100_REFRESH_INTERVAL` (Top 100 job; `pnpm jobs:run` runs jobs by hand). Secrets are never committed; deployment values are covered in [docs/architecture/DEPLOYMENT.md](docs/architecture/DEPLOYMENT.md).
 
 ## Repository map
 
-| Path                                         | What lives there                                                                                         |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `src/core/`                                  | Framework-free domain modules (money, orders, execution, ledger, portfolio, …) — the heart of the system |
-| `src/infra/`                                 | Adapters implementing core ports (Postgres repositories, Alpaca broker + market data, fixtures)          |
-| `src/server/`                                | Web composition root, auth, API handlers                                                                 |
-| `src/worker/`                                | Event-ingestion/reconciliation worker entrypoint                                                         |
-| `src/app/`                                   | Next.js routes (pages + `/api/v1/*`)                                                                     |
-| `src/components/`, `src/lib/`, `src/styles/` | UI components, client utilities, design tokens                                                           |
-| `tests/`                                     | integration / contract / e2e / **external** (sandbox smoke — excluded from CI) / fixtures                |
-| `drizzle/`                                   | Committed SQL migrations                                                                                 |
-| `docs/`                                      | All documentation (index below)                                                                          |
+| Path                                         | What lives there                                                                                           |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `src/core/`                                  | Framework-free domain modules (money, orders, execution, ledger, portfolio, …) — the heart of the system   |
+| `src/infra/`                                 | Adapters implementing core ports (Postgres repositories, Alpaca broker + market data, SEC EDGAR, fixtures) |
+| `src/server/`                                | Web composition root, auth, API handlers                                                                   |
+| `src/worker/`                                | Event-ingestion/reconciliation worker entrypoint + scheduled jobs (`jobs/`)                                |
+| `src/app/`                                   | Next.js routes (pages + `/api/v1/*`)                                                                       |
+| `src/components/`, `src/lib/`, `src/styles/` | UI components, client utilities, design tokens                                                             |
+| `tests/`                                     | integration / contract / e2e / **external** (sandbox smoke — excluded from CI) / fixtures                  |
+| `drizzle/`                                   | Committed SQL migrations                                                                                   |
+| `docs/`                                      | All documentation (index below)                                                                            |
 
 ## Testing
 

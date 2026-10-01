@@ -35,6 +35,12 @@ interface AlpacaLatestTrade {
   p: number; // price
   t: string;
 }
+interface AlpacaSnapshot {
+  latestTrade?: AlpacaLatestTrade | null;
+  latestQuote?: AlpacaLatestQuote | null;
+  dailyBar?: AlpacaBar | null;
+  prevDailyBar?: AlpacaBar | null;
+}
 interface AlpacaBar {
   o: number;
   h: number;
@@ -58,6 +64,24 @@ const RANGE_TO_REQUEST: Record<CandleRange, { timeframe: string; lookbackMs: num
 };
 
 const etDate = new Intl.DateTimeFormat("en-CA", { timeZone: "America/New_York" });
+
+/** Symbols per snapshot request — comfortably inside URL-length limits. */
+const SNAPSHOT_BATCH = 200;
+
+/**
+ * The close "day change" is measured against: the session BEFORE the one the
+ * last trade belongs to. Normally that's prevDailyBar; but pre-market on a new
+ * day the latest trade is already past dailyBar's date, so dailyBar itself is
+ * the previous session.
+ */
+function referenceClose(snap: AlpacaSnapshot): number | null {
+  const trade = snap.latestTrade;
+  const daily = snap.dailyBar;
+  if (trade && daily && etDate.format(new Date(trade.t)) > etDate.format(new Date(daily.t))) {
+    return daily.c;
+  }
+  return snap.prevDailyBar?.c ?? null;
+}
 
 /** The bars of the latest US-Eastern trading date present (bars are ascending). */
 function lastSession(bars: AlpacaBar[]): AlpacaBar[] {
@@ -113,31 +137,37 @@ export class AlpacaMarketData implements MarketDataProvider {
     return quote;
   }
 
+  /**
+   * One snapshot call per batch (latest quote + latest trade + daily bars) —
+   * it replaced two calls (quotes/latest + trades/latest) and also carries
+   * the previous session's close for day change. Symbols the feed doesn't
+   * know are simply absent from the response.
+   */
   async getQuotes(symbols: readonly string[]): Promise<Map<string, Quote>> {
-    const list = symbols.map((s) => s.toUpperCase()).join(",");
-    const [quotes, trades] = await Promise.all([
-      this.request<{ quotes: Record<string, AlpacaLatestQuote> }>(
-        `/v2/stocks/quotes/latest?symbols=${encodeURIComponent(list)}&feed=iex`,
-      ),
-      this.request<{ trades: Record<string, AlpacaLatestTrade> }>(
-        `/v2/stocks/trades/latest?symbols=${encodeURIComponent(list)}&feed=iex`,
-      ),
-    ]);
     const out = new Map<string, Quote>();
-    for (const symbol of Object.keys(trades.trades ?? {})) {
-      const trade = trades.trades[symbol];
-      if (!trade || trade.p <= 0) continue;
-      const q = quotes.quotes?.[symbol];
-      out.set(symbol, {
-        symbol,
-        bid: q && q.bp > 0 ? px(q.bp) : null,
-        bidSize: q && q.bp > 0 ? q.bs : null,
-        ask: q && q.ap > 0 ? px(q.ap) : null,
-        askSize: q && q.ap > 0 ? q.as : null,
-        last: px(trade.p),
-        ts: new Date(trade.t),
-        source: "IEX via Alpaca",
-      });
+    const upper = [...new Set(symbols.map((s) => s.toUpperCase()))];
+    for (let i = 0; i < upper.length; i += SNAPSHOT_BATCH) {
+      const list = upper.slice(i, i + SNAPSHOT_BATCH).join(",");
+      const snapshots = await this.request<Record<string, AlpacaSnapshot | null>>(
+        `/v2/stocks/snapshots?symbols=${encodeURIComponent(list)}&feed=iex`,
+      );
+      for (const [symbol, snap] of Object.entries(snapshots ?? {})) {
+        const trade = snap?.latestTrade;
+        if (!snap || !trade || trade.p <= 0) continue;
+        const q = snap.latestQuote;
+        const reference = referenceClose(snap);
+        out.set(symbol, {
+          symbol,
+          bid: q && q.bp > 0 ? px(q.bp) : null,
+          bidSize: q && q.bp > 0 ? q.bs : null,
+          ask: q && q.ap > 0 ? px(q.ap) : null,
+          askSize: q && q.ap > 0 ? q.as : null,
+          last: px(trade.p),
+          ts: new Date(trade.t),
+          source: "IEX via Alpaca",
+          previousClose: reference !== null && reference > 0 ? px(reference) : null,
+        });
+      }
     }
     return out;
   }

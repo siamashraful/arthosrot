@@ -10,6 +10,7 @@ import {
 } from "@/core/market-data";
 import { Px } from "@/core/money";
 import type { Clock } from "@/core/shared";
+import { CATALOG_FIXTURES } from "./catalog-fixtures";
 
 /**
  * Deterministic market data for tests, CI, and offline development.
@@ -22,9 +23,11 @@ export interface FixtureInstrument {
   name: string;
   exchange: string;
   price: string; // Px string
+  /** Prior session close (day change). Default: a seeded ±2% from `price`. */
+  previousClose?: string;
 }
 
-export const DEFAULT_FIXTURES: FixtureInstrument[] = [
+const CORE_FIXTURES: FixtureInstrument[] = [
   { symbol: "AAPL", name: "Apple Inc.", exchange: "NASDAQ", price: "200.0000" },
   { symbol: "MSFT", name: "Microsoft Corporation", exchange: "NASDAQ", price: "410.5000" },
   { symbol: "GOOGL", name: "Alphabet Inc. Class A", exchange: "NASDAQ", price: "175.2500" },
@@ -37,6 +40,9 @@ export const DEFAULT_FIXTURES: FixtureInstrument[] = [
   { symbol: "KO", name: "The Coca-Cola Company", exchange: "NYSE", price: "63.2500" },
 ];
 
+/** The ten core fixtures (tests pin their prices) + the browse catalog. */
+export const DEFAULT_FIXTURES: FixtureInstrument[] = [...CORE_FIXTURES, ...CATALOG_FIXTURES];
+
 const RANGE_BARS: Record<CandleRange, { count: number; stepMs: number }> = {
   "1D": { count: 78, stepMs: 5 * 60_000 },
   "1W": { count: 65, stepMs: 60 * 60_000 },
@@ -47,6 +53,12 @@ const RANGE_BARS: Record<CandleRange, { count: number; stepMs: number }> = {
 };
 
 /** Tiny deterministic PRNG (mulberry32) seeded per symbol. */
+/** Deterministic yesterday: price / (1 ± up to 2%), seeded by symbol. */
+function defaultPreviousClose(f: FixtureInstrument): string {
+  const move = (seeded(`${f.symbol}:prev`)() - 0.5) * 0.04;
+  return (Number(f.price) / (1 + move)).toFixed(4); // fixture data only
+}
+
 function seeded(seedStr: string): () => number {
   let seed = 0;
   for (const ch of seedStr) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
@@ -68,7 +80,13 @@ export class FixtureProvider implements MarketDataProvider {
     private readonly clock: Clock,
     fixtures: FixtureInstrument[] = DEFAULT_FIXTURES,
   ) {
-    for (const f of fixtures) this.bySymbol.set(f.symbol, { ...f });
+    for (const f of fixtures) {
+      this.bySymbol.set(f.symbol, {
+        ...f,
+        // fixed at construction: setPrice() moves today, not yesterday
+        previousClose: f.previousClose ?? defaultPreviousClose(f),
+      });
+    }
   }
 
   /** Test hook: move a price deterministically. */
@@ -112,6 +130,7 @@ export class FixtureProvider implements MarketDataProvider {
       last,
       ts,
       source: "fixture",
+      previousClose: f.previousClose ? Px.fromString(f.previousClose) : null,
     };
   }
 

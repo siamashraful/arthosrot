@@ -24,11 +24,12 @@ core       → core only        (NOTHING external: no next, react, drizzle, vend
    - `reconciliation → execution, orders, ledger, portfolio, brokers (port), shared`
    - `portfolio → market-data (port), instruments, money, shared`
    - `ledger → money, shared` (defines the CashProjection port)
+   - `discovery → market-data, money, shared` (browse catalog + Top 100 ranking rules; defines the SharesOutstandingSource and MarketCapRankingStore ports)
    - `accounts → ledger` (opening-deposit posting; implements CashProjection — lazy-injected to avoid a cycle)
    - everything may use `money` and `shared`
-4. **Vendor confinement.** Alpaca request/response/status types exist only inside `infra/brokers/alpaca` and `infra/market-data/alpaca.ts`. The two adapters share nothing except (optionally) a low-level credential helper — Broker and MarketDataProvider stay independently swappable.
+4. **Vendor confinement.** Alpaca request/response/status types exist only inside `infra/brokers/alpaca` and `infra/market-data/alpaca.ts`; SEC EDGAR shapes only inside `infra/sec-edgar`. The two adapters share nothing except (optionally) a low-level credential helper — Broker and MarketDataProvider stay independently swappable.
 5. **Environment** is read only via `src/env.ts` (lint: `no-restricted-properties` on `process.env`).
-6. **Transactions** are owned by application services (e.g., ExecutionService), not repositories; repositories accept a `tx` handle.
+6. **Transactions** are owned by application services (e.g., ExecutionService), not repositories; repositories accept a `tx` handle. Exception: display-data stores outside any financial transaction (market-data cache, market-cap rankings, job runs) use the pool directly.
 7. **Lock ordering** (deadlock prevention): **account → order → position**, always.
 
 ## Verification

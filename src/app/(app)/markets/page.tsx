@@ -4,6 +4,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Search } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { BrowseGrid } from "@/components/finance/BrowseGrid";
 import { SymbolLogo } from "@/components/finance/SymbolLogo";
 import { api } from "@/lib/api";
 
@@ -28,7 +29,7 @@ export default function MarketsPage() {
   });
 
   return (
-    <div style={{ display: "grid", gap: 16, maxWidth: "40rem" }}>
+    <div style={{ display: "grid", gap: 16, maxWidth: "56rem" }}>
       <div className="ar-appbar">
         <h1 className="ar-appbar__title">Markets</h1>
       </div>
@@ -50,13 +51,7 @@ export default function MarketsPage() {
       </div>
 
       {query.trim().length === 0 ? (
-        <div className="ar-card">
-          <div className="ar-empty">
-            <span className="ar-empty__text">
-              Type a symbol or company name to find an instrument.
-            </span>
-          </div>
-        </div>
+        <BrowseGrid />
       ) : isFetching && !data ? (
         <div className="ar-card ar-card--list" aria-busy="true">
           {[0, 1].map((i) => (

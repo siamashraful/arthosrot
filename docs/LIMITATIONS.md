@@ -10,6 +10,8 @@ Paper trading is not real trading, even with a realistic execution venue. Arthos
 - **Simulated liquidity.** Fills — including whether partial fills occur — are modeled by the paper venue, not matched against a real order book.
 - **Slippage is simulated or absent.** Real execution costs (spread crossing, adverse selection, latency) are only approximated.
 - **Displayed quotes are IEX-only** (~2–3% of US equity volume) and may differ from both the consolidated tape and the venue's execution reference. Execution price is therefore shown separately from the displayed quote; small discrepancies are **expected, not bugs**, and the UI never fabricates an explanation for them.
+- **Day change is measured against the prior IEX session close**, which can differ from the official consolidated close other apps quote — so a "+1.2% today" here can read slightly differently elsewhere.
+- **The Top 100 is ranked once a day, not live.** Market value = shares outstanding (from SEC filings, up to a quarter old) × the latest IEX price; the list always shows when it was ranked. Foreign companies trading as depositary receipts (ADRs) are not included.
 - **No settlement risk, borrow costs, or regulatory fees** unless explicitly simulated (MVP simulates none; fees default to $0).
 - **No order-information leakage.** Nobody trades against your paper flow.
 - **Sandbox infrastructure** may behave differently from production brokerage systems (latency, occasional resets); sandbox state is treated as disposable — Arthosrot's own ledger and canonical event history are the durable record.

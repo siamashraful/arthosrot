@@ -75,11 +75,25 @@ proxied: served same-origin it could run script.
 
 - **Why:** instrument search, bid/ask/last quotes, historical candles.
 - **Free tier:** IEX-only feed (~2–3% of US volume — prices may differ from the consolidated tape _and_ from the venue's execution reference); 200 req/min; requires a (free) Trading API account for keys; websocket available.
+- **Quotes = one snapshots call per batch** (`GET /v2/stocks/snapshots?symbols=…&feed=iex`, ≤ 200 symbols per request; replaced quotes/latest + trades/latest on 2026-09-30). Top-level keys are symbols (unknown symbols are absent); each carries `latestQuote`, `latestTrade`, `dailyBar`, `prevDailyBar`. `last`/`bid`/`ask`/`ts` are unchanged; **`previousClose`** feeds day change. **Reference-close rule:** the close of the session before the one the last trade belongs to — normally `prevDailyBar.c`, but pre-market on a new day (last trade's ET date later than `dailyBar`'s) it is `dailyBar.c`. Contract-tested both ways.
 - **Abstraction:** `MarketDataProvider` port; `CachedProvider` decorator (TTLs: quotes 10s in-hours, candles 1h intraday/24h daily, search 24h, market status 60s; DB-backed cache; provider failures serve cached values **flagged stale**).
 - **Disclosure:** UI shows "Market data from IEX via Alpaca…" + freshness chips; execution price rendered separately from displayed quotes.
 - **Replacement:** Finnhub (quotes/search free; candles paid), Twelve Data (800 req/day), Polygon, paid Alpaca SIP — adapter swap only.
 - **Paid trigger:** need for consolidated/real-time tape or > 200 req/min.
 - **Independence rule:** the market-data adapter and broker adapter share nothing beyond an optional credential helper — either is swappable without the other.
+
+## SEC EDGAR — share counts for the Top 100 (display data)
+
+- **Why:** the Markets "Top 100" ranks US companies by market value = shares outstanding × IEX last price. The IEX feed has no share counts; EDGAR is free, keyless and official. Adapter: `src/infra/sec-edgar` (vendor shapes confined there), port `SharesOutstandingSource` in `core/discovery`.
+- **Fair access:** every request sends `User-Agent: $SEC_USER_AGENT` (a name + contact email — anonymous agents get **403**, verified); requests are spaced ≥ 120 ms (SEC's ceiling is 10/s). One run ≈ 12 bulk calls + ~100 SIC lookups, once a day.
+- **Bulk frames** (one call returns one fact per filer per calendar period; frames are "closest fit", so the adapter reads a window of recent quarters and keeps each filer's newest value):
+  - `dei/EntityCommonStockSharesOutstanding` (instant) — the 10-Q/10-K **cover-page** count: current, but multi-class filers tag it per class and drop out (Alphabet, Meta).
+  - `us-gaap/WeightedAverageNumberOfSharesOutstandingBasic` (quarter) — total across classes, a quarter behind. Used for multi-class filers and filers without a cover count; when both exist and the weighted average is > 50× or < ½ the cover count it's a mis-scaled filing (seen: Waters at 1,000×) and the cover count wins.
+  - `dei/EntityPublicFloat` (instant, annual) — an **independent dollar figure**: a computed value outside 0.2×–25× of the filer's own public float is rejected as mis-scaled (logged, not ranked).
+- **Ticker map:** `www.sec.gov/files/company_tickers.json` (CIK → tickers; class tickers only — `BRK-B` → `BRK.B`; preferreds/units dropped). **Industry:** `submissions/CIK##########.json` `sic` — SIC 6221/6722/6726 (commodity/crypto trusts, funds: GLD, SLV, IBIT file 10-Qs too) are excluded.
+- **Universe:** SEC domestic filers listed in our instruments catalog. **Depositary receipts are excluded** (the filing counts ordinary shares, the listing trades ADS units — recognised by the catalog name "ADS"/"ADR"/"Depositary").
+- **Overrides** (`core/discovery/share-overrides.ts`, each with its source): Berkshire (class-B equivalents: A × 1,500 + B), Visa (as-converted class A), Citigroup (absent from the frames); exclusions for filers whose XBRL is mis-scaled everywhere (Repay) and ADRs the catalog doesn't name as such (Diageo). The job **logs** large filers (public float ≥ $50B) it could not value and overrides older than 200 days — that log is the maintenance queue.
+- **Validation before publishing:** ≥ 100 companies, ≥ 80% of candidates priced, ≥ 7 of the previous top 10 retained — otherwise the run is refused and the previous snapshot stays live.
 
 ## Hosting — Vercel Hobby (web) + Render Free (worker)
 

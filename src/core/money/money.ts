@@ -295,6 +295,23 @@ export function notional(price: Px, qty: Qty): Money {
 }
 
 /**
+ * Move from one price to another, as a quote display shows it ("+$3.20
+ * (+1.28%)"): the absolute difference rounded once to cents, and the percent
+ * of `from` rounded once to 2dp. Both HALF_EVEN, both exact — derived from the
+ * 4dp prices, never from floats.
+ */
+export function priceDelta(from: Px, to: Px): { absolute: Money; percent: string } {
+  const diff = to.toDecimal().minus(from.toDecimal());
+  const cents = diff.toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
+  const percent = diff.div(from.toDecimal()).times(100).toDecimalPlaces(2, Decimal.ROUND_HALF_EVEN);
+  // a move that rounds to nothing is "0.00", never "-0.00"
+  return {
+    absolute: cents.isZero() ? Money.zero() : Money.fromDecimalExact(cents),
+    percent: percent.isZero() ? "0.00" : percent.toFixed(2),
+  };
+}
+
+/**
  * reserve = round2(price × qty × (1 + bufferRatio)) — market-buy reservation
  * (docs/architecture/FINANCIAL_INVARIANTS.md). bufferRatio like 0.025.
  */

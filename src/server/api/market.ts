@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { displayFreshness, UnknownSymbolError, type Quote } from "@/core/market-data";
+import { dayChange, displayFreshness, UnknownSymbolError, type Quote } from "@/core/market-data";
 import { systemClock } from "@/core/shared";
 import { getContainer } from "../container";
 
@@ -18,6 +18,11 @@ const symbolsSchema = z
   .transform((s) => s.split(",").map((x) => x.trim()))
   .pipe(z.array(symbolSchema).min(1).max(25));
 
+function serializeDayChange(quote: Quote): { absolute: string; percent: string } | null {
+  const change = dayChange(quote);
+  return change ? { absolute: change.absolute.toString(), percent: change.percent } : null;
+}
+
 export function serializeQuote(quote: Quote) {
   return {
     symbol: quote.symbol,
@@ -28,6 +33,8 @@ export function serializeQuote(quote: Quote) {
     last: quote.last.toString(),
     ts: quote.ts.toISOString(),
     source: quote.source,
+    previousClose: quote.previousClose?.toString() ?? null,
+    dayChange: serializeDayChange(quote),
   };
 }
 

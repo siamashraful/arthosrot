@@ -31,6 +31,7 @@ function quote(symbol: string, last: string, ts: Date): Quote {
     last: Px.fromString(last),
     ts,
     source: "test",
+    previousClose: null,
   };
 }
 

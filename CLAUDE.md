@@ -29,6 +29,7 @@ Paper-trading platform with external broker-managed execution. Financial correct
 - accounts.mode is PAPER-only (DB CHECK). Only paper broker kinds exist. Never add live-broker code, hostnames, or credentials, or relax that constraint, without an explicit human-approved ADR.
 - No real user PII in sandbox KYC payloads — synthetic data only.
 - Never render a price without freshness context. Never present local order state as live when the pipeline is degraded.
+- Day change and the Top 100 market-value ranking are display data — never inputs to execution, reservations or the ledger. Never present the ranking as live: it always carries its as-of date.
 - No secrets in client code; process.env only in src/env.ts.
 
 ## Process rules

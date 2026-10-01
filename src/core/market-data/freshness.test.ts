@@ -18,6 +18,7 @@ function quoteAt(ts: Date): Quote {
     last: Px.fromString("200"),
     ts,
     source: "fixture",
+    previousClose: null,
   };
 }
 

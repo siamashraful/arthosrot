@@ -29,6 +29,13 @@
       "when": 1787796829082,
       "tag": "0003_one-open-account-per-user",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790816858419,
+      "tag": "0004_discovery-rankings-and-jobs",
+      "breakpoints": true
     }
   ]
 }

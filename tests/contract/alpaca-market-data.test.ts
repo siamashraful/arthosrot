@@ -12,11 +12,15 @@ import { AlpacaMarketData, type FetchFn } from "@/infra/market-data";
 const fixedClock: Clock = { now: () => new Date("2026-01-06T15:00:00Z") };
 
 const recorded: Record<string, unknown> = {
-  "/v2/stocks/quotes/latest": {
-    quotes: { AAPL: { bp: 199.98, bs: 3, ap: 200.03, as: 2, t: "2026-01-06T14:59:58.123Z" } },
-  },
-  "/v2/stocks/trades/latest": {
-    trades: { AAPL: { p: 200.01, t: "2026-01-06T14:59:59.456Z" } },
+  // Shape recorded from the live IEX feed 2026-09-30: top-level keys are the
+  // symbols; unknown symbols are absent.
+  "/v2/stocks/snapshots": {
+    AAPL: {
+      latestQuote: { bp: 199.98, bs: 3, ap: 200.03, as: 2, t: "2026-01-06T14:59:58.123Z" },
+      latestTrade: { p: 200.01, t: "2026-01-06T14:59:59.456Z" },
+      dailyBar: { o: 197.5, h: 200.4, l: 197.1, c: 200.01, v: 900, t: "2026-01-06T05:00:00Z" },
+      prevDailyBar: { o: 196, h: 198, l: 195.5, c: 197.42, v: 1100, t: "2026-01-05T05:00:00Z" },
+    },
   },
   "/v2/stocks/bars": {
     bars: {
@@ -54,6 +58,42 @@ describe("AlpacaMarketData translation (recorded responses)", () => {
     expect(quote.bidSize).toBe(3);
     expect(quote.ts.toISOString()).toBe("2026-01-06T14:59:59.456Z");
     expect(quote.source).toBe("IEX via Alpaca");
+  });
+
+  it("carries the previous session close for day change", async () => {
+    const quote = await provider().getQuote("AAPL");
+    expect(quote.previousClose?.toString()).toBe("197.4200");
+  });
+
+  it("pre-market on a new day: the latest daily bar IS the previous session", async () => {
+    const preMarket = provider(async () =>
+      Response.json({
+        AAPL: {
+          latestTrade: { p: 201.5, t: "2026-01-07T12:30:00Z" }, // Wed 7:30 ET
+          dailyBar: { o: 197.5, h: 200.4, l: 197.1, c: 200.01, v: 900, t: "2026-01-06T05:00:00Z" },
+          prevDailyBar: { o: 196, h: 198, l: 195.5, c: 197.42, v: 1, t: "2026-01-05T05:00:00Z" },
+        },
+      }),
+    );
+    expect((await preMarket.getQuote("AAPL")).previousClose?.toString()).toBe("200.0100");
+  });
+
+  it("has no previous close when the feed has no prior session", async () => {
+    const fresh = provider(async () =>
+      Response.json({ AAPL: { latestTrade: { p: 20, t: "2026-01-06T14:59:59Z" } } }),
+    );
+    expect((await fresh.getQuote("AAPL")).previousClose).toBeNull();
+  });
+
+  it("asks for every symbol in one snapshot call per batch", async () => {
+    const urls: string[] = [];
+    const batch = provider(async (url) => {
+      urls.push(url);
+      return Response.json({});
+    });
+    await batch.getQuotes(Array.from({ length: 450 }, (_, i) => `S${i}`));
+    expect(urls).toHaveLength(3); // 200 + 200 + 50
+    expect(urls.every((u) => new URL(u).pathname === "/v2/stocks/snapshots")).toBe(true);
   });
 
   it("throws UnknownSymbolError when the feed has no trade for the symbol", async () => {
@@ -99,7 +139,7 @@ describe("AlpacaMarketData translation (recorded responses)", () => {
   });
 
   it("maps 5xx to ProviderUnavailableError", async () => {
-    const failing = provider(makeFetch({ "/v2/stocks/trades/latest": { status: 500 } }));
+    const failing = provider(makeFetch({ "/v2/stocks/snapshots": { status: 500 } }));
     await expect(failing.getQuote("AAPL")).rejects.toThrow(ProviderUnavailableError);
   });
 

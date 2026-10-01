@@ -2,7 +2,7 @@ import { and, eq, ilike, or, sql } from "drizzle-orm";
 import type { Instrument, InstrumentsRepository } from "@/core/instruments";
 import type { InstrumentSummary } from "@/core/market-data";
 import { invariant, type TxHandle } from "@/core/shared";
-import { schema } from "..";
+import { getDb, schema } from "..";
 import { asDb } from "../tx";
 
 type Row = typeof schema.instruments.$inferSelect;
@@ -77,3 +77,11 @@ export const instrumentsRepository: InstrumentsRepository = {
     return rows.map(toInstrument);
   },
 };
+
+/** Every ACTIVE instrument's symbol + name — the Top 100 job's universe. */
+export async function listActiveInstruments(): Promise<Array<{ symbol: string; name: string }>> {
+  return getDb()
+    .select({ symbol: schema.instruments.symbol, name: schema.instruments.name })
+    .from(schema.instruments)
+    .where(eq(schema.instruments.status, "ACTIVE"));
+}

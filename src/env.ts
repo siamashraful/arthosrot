@@ -50,6 +50,18 @@ const envSchema = z.object({
   MARKET_BUY_BUFFER: z.coerce.number().min(0).max(0.5).default(0.025),
 
   CRON_SECRET: z.string().min(16).optional(),
+
+  /**
+   * SEC EDGAR fair-access User-Agent for the Top 100 ranking job: a name plus
+   * a contact email ("Arthosrot ops@example.com"). SEC returns 403 to
+   * anonymous agents. Unset ⇒ the job is disabled (dev/CI never call SEC).
+   */
+  SEC_USER_AGENT: z.string().min(8).optional(),
+  /** How often the Top 100 ranking recomputes: "<n>m" | "<n>h" | "<n>d". */
+  TOP100_REFRESH_INTERVAL: z
+    .string()
+    .regex(/^\d+[mhd]$/, "use <n>m, <n>h or <n>d")
+    .default("24h"),
   PORT: z.coerce.number().int().positive().default(8090),
 
   /**

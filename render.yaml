@@ -34,3 +34,9 @@ services:
         sync: false
       - key: CRON_SECRET
         sync: false
+      # Top 100 ranking job (src/worker/jobs): SEC fair-access UA with a
+      # contact email; unset disables the job. Interval defaults to 24h.
+      - key: SEC_USER_AGENT
+        sync: false
+      - key: TOP100_REFRESH_INTERVAL
+        value: 24h

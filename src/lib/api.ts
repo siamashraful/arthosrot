@@ -40,6 +40,54 @@ export interface QuoteDto {
   last: string;
   ts: string;
   source: string;
+  /** Prior session close; null when the feed has none. */
+  previousClose: string | null;
+  /** Server-computed (exact decimal) move vs previousClose. */
+  dayChange: { absolute: string; percent: string } | null;
+}
+
+export type BrowseIcon =
+  | "trophy"
+  | "cpu"
+  | "radio-tower"
+  | "shopping-bag"
+  | "shopping-cart"
+  | "heart-pulse"
+  | "landmark"
+  | "factory"
+  | "fuel"
+  | "pickaxe"
+  | "building"
+  | "zap";
+
+export interface BrowseDto {
+  top100: { slug: string; name: string; count: number; asOf: string; preview: string[] };
+  sectors: Array<{
+    slug: string;
+    name: string;
+    icon: BrowseIcon;
+    count: number;
+    preview: string[];
+  }>;
+}
+
+export interface BrowseListDto {
+  list: { slug: string; name: string; blurb: string; icon: BrowseIcon; count: number };
+  /** Top 100 only: when the ranking was computed. */
+  rankingAsOf: string | null;
+  page: number;
+  nextPage: number | null;
+  instruments: Array<{
+    rank?: number;
+    symbol: string;
+    name: string;
+    marketCap?: string | null;
+    quote: QuoteDto | null;
+  }>;
+  market: { status: string; asOf: string };
+  freshness: string | null;
+  freshnessTs: string | null;
+  source: string | null;
 }
 
 export interface OrderDto {
@@ -129,6 +177,9 @@ export const api = {
       "/api/v1/account/provision",
       { method: "POST", body: JSON.stringify({ startingCash }) },
     ),
+  browse: () => request<BrowseDto>("/api/v1/browse"),
+  browseList: (slug: string, page: number) =>
+    request<BrowseListDto>(`/api/v1/browse/${encodeURIComponent(slug)}?page=${page}`),
   searchInstruments: (query: string) =>
     request<{ instruments: Array<{ symbol: string; name: string; exchange: string }> }>(
       `/api/v1/instruments?query=${encodeURIComponent(query)}`,
